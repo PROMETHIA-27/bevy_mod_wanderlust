@@ -1,0 +1,21 @@
+[package]
+name = "bevy_mod_wanderlust"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bevy = "0.7"
+bevy_rapier3d = "0.13.2"
+
+[dev-dependencies]
+bevy_editor_pls = { git = "https://github.com/jakobhellermann/bevy_editor_pls" }
+
+# Enable only a small amount of optimization in debug mode
+[profile.dev]
+opt-level = 1
+
+# Enable high optimizations for dependencies (incl. Bevy), but not for our code:
+[profile.dev.package."*"]
+opt-level = 3
