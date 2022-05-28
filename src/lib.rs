@@ -21,8 +21,10 @@ mod tests {
         App::new()
             .add_plugins(DefaultPlugins)
             .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
+            .add_plugin(RapierDebugRenderPlugin::default())
             .add_plugin(EditorPlugin)
-            .insert_resource(Sensitivity(0.3))
+            .add_plugin(WanderlustPlugin)
+            .insert_resource(Sensitivity(0.15))
             .add_startup_system(setup)
             .add_system(mouse_look)
             .run()
@@ -67,6 +69,12 @@ mod tests {
                 commands
                     .spawn_bundle(PerspectiveCameraBundle {
                         transform: Transform::from_xyz(0.0, 0.5, 0.0),
+                        perspective_projection: PerspectiveProjection {
+                            fov: 90.0 * (std::f32::consts::PI / 180.0),
+                            aspect_ratio: 1.0,
+                            near: 0.01,
+                            far: 1000.0,
+                        },
                         ..default()
                     })
                     .insert(PlayerCam)
@@ -92,7 +100,7 @@ mod tests {
                 ..default()
             })
             .insert_bundle((
-                Collider::heightfield(vec![0.0, 0.0, 0.0, 0.0], 2, 2, [50.0, 0.0, 50.0].into()),
+                Collider::halfspace(Vec3::Y * 10.0).unwrap(),
                 Name::from("Ground"),
             ));
 
@@ -116,11 +124,13 @@ mod tests {
         let sens = sensitivity.0;
 
         for motion in input.iter() {
+            // Vertical
             let rot = cam_tf.rotation;
             cam_tf.rotate(Quat::from_scaled_axis(
                 rot * Vec3::X * -motion.delta.y * dt * sens,
             ));
 
+            // Horizontal
             let rot = body_tf.rotation;
             body_tf.rotate(Quat::from_scaled_axis(
                 rot * Vec3::Y * -motion.delta.x * dt * sens,
