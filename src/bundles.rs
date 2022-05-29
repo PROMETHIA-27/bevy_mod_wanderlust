@@ -26,8 +26,8 @@ impl Default for CharacterControllerBundle {
                 settings: ControllerSettings {
                     acceleration: 50.0,
                     jump_force: 25.0,
-                    float_ray_length: 1.0,
-                    float_distance: 0.5,
+                    float_ray_length: 2.0,
+                    float_distance: 1.0,
                     float_ray_dir: -Vec3::Y,
                     float_strength: 10.0,
                     float_dampen: 0.5,
