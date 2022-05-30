@@ -25,13 +25,17 @@ impl Default for CharacterControllerBundle {
             controller: CharacterController {
                 settings: ControllerSettings {
                     acceleration: 50.0,
+                    max_speed: 10.0,
+                    max_acceleration_force: 1.0,
                     jump_force: 25.0,
+                    force_scale: vec3(1.0, 0.0, 1.0),
                     float_ray_length: 2.0,
                     float_distance: 1.0,
                     float_ray_dir: -Vec3::Y,
                     float_strength: 10.0,
                     float_dampen: 0.5,
                 },
+                last_goal_velocity: Vec3::ZERO,
             },
             rigidbody: default(),
             collider: Collider::compound(vec![(
@@ -49,11 +53,11 @@ impl Default for CharacterControllerBundle {
                 | LockedAxes::ROTATION_LOCKED_Y
                 | LockedAxes::ROTATION_LOCKED_Z,
             friction: Friction {
-                coefficient: 1.0,
+                coefficient: 0.0,
                 combine_rule: CoefficientCombineRule::Min,
             },
             damping: Damping {
-                linear_damping: 1.0,
+                linear_damping: 0.0,
                 angular_damping: 0.0,
             },
             restitution: Restitution {
