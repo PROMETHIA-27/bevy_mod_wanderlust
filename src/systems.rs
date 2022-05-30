@@ -43,14 +43,26 @@ pub fn movement(
         }
 
         // Get the ground and velocities
-        let cast = ctx.cast_ray(
-            gtf.translation,
-            controller.settings.float_ray_dir,
-            controller.settings.float_ray_length,
-            true,
-            default(),
-            Some(&|collider| collider != entity),
-        );
+        let ground_cast = if controller.skip_ground_check_timer == 0.0 {
+            ctx.cast_ray(
+                gtf.translation,
+                controller.settings.float_ray_dir,
+                controller.settings.float_ray_length,
+                true,
+                default(),
+                Some(&|collider| collider != entity),
+            )
+        } else {
+            controller.skip_ground_check_timer = (controller.skip_ground_check_timer - dt).max(0.0);
+            None
+        };
+
+        // Gravity
+        let gravity = if ground_cast.is_none() {
+            Vec3::Y * -controller.settings.gravity * dt
+        } else {
+            Vec3::ZERO
+        };
 
         let velocity = velocities
             .get(entity)
@@ -58,7 +70,7 @@ pub fn movement(
         let ground_vel;
 
         // Calculate "floating" force, as seen [here](https://www.youtube.com/watch?v=qdskE8PJy6Q)
-        let float_spring = if let Some((ground, distance)) = cast {
+        let float_spring = if let Some((ground, distance)) = ground_cast {
             ground_vel = velocities.get(ground).ok();
 
             let vel_align = controller.settings.float_ray_dir.dot(velocity.linvel);
@@ -114,13 +126,15 @@ pub fn movement(
         };
 
         // Calculate jump force
-        let jump = if input.just_pressed(KeyCode::Space) {
+        let jump = if input.just_pressed(KeyCode::Space) && ground_cast.is_some() {
+            controller.skip_ground_check_timer =
+                controller.settings.jump_skip_ground_check_duration;
             Vec3::Y * controller.settings.jump_force
         } else {
             Vec3::ZERO
         };
 
         // Apply force to the rigidbody
-        body.impulse = movement + jump + float_spring;
+        body.impulse = movement + jump + float_spring + gravity;
     }
 }
