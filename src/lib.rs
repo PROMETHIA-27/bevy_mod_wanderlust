@@ -95,7 +95,7 @@ mod tests {
         commands
             .spawn_bundle(PbrBundle {
                 mesh,
-                material,
+                material: material.clone(),
                 transform: Transform::from_xyz(0.0, -10.0, 0.0),
                 ..default()
             })
@@ -108,6 +108,33 @@ mod tests {
             transform: Transform::from_xyz(0.0, -5.0, 0.0),
             ..default()
         });
+
+        let (hw, hh, hl) = (1.5, 0.5, 5.0);
+        let mesh = meshes.add(
+            shape::Box {
+                min_x: -hw,
+                max_x: hw,
+                min_y: -hh,
+                max_y: hh,
+                min_z: -hl,
+                max_z: hl,
+            }
+            .into(),
+        );
+
+        commands
+            .spawn_bundle(PbrBundle {
+                mesh,
+                material: material.clone(),
+                transform: Transform::from_xyz(-3.5, -8.0, 0.3).with_rotation(Quat::from_euler(
+                    EulerRot::XYZ,
+                    0.5,
+                    0.0,
+                    0.0,
+                )),
+                ..default()
+            })
+            .insert_bundle((Name::from("Slope"), Collider::cuboid(hw, hh, hl)));
     }
 
     fn mouse_look(
