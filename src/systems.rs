@@ -144,14 +144,10 @@ pub fn movement(
                 )
             };
 
-            println!("{}, {}, {}", tf.up(), to_goal_axis, to_goal_angle);
-
             ((to_goal_axis * (to_goal_angle * controller.settings.upright_spring_strength))
                 - (velocity.angvel * controller.settings.upright_spring_damping))
                 * dt
         };
-
-        println!("{}", upright);
 
         // Apply positional force to the rigidbody
         body.impulse = movement + jump + float_spring + gravity;
