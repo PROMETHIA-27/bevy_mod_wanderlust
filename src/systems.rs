@@ -5,7 +5,6 @@ use bevy_rapier3d::prelude::*;
 pub fn movement(
     mut bodies: Query<(
         Entity,
-        &Transform,
         &GlobalTransform,
         &mut ExternalImpulse,
         &mut CharacterController,
@@ -15,7 +14,7 @@ pub fn movement(
     time: Res<Time>,
     ctx: Res<RapierContext>,
 ) {
-    for (entity, tf, gtf, mut body, mut controller) in bodies.iter_mut() {
+    for (entity, tf, mut body, mut controller) in bodies.iter_mut() {
         let dt = time.delta_seconds();
 
         // Sometimes, such as at the beginning of the game, deltatime is 0. This
@@ -44,14 +43,18 @@ pub fn movement(
 
         // Get the ground and velocities
         let ground_cast = if controller.skip_ground_check_timer == 0.0 {
-            ctx.cast_ray(
-                gtf.translation,
-                controller.settings.float_ray_dir,
+            ctx.cast_ray_and_get_normal(
+                tf.translation,
+                -controller.settings.up_vector,
                 controller.settings.float_ray_length,
                 true,
                 default(),
                 Some(&|collider| collider != entity),
             )
+            .filter(|(_, i)| {
+                i.normal.angle_between(controller.settings.up_vector)
+                    <= controller.settings.max_ground_angle
+            })
         } else {
             controller.skip_ground_check_timer = (controller.skip_ground_check_timer - dt).max(0.0);
             None
@@ -59,31 +62,30 @@ pub fn movement(
 
         // Gravity
         let gravity = if ground_cast.is_none() {
-            Vec3::Y * -controller.settings.gravity * dt
+            controller.settings.up_vector * -controller.settings.gravity * dt
         } else {
             Vec3::ZERO
         };
 
+        // Collect velocities
         let velocity = velocities
             .get(entity)
-            .expect("Character controllers must have a Velocity");
+            .expect("Character controllers must have a Velocity component");
         let ground_vel;
 
         // Calculate "floating" force, as seen [here](https://www.youtube.com/watch?v=qdskE8PJy6Q)
-        let float_spring = if let Some((ground, distance)) = ground_cast {
+        let float_spring = if let Some((ground, intersection)) = ground_cast {
             ground_vel = velocities.get(ground).ok();
 
-            let vel_align = controller.settings.float_ray_dir.dot(velocity.linvel);
-            let ground_vel_align = controller
-                .settings
-                .float_ray_dir
+            let vel_align = (-controller.settings.up_vector).dot(velocity.linvel);
+            let ground_vel_align = (-controller.settings.up_vector)
                 .dot(ground_vel.map(|v| v.linvel).unwrap_or(Vec3::ZERO));
 
             let relative_align = vel_align - ground_vel_align;
 
-            let snap = distance - controller.settings.float_distance;
+            let snap = intersection.toi - controller.settings.float_distance;
 
-            controller.settings.float_ray_dir
+            (-controller.settings.up_vector)
                 * ((snap * controller.settings.float_strength)
                     - (relative_align * controller.settings.float_dampen))
         } else {
@@ -93,11 +95,7 @@ pub fn movement(
 
         // Calculate horizontal movement force
         let movement = {
-            let unit_dir = if dir != Vec3::ZERO {
-                dir.normalize()
-            } else {
-                Vec3::ZERO
-            };
+            let unit_dir = dir.normalize_or_zero();
 
             // /*
             // let unit_vel = controller.last_goal_velocity.normalized();
@@ -129,12 +127,35 @@ pub fn movement(
         let jump = if input.just_pressed(KeyCode::Space) && ground_cast.is_some() {
             controller.skip_ground_check_timer =
                 controller.settings.jump_skip_ground_check_duration;
-            Vec3::Y * controller.settings.jump_force
+            controller.settings.up_vector * controller.settings.jump_force
         } else {
             Vec3::ZERO
         };
 
-        // Apply force to the rigidbody
+        // Calculate force to stay upright
+        let upright = {
+            let (to_goal_axis, to_goal_angle) = {
+                let current = tf.up();
+                (
+                    current
+                        .cross(controller.settings.up_vector)
+                        .normalize_or_zero(),
+                    current.angle_between(controller.settings.up_vector),
+                )
+            };
+
+            println!("{}, {}, {}", tf.up(), to_goal_axis, to_goal_angle);
+
+            ((to_goal_axis * (to_goal_angle * controller.settings.upright_spring_strength))
+                - (velocity.angvel * controller.settings.upright_spring_damping))
+                * dt
+        };
+
+        println!("{}", upright);
+
+        // Apply positional force to the rigidbody
         body.impulse = movement + jump + float_spring + gravity;
+        // Apply rotational force to the rigidbody
+        body.torque_impulse = upright;
     }
 }
