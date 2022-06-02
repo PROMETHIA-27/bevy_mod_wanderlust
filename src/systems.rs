@@ -1,5 +1,5 @@
 use crate::CharacterController;
-use bevy::prelude::*;
+use bevy::{math::*, prelude::*};
 use bevy_rapier3d::prelude::*;
 
 pub fn movement(
@@ -43,17 +43,19 @@ pub fn movement(
 
         // Get the ground and velocities
         let ground_cast = if controller.skip_ground_check_timer == 0.0 {
-            ctx.cast_ray_and_get_normal(
-                tf.translation,
+            ctx.cast_shape(
+                tf.mul_vec3(controller.settings.float_cast_origin),
+                tf.rotation,
                 -controller.settings.up_vector,
-                controller.settings.float_ray_length,
-                true,
+                &controller.settings.float_cast_collider,
+                controller.settings.float_cast_length,
                 default(),
                 Some(&|collider| collider != entity),
             )
             .filter(|(_, i)| {
-                i.normal.angle_between(controller.settings.up_vector)
-                    <= controller.settings.max_ground_angle
+                i.status != TOIStatus::Penetrating
+                    && i.normal1.angle_between(controller.settings.up_vector)
+                        <= controller.settings.max_ground_angle
             })
         } else {
             controller.skip_ground_check_timer = (controller.skip_ground_check_timer - dt).max(0.0);
