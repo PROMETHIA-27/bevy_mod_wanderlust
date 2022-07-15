@@ -18,6 +18,8 @@ pub struct CharacterController {
     pub jump_timer: f32,
     /// Was [`ControllerInput::jumping`] pressed last frame.
     pub jump_pressed_last_frame: bool,
+    /// A timer to track coyote time. See [`coyote_time_duration`](ControllerSettings::coyote_time_duration)
+    pub coyote_timer: f32,
 }
 
 /// The settings of a character controller. See each individual field for more description.
@@ -47,6 +49,9 @@ pub struct ControllerSettings {
     pub jump_initial_force: f32,
     /// The amount of force to continuously apply every second during a jump.
     pub jump_force: f32,
+    /// The amount of force to apply downwards when the jump control is released prior to a jump expiring.
+    /// This allows analog jumping by cutting the jump short when the control is released.
+    pub jump_stop_force: f32,
     /// How long a jump can last.
     pub jump_time: f32,
     /// A function taking the current progress of a jump, from 0.0 to 1.0, with 0.0 indicating a jump has just begun and 1.0 indicating the jump has ended,
@@ -56,6 +61,9 @@ pub struct ControllerSettings {
     /// How long to skip ground checks after jumping. Usually this should be set just high enough that the character is out of range of the ground
     /// just before the timer elapses.
     pub jump_skip_ground_check_duration: f32,
+    /// How long should the character still be able to jump after leaving the ground, in seconds.
+    /// For example, if this is set to 0.5, the player can fall off a ledge and then jump if they do so within 0.5 of leaving the ledge.
+    pub coyote_time_duration: f32,
     /// Scales movement force. This is useful to ensure movement does not affect vertical velocity (by setting it to e.g. `Vec3(1.0, 0.0, 1.0)`).
     pub force_scale: Vec3,
     /// How long of a ray to cast to detect the ground. Setting this unnecessarily high will permanently count the player as grounded,
@@ -89,9 +97,11 @@ impl Default for ControllerSettings {
             max_ground_angle: default(),
             jump_initial_force: default(),
             jump_force: default(),
+            jump_stop_force: default(),
             jump_time: 1.0,
             jump_decay_function: |_| 1.0,
             jump_skip_ground_check_duration: default(),
+            coyote_time_duration: default(),
             force_scale: default(),
             float_cast_length: default(),
             float_cast_origin: default(),

@@ -45,6 +45,12 @@ pub fn movement(
             None
         };
 
+        if ground_cast.is_some() {
+            controller.coyote_timer = settings.coyote_time_duration;
+        } else {
+            controller.coyote_timer = (controller.coyote_timer - dt).max(0.0);
+        }
+
         // Gravity
         let gravity = if ground_cast.is_none() {
             settings.up_vector * -settings.gravity * dt
@@ -108,22 +114,29 @@ pub fn movement(
 
         // Calculate jump force
         let mut jump = if controller.jump_timer > 0.0 && ground_cast.is_none() {
-            controller.jump_timer = (controller.jump_timer - dt).max(0.0);
+            if !input.jumping {
+                controller.jump_timer = 0.0;
+                velocity.linvel.project_onto(settings.up_vector) * -settings.jump_stop_force
+            } else {
+                controller.jump_timer = (controller.jump_timer - dt).max(0.0);
 
-            // Float force can lead to inconsistent jump power
-            float_spring = Vec3::ZERO;
+                // Float force can lead to inconsistent jump power
+                float_spring = Vec3::ZERO;
 
-            settings.jump_force
-                * settings.up_vector
-                * dt
-                * (settings.jump_decay_function)(
-                    (settings.jump_time - controller.jump_timer) / settings.jump_time,
-                )
+                settings.jump_force
+                    * settings.up_vector
+                    * dt
+                    * (settings.jump_decay_function)(
+                        (settings.jump_time - controller.jump_timer) / settings.jump_time,
+                    )
+            }
         } else {
             Vec3::ZERO
         };
 
-        if (input.jumping && !controller.jump_pressed_last_frame) && ground_cast.is_some() {
+        if (input.jumping && !controller.jump_pressed_last_frame)
+            && (ground_cast.is_some() || controller.coyote_timer > 0.0)
+        {
             controller.jump_timer = settings.jump_time;
             controller.skip_ground_check_timer = settings.jump_skip_ground_check_duration;
             // Negating the current velocity increases consistency for falling jumps,
