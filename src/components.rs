@@ -1,33 +1,78 @@
 use bevy::{math::*, prelude::*};
 use bevy_rapier3d::prelude::*;
 
+/// The character controller. Contains settings and controller state.
+/// This is the component responsible for adding controls to an entity.
+/// Requires a [`GlobalTransform`] and [`ExternalImpulse`](bevy_rapier3d::prelude::ExternalImpulse) to work.
 #[derive(Component, Default, Reflect)]
 #[reflect(Component)]
 pub struct CharacterController {
+    /// See [ControllerSettings].
     pub settings: ControllerSettings,
+    /// Every frame, as part of input -> movement translation, a goal velocity is calculated.
+    /// This represents the input after being directly translated to a desired final motion.
+    /// This field represents the goal velocity that was calculated last frame.
     pub last_goal_velocity: Vec3,
+    /// A timer to track how long to skip the ground check for.
     pub skip_ground_check_timer: f32,
+    /// A timer to track how long to jump for.
+    pub jump_timer: f32,
 }
 
+/// The settings of a character controller. See each individual field for more description.
 #[derive(Reflect)]
 pub struct ControllerSettings {
+    /// How quickly to interpolate from `last_goal_velocity` to the new `input_goal_velocity`.
+    /// In other words, how quickly to go from "not moving" to "moving at max speed".
     pub acceleration: f32,
+    /// The length of the calculated `input_goal_velocity`.
+    /// In other words, the speed to attempt to reach if a movement input (such as forwards) is fully saturated.
+    ///
+    /// Keys are generally either not saturated or fully saturated, while analog controls like a joystick can be partially saturated (half tilt).
     pub max_speed: f32,
+    /// The maximum amount of force that can be applied to fulfill [`acceleration`].
     pub max_acceleration_force: f32,
+    /// The direction to jump, which is also the direction that gravity is opposite to.
     pub up_vector: Vec3,
+    /// The strength of gravity.
     pub gravity: f32,
+    /// The maximum angle that the ground can be, in radians, before it is no longer considered suitable for being "grounded" on.
+    ///
+    /// For example, if this is set to `π/4` (45 degrees), then a player standing on a slope steeper than 45 degrees will slip and fall, and will not have
+    /// their jump refreshed by landing on that surface.
     pub max_ground_angle: f32,
+    /// The amount of force to apply on the first frame when a jump begins.
+    pub jump_initial_force: f32,
+    /// The amount of force to continuously apply every second during a jump.
     pub jump_force: f32,
+    /// How long a jump can last.
+    pub jump_time: f32,
+    /// A function taking the current progress of a jump, from 0.0 to 1.0, with 0.0 indicating a jump has just begun and 1.0 indicating the jump has ended,
+    /// which returns a modifier (usually from 0.0 to 1.0, but not necessarily) to multiply [`jump_force`] by.
+    #[reflect(ignore)]
+    pub jump_decay_function: fn(f32) -> f32,
+    /// How long to skip ground checks after jumping. Usually this should be set just high enough that the character is out of range of the ground
+    /// just before the timer elapses.
     pub jump_skip_ground_check_duration: f32,
+    /// Scales movement force. This is useful to ensure movement does not affect vertical velocity (by setting it to e.g. `Vec3(1.0, 0.0, 1.0)`).
     pub force_scale: Vec3,
+    /// How long of a ray to cast to detect the ground. Setting this unnecessarily high will permanently count the player as grounded,
+    /// and too low will allow the player to slip and become disconnected from the ground easily.
     pub float_cast_length: f32,
+    /// An offset to start the ground check from, relative to the character's origin.
     pub float_cast_origin: Vec3,
+    /// What shape of ray to cast. See [`Collider`] and [`RapierContext::cast_shape`](RapierContext).
     #[reflect(ignore)]
     pub float_cast_collider: Collider,
+    /// How far to attempt to float away from the ground.
     pub float_distance: f32,
+    /// How strongly to float away from the ground.
     pub float_strength: f32,
+    /// How strongly to dampen floating away from the ground, to prevent jittering/oscillating float movement.
     pub float_dampen: f32,
+    /// How strongly to attempt to stay upright. Alternatively, see [`LockedAxes`] to lock rotation entirely.
     pub upright_spring_strength: f32,
+    /// How strongly to dampen staying upright. Prevents jittering/oscillating upright movement.
     pub upright_spring_damping: f32,
 }
 
@@ -40,7 +85,10 @@ impl Default for ControllerSettings {
             up_vector: default(),
             gravity: default(),
             max_ground_angle: default(),
+            jump_initial_force: default(),
             jump_force: default(),
+            jump_time: 1.0,
+            jump_decay_function: |_| 1.0,
             jump_skip_ground_check_duration: default(),
             force_scale: default(),
             float_cast_length: default(),

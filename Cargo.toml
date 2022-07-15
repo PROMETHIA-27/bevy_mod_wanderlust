@@ -1,16 +1,23 @@
 [package]
 name = "bevy_mod_wanderlust"
 version = "0.1.0"
+authors = ["PROMETHIA-27"]
 edition = "2021"
+description = "A character controller library for Bevy Engine"
+# documentation = 
+readme = "README.md"
+# homepage = 
+
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 bevy = "0.7"
-bevy_rapier3d = { git = "https://github.com/dimforge/bevy_rapier", features = ["debug-render"] }
+bevy_rapier3d = { version = "0.15.0", features = ["debug-render"] }
+bevy_editor_pls = { git = "https://github.com/jakobhellermann/bevy_editor_pls", optional = true }
 
-[dev-dependencies]
-bevy_editor_pls = { git = "https://github.com/jakobhellermann/bevy_editor_pls" }
+[features]
+testing_editor = ["bevy_editor_pls"]
 
 # Enable only a small amount of optimization in debug mode
 [profile.dev]

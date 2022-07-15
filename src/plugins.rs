@@ -1,6 +1,8 @@
 use crate::{components::*, systems::*};
 use bevy::prelude::*;
 
+/// The [character controller](CharacterController) plugin. Necessary to have the character controller
+/// work.
 pub struct WanderlustPlugin;
 
 impl Plugin for WanderlustPlugin {

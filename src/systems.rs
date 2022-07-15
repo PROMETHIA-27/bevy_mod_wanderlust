@@ -49,8 +49,7 @@ pub fn movement(
                 -controller.settings.up_vector,
                 &controller.settings.float_cast_collider,
                 controller.settings.float_cast_length,
-                default(),
-                Some(&|collider| collider != entity),
+                QueryFilter::new().predicate(&|collider| collider != entity),
             )
             .filter(|(_, i)| {
                 i.status != TOIStatus::Penetrating
@@ -76,7 +75,7 @@ pub fn movement(
         let ground_vel;
 
         // Calculate "floating" force, as seen [here](https://www.youtube.com/watch?v=qdskE8PJy6Q)
-        let float_spring = if let Some((ground, intersection)) = ground_cast {
+        let mut float_spring = if let Some((ground, intersection)) = ground_cast {
             ground_vel = velocities.get(ground).ok();
 
             let vel_align = (-controller.settings.up_vector).dot(velocity.linvel);
@@ -99,11 +98,10 @@ pub fn movement(
         let movement = {
             let unit_dir = dir.normalize_or_zero();
 
-            // /*
             // let unit_vel = controller.last_goal_velocity.normalized();
 
             // let vel_dot = unit_dir.dot(unit_vel);
-            // */
+
             let accel = controller.settings.acceleration;
 
             let input_goal_vel = unit_dir * controller.settings.max_speed;
@@ -126,13 +124,34 @@ pub fn movement(
         };
 
         // Calculate jump force
-        let jump = if input.just_pressed(KeyCode::Space) && ground_cast.is_some() {
-            controller.skip_ground_check_timer =
-                controller.settings.jump_skip_ground_check_duration;
-            controller.settings.up_vector * controller.settings.jump_force
+        let mut jump = if controller.jump_timer > 0.0 && ground_cast.is_none() {
+            controller.jump_timer = (controller.jump_timer - dt).max(0.0);
+
+            // Float force can lead to inconsistent jump power
+            float_spring = Vec3::ZERO;
+
+            controller.settings.jump_force
+                * controller.settings.up_vector
+                * dt
+                * (controller.settings.jump_decay_function)(
+                    (controller.settings.jump_time - controller.jump_timer)
+                        / controller.settings.jump_time,
+                )
         } else {
             Vec3::ZERO
         };
+
+        if input.just_pressed(KeyCode::Space) && ground_cast.is_some() {
+            controller.jump_timer = controller.settings.jump_time;
+            controller.skip_ground_check_timer =
+                controller.settings.jump_skip_ground_check_duration;
+            // Negating the current velocity increases consistency for falling jumps,
+            // and prevents stacking jumps to reach high upwards velocities
+            jump = velocity.linvel * controller.settings.up_vector * -1.0;
+            jump += controller.settings.jump_initial_force * controller.settings.up_vector;
+            // Float force can lead to inconsistent jump power
+            float_spring = Vec3::ZERO;
+        }
 
         // Calculate force to stay upright
         let upright = {

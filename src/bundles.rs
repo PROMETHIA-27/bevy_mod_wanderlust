@@ -2,21 +2,37 @@ use super::components::*;
 use bevy::{math::*, prelude::*};
 use bevy_rapier3d::prelude::*;
 
+/// The recommended bundle for creating a character controller. Includes the necessary components for a character controller
+/// as well as many physics-related components that can be used to tweak the behavior of the controller, with reasonable default
+/// values.
 #[derive(Bundle)]
 pub struct CharacterControllerBundle {
-    controller: CharacterController,
-    rigidbody: RigidBody,
-    collider: Collider,
-    transform: Transform,
-    velocity: Velocity,
-    gravity: GravityScale,
-    sleeping: Sleeping,
-    ccd: Ccd,
-    force: ExternalImpulse,
-    locked_axes: LockedAxes,
-    friction: Friction,
-    damping: Damping,
-    restitution: Restitution,
+    /// See [`CharacterController`].
+    pub controller: CharacterController,
+    /// See [`RigidBody`].
+    pub rigidbody: RigidBody,
+    /// See [`Collider`].
+    pub collider: Collider,
+    /// See [`Transform`].
+    pub transform: Transform,
+    /// See [`Velocity`].
+    pub velocity: Velocity,
+    /// See [`GravityScale`].
+    pub gravity: GravityScale,
+    /// See [`Sleeping`].
+    pub sleeping: Sleeping,
+    /// See [`Ccd`].
+    pub ccd: Ccd,
+    /// See [`ExternalImpulse`].
+    pub force: ExternalImpulse,
+    /// See [`LockedAxes`].
+    pub locked_axes: LockedAxes,
+    /// See [`Friction`].
+    pub friction: Friction,
+    /// See [`Damping`].
+    pub damping: Damping,
+    /// See [`Restitution`].
+    pub restitution: Restitution,
 }
 
 impl Default for CharacterControllerBundle {
@@ -30,22 +46,25 @@ impl Default for CharacterControllerBundle {
                     up_vector: Vec3::Y,
                     gravity: 25.0,
                     max_ground_angle: 45.0 * (std::f32::consts::PI / 180.0),
-                    jump_force: 15.0,
+                    jump_time: 0.5,
+                    jump_initial_force: 25.0,
+                    jump_force: 20.0,
+                    jump_decay_function: |x| (1.0 - x).sqrt(),
                     jump_skip_ground_check_duration: 0.5,
                     force_scale: vec3(1.0, 0.0, 1.0),
-                    float_cast_length: 2.0,
-                    float_cast_origin: vec3(0.0, 0.25, 0.0),
+                    float_cast_length: 1.5,
+                    float_cast_origin: vec3(0.0, 0.0, 0.0),
                     float_cast_collider: Collider::ball(0.45),
-                    float_distance: 1.0,
+                    float_distance: 0.55,
                     float_strength: 7.5,
                     float_dampen: 0.5,
-                    upright_spring_strength: 5.0,
-                    upright_spring_damping: 0.5,
+                    upright_spring_strength: 10.0,
+                    upright_spring_damping: 2.0,
                 },
                 ..default()
             },
             rigidbody: default(),
-            collider: Collider::capsule(vec3(0.0, 0.25, 0.0), vec3(0.0, 0.5, 0.0), 0.5),
+            collider: Collider::capsule(vec3(0.0, 0.0, 0.0), vec3(0.0, 0.5, 0.0), 0.5),
             transform: default(),
             velocity: default(),
             gravity: GravityScale(0.0),
