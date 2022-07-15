@@ -3,12 +3,11 @@ use bevy_rapier3d::prelude::*;
 
 /// The character controller. Contains settings and controller state.
 /// This is the component responsible for adding controls to an entity.
+/// Requires a [`ControllerSettings`] and a [`ControllerInput`] to work, but these will automatically be added.
 /// Requires a [`GlobalTransform`] and [`ExternalImpulse`](bevy_rapier3d::prelude::ExternalImpulse) to work.
 #[derive(Component, Default, Reflect)]
 #[reflect(Component)]
 pub struct CharacterController {
-    /// See [ControllerSettings].
-    pub settings: ControllerSettings,
     /// Every frame, as part of input -> movement translation, a goal velocity is calculated.
     /// The goal velocity represents the input after being directly translated to a desired final motion.
     /// This field represents the goal velocity that was calculated last frame.
@@ -17,10 +16,13 @@ pub struct CharacterController {
     pub skip_ground_check_timer: f32,
     /// A timer to track how long to jump for.
     pub jump_timer: f32,
+    /// Was [`ControllerInput::jumping`] pressed last frame.
+    pub jump_pressed_last_frame: bool,
 }
 
 /// The settings of a character controller. See each individual field for more description.
-#[derive(Reflect)]
+#[derive(Component, Reflect)]
+#[reflect(Component)]
 pub struct ControllerSettings {
     /// How quickly to interpolate from `last_goal_velocity` to the new `input_goal_velocity`.
     /// In other words, how quickly to go from "not moving" to "moving at max speed".
@@ -101,4 +103,17 @@ impl Default for ControllerSettings {
             upright_spring_damping: default(),
         }
     }
+}
+
+/// This is the interface for applying input to the character controller.
+/// See each field for more information.
+#[derive(Component, Default, Reflect)]
+#[reflect(Component)]
+pub struct ControllerInput {
+    /// This field represents normal movement in 3D space.
+    /// The majority of games will map this to WASD/Analog joystick in 2D space along the ground.
+    /// To ensure movement does not affect the Y axis, set [`ControllerSettings::force_scale`] to `Vec3(1.0, 0.0, 1.0)`.
+    pub movement: Vec3,
+    /// This field represents if the jump control is currently pressed.
+    pub jumping: bool,
 }

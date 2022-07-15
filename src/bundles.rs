@@ -9,6 +9,10 @@ use bevy_rapier3d::prelude::*;
 pub struct CharacterControllerBundle {
     /// See [`CharacterController`].
     pub controller: CharacterController,
+    /// See [`ControllerSettings`].
+    pub settings: ControllerSettings,
+    /// See [`ControllerInput`].
+    pub input: ControllerInput,
     /// See [`RigidBody`].
     pub rigidbody: RigidBody,
     /// See [`Collider`].
@@ -38,31 +42,30 @@ pub struct CharacterControllerBundle {
 impl Default for CharacterControllerBundle {
     fn default() -> Self {
         Self {
-            controller: CharacterController {
-                settings: ControllerSettings {
-                    acceleration: 50.0,
-                    max_speed: 10.0,
-                    max_acceleration_force: 10.0,
-                    up_vector: Vec3::Y,
-                    gravity: 25.0,
-                    max_ground_angle: 45.0 * (std::f32::consts::PI / 180.0),
-                    jump_time: 0.5,
-                    jump_initial_force: 25.0,
-                    jump_force: 20.0,
-                    jump_decay_function: |x| (1.0 - x).sqrt(),
-                    jump_skip_ground_check_duration: 0.5,
-                    force_scale: vec3(1.0, 0.0, 1.0),
-                    float_cast_length: 1.5,
-                    float_cast_origin: vec3(0.0, 0.0, 0.0),
-                    float_cast_collider: Collider::ball(0.45),
-                    float_distance: 0.55,
-                    float_strength: 7.5,
-                    float_dampen: 0.5,
-                    upright_spring_strength: 10.0,
-                    upright_spring_damping: 2.0,
-                },
-                ..default()
+            controller: default(),
+            settings: ControllerSettings {
+                acceleration: 50.0,
+                max_speed: 10.0,
+                max_acceleration_force: 10.0,
+                up_vector: Vec3::Y,
+                gravity: 25.0,
+                max_ground_angle: 45.0 * (std::f32::consts::PI / 180.0),
+                jump_time: 0.5,
+                jump_initial_force: 25.0,
+                jump_force: 20.0,
+                jump_decay_function: |x| (1.0 - x).sqrt(),
+                jump_skip_ground_check_duration: 0.5,
+                force_scale: vec3(1.0, 0.0, 1.0),
+                float_cast_length: 1.5,
+                float_cast_origin: vec3(0.0, 0.0, 0.0),
+                float_cast_collider: Collider::ball(0.45),
+                float_distance: 0.55,
+                float_strength: 7.5,
+                float_dampen: 0.5,
+                upright_spring_strength: 10.0,
+                upright_spring_damping: 2.0,
             },
+            input: default(),
             rigidbody: default(),
             collider: Collider::capsule(vec3(0.0, 0.0, 0.0), vec3(0.0, 0.5, 0.0), 0.5),
             transform: default(),

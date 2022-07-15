@@ -8,6 +8,6 @@ mod systems;
 
 pub use self::{
     bundles::CharacterControllerBundle,
-    components::{CharacterController, ControllerSettings},
+    components::{CharacterController, ControllerInput, ControllerSettings},
     plugins::WanderlustPlugin,
 };

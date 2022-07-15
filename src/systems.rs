@@ -1,4 +1,4 @@
-use crate::CharacterController;
+use crate::components::{CharacterController, ControllerInput, ControllerSettings};
 use bevy::{math::*, prelude::*};
 use bevy_rapier3d::prelude::*;
 
@@ -8,13 +8,14 @@ pub fn movement(
         &GlobalTransform,
         &mut ExternalImpulse,
         &mut CharacterController,
+        &ControllerSettings,
+        &ControllerInput,
     )>,
     velocities: Query<&Velocity>,
-    input: Res<Input<KeyCode>>,
     time: Res<Time>,
     ctx: Res<RapierContext>,
 ) {
-    for (entity, tf, mut body, mut controller) in bodies.iter_mut() {
+    for (entity, tf, mut body, mut controller, settings, input) in bodies.iter_mut() {
         let dt = time.delta_seconds();
 
         // Sometimes, such as at the beginning of the game, deltatime is 0. This
@@ -25,36 +26,19 @@ pub fn movement(
             return;
         }
 
-        // Collect movement input vector
-        let mut dir = Vec3::default();
-
-        if input.pressed(KeyCode::W) {
-            dir += tf.forward();
-        }
-        if input.pressed(KeyCode::S) {
-            dir += -tf.forward();
-        }
-        if input.pressed(KeyCode::D) {
-            dir += tf.right();
-        }
-        if input.pressed(KeyCode::A) {
-            dir += -tf.right();
-        }
-
         // Get the ground and velocities
         let ground_cast = if controller.skip_ground_check_timer == 0.0 {
             ctx.cast_shape(
-                tf.mul_vec3(controller.settings.float_cast_origin),
+                tf.mul_vec3(settings.float_cast_origin),
                 tf.rotation,
-                -controller.settings.up_vector,
-                &controller.settings.float_cast_collider,
-                controller.settings.float_cast_length,
+                -settings.up_vector,
+                &settings.float_cast_collider,
+                settings.float_cast_length,
                 QueryFilter::new().predicate(&|collider| collider != entity),
             )
             .filter(|(_, i)| {
                 i.status != TOIStatus::Penetrating
-                    && i.normal1.angle_between(controller.settings.up_vector)
-                        <= controller.settings.max_ground_angle
+                    && i.normal1.angle_between(settings.up_vector) <= settings.max_ground_angle
             })
         } else {
             controller.skip_ground_check_timer = (controller.skip_ground_check_timer - dt).max(0.0);
@@ -63,7 +47,7 @@ pub fn movement(
 
         // Gravity
         let gravity = if ground_cast.is_none() {
-            controller.settings.up_vector * -controller.settings.gravity * dt
+            settings.up_vector * -settings.gravity * dt
         } else {
             Vec3::ZERO
         };
@@ -78,17 +62,16 @@ pub fn movement(
         let mut float_spring = if let Some((ground, intersection)) = ground_cast {
             ground_vel = velocities.get(ground).ok();
 
-            let vel_align = (-controller.settings.up_vector).dot(velocity.linvel);
-            let ground_vel_align = (-controller.settings.up_vector)
-                .dot(ground_vel.map(|v| v.linvel).unwrap_or(Vec3::ZERO));
+            let vel_align = (-settings.up_vector).dot(velocity.linvel);
+            let ground_vel_align =
+                (-settings.up_vector).dot(ground_vel.map(|v| v.linvel).unwrap_or(Vec3::ZERO));
 
             let relative_align = vel_align - ground_vel_align;
 
-            let snap = intersection.toi - controller.settings.float_distance;
+            let snap = intersection.toi - settings.float_distance;
 
-            (-controller.settings.up_vector)
-                * ((snap * controller.settings.float_strength)
-                    - (relative_align * controller.settings.float_dampen))
+            (-settings.up_vector)
+                * ((snap * settings.float_strength) - (relative_align * settings.float_dampen))
         } else {
             ground_vel = None;
             Vec3::ZERO
@@ -96,15 +79,15 @@ pub fn movement(
 
         // Calculate horizontal movement force
         let movement = {
-            let unit_dir = dir.normalize_or_zero();
+            let unit_dir = input.movement.normalize_or_zero();
 
             // let unit_vel = controller.last_goal_velocity.normalized();
 
             // let vel_dot = unit_dir.dot(unit_vel);
 
-            let accel = controller.settings.acceleration;
+            let accel = settings.acceleration;
 
-            let input_goal_vel = unit_dir * controller.settings.max_speed;
+            let input_goal_vel = unit_dir * settings.max_speed;
 
             let goal_vel = Vec3::lerp(
                 controller.last_goal_velocity,
@@ -114,13 +97,13 @@ pub fn movement(
 
             let needed_accel = goal_vel - velocity.linvel;
 
-            let max_accel_force = controller.settings.max_acceleration_force;
+            let max_accel_force = settings.max_acceleration_force;
 
             let needed_accel = needed_accel.clamp_length_max(max_accel_force);
 
             controller.last_goal_velocity = goal_vel;
 
-            needed_accel * controller.settings.force_scale
+            needed_accel * settings.force_scale
         };
 
         // Calculate jump force
@@ -130,25 +113,23 @@ pub fn movement(
             // Float force can lead to inconsistent jump power
             float_spring = Vec3::ZERO;
 
-            controller.settings.jump_force
-                * controller.settings.up_vector
+            settings.jump_force
+                * settings.up_vector
                 * dt
-                * (controller.settings.jump_decay_function)(
-                    (controller.settings.jump_time - controller.jump_timer)
-                        / controller.settings.jump_time,
+                * (settings.jump_decay_function)(
+                    (settings.jump_time - controller.jump_timer) / settings.jump_time,
                 )
         } else {
             Vec3::ZERO
         };
 
-        if input.just_pressed(KeyCode::Space) && ground_cast.is_some() {
-            controller.jump_timer = controller.settings.jump_time;
-            controller.skip_ground_check_timer =
-                controller.settings.jump_skip_ground_check_duration;
+        if (input.jumping && !controller.jump_pressed_last_frame) && ground_cast.is_some() {
+            controller.jump_timer = settings.jump_time;
+            controller.skip_ground_check_timer = settings.jump_skip_ground_check_duration;
             // Negating the current velocity increases consistency for falling jumps,
             // and prevents stacking jumps to reach high upwards velocities
-            jump = velocity.linvel * controller.settings.up_vector * -1.0;
-            jump += controller.settings.jump_initial_force * controller.settings.up_vector;
+            jump = velocity.linvel * settings.up_vector * -1.0;
+            jump += settings.jump_initial_force * settings.up_vector;
             // Float force can lead to inconsistent jump power
             float_spring = Vec3::ZERO;
         }
@@ -158,15 +139,13 @@ pub fn movement(
             let (to_goal_axis, to_goal_angle) = {
                 let current = tf.up();
                 (
-                    current
-                        .cross(controller.settings.up_vector)
-                        .normalize_or_zero(),
-                    current.angle_between(controller.settings.up_vector),
+                    current.cross(settings.up_vector).normalize_or_zero(),
+                    current.angle_between(settings.up_vector),
                 )
             };
 
-            ((to_goal_axis * (to_goal_angle * controller.settings.upright_spring_strength))
-                - (velocity.angvel * controller.settings.upright_spring_damping))
+            ((to_goal_axis * (to_goal_angle * settings.upright_spring_strength))
+                - (velocity.angvel * settings.upright_spring_damping))
                 * dt
         };
 
@@ -174,5 +153,31 @@ pub fn movement(
         body.impulse = movement + jump + float_spring + gravity;
         // Apply rotational force to the rigidbody
         body.torque_impulse = upright;
+
+        controller.jump_pressed_last_frame = input.jumping;
+    }
+}
+
+pub fn add_settings_and_input(
+    mut c: Commands,
+    query: Query<
+        (
+            Entity,
+            Option<&ControllerSettings>,
+            Option<&ControllerInput>,
+        ),
+        (
+            With<CharacterController>,
+            Or<(Without<ControllerSettings>, Without<ControllerInput>)>,
+        ),
+    >,
+) {
+    for (entity, settings, input) in query.iter() {
+        if let None = settings {
+            c.entity(entity).insert(ControllerSettings::default());
+        }
+        if let None = input {
+            c.entity(entity).insert(ControllerInput::default());
+        }
     }
 }
