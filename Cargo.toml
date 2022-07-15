@@ -17,10 +17,9 @@ categories = ["Utility"]
 [dependencies]
 bevy = "0.7"
 bevy_rapier3d = { version = "0.15.0", features = ["debug-render"] }
-bevy_editor_pls = { git = "https://github.com/jakobhellermann/bevy_editor_pls", optional = true }
 
-[features]
-testing_editor = ["bevy_editor_pls"]
+[dev-dependencies]
+bevy_editor_pls = { git = "https://github.com/jakobhellermann/bevy_editor_pls" }
 
 # Enable only a small amount of optimization in debug mode
 [profile.dev]

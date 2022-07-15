@@ -1,21 +1,19 @@
 use bevy::{input::mouse::MouseMotion, prelude::*};
-#[cfg(feature = "testing_editor")]
 use bevy_editor_pls::prelude::*;
 use bevy_mod_wanderlust::{CharacterControllerBundle, WanderlustPlugin};
 use bevy_rapier3d::prelude::*;
 
 fn main() {
-    let mut app = App::new();
-    app.add_plugins(DefaultPlugins)
+    App::new()
+        .add_plugins(DefaultPlugins)
         .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
         .add_plugin(RapierDebugRenderPlugin::default())
         .add_plugin(WanderlustPlugin)
         .insert_resource(Sensitivity(0.15))
         .add_startup_system(setup)
-        .add_system(mouse_look);
-    #[cfg(feature = "testing_editor")]
-    app.add_plugin(EditorPlugin);
-    app.run()
+        .add_system(mouse_look)
+        .add_plugin(EditorPlugin)
+        .run()
 }
 
 #[derive(Component, Default, Reflect)]
