@@ -2,7 +2,7 @@
 
 use bevy::{input::mouse::MouseMotion, prelude::*};
 use bevy_editor_pls::prelude::*;
-use bevy_mod_wanderlust::{CharacterControllerBundle, WanderlustPlugin};
+use bevy_mod_wanderlust::{CharacterControllerBundle, ControllerInput, WanderlustPlugin};
 use bevy_rapier3d::prelude::*;
 
 fn main() {
@@ -13,6 +13,8 @@ fn main() {
         .add_plugin(WanderlustPlugin)
         .insert_resource(Sensitivity(0.15))
         .add_startup_system(setup)
+        // Add to PreUpdate to ensure updated before movement is calculated
+        .add_system_to_stage(CoreStage::PreUpdate, movement_input)
         .add_system(mouse_look)
         .add_plugin(EditorPlugin)
         .run()
@@ -60,7 +62,7 @@ fn setup(
                     perspective_projection: PerspectiveProjection {
                         fov: 90.0 * (std::f32::consts::PI / 180.0),
                         aspect_ratio: 1.0,
-                        near: 0.01,
+                        near: 0.3,
                         far: 1000.0,
                     },
                     ..default()
@@ -72,7 +74,7 @@ fn setup(
                     commands.spawn_bundle(PbrBundle {
                         mesh,
                         material: material.clone(),
-                        transform: Transform::from_xyz(0.0, 0.0, 0.5),
+                        transform: Transform::from_xyz(0.0, 0.0, -0.5),
                         ..default()
                     });
                 });
@@ -123,6 +125,33 @@ fn setup(
             ..default()
         })
         .insert_bundle((Name::from("Slope"), Collider::cuboid(hw, hh, hl)));
+}
+
+fn movement_input(
+    mut body: Query<&mut ControllerInput, With<PlayerBody>>,
+    camera: Query<&GlobalTransform, (With<PlayerCam>, Without<PlayerBody>)>,
+    input: Res<Input<KeyCode>>,
+) {
+    let tf = camera.single();
+    let mut player_input = body.single_mut();
+
+    let mut dir = Vec3::ZERO;
+    if input.pressed(KeyCode::A) {
+        dir += -tf.right();
+    }
+    if input.pressed(KeyCode::D) {
+        dir += tf.right();
+    }
+    if input.pressed(KeyCode::S) {
+        dir += -tf.forward();
+    }
+    if input.pressed(KeyCode::W) {
+        dir += tf.forward();
+    }
+    dir.y = 0.0;
+    player_input.movement = dir;
+
+    player_input.jumping = input.pressed(KeyCode::Space);
 }
 
 fn mouse_look(
