@@ -1,4 +1,5 @@
 # Wanderlust
+https://crates.io/crates/bevy_mod_wanderlust
 Wanderlust is a character controller addon. Inspired by [this excellent video](https://www.youtube.com/watch?v=qdskE8PJy6Q) and
 my previous attempts at creating a character controller, it is implemented on top of [Rapier physics](https://rapier.rs/)
 and highly customizable.
