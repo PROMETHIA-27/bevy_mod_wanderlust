@@ -10,10 +10,10 @@ pub struct CharacterController {
     /// See [ControllerSettings].
     pub settings: ControllerSettings,
     /// Every frame, as part of input -> movement translation, a goal velocity is calculated.
-    /// This represents the input after being directly translated to a desired final motion.
+    /// The goal velocity represents the input after being directly translated to a desired final motion.
     /// This field represents the goal velocity that was calculated last frame.
     pub last_goal_velocity: Vec3,
-    /// A timer to track how long to skip the ground check for.
+    /// A timer to track how long to skip the ground check for (see [`jump_skip_ground_check_duration`](ControllerSettings::jump_skip_ground_check_duration)).
     pub skip_ground_check_timer: f32,
     /// A timer to track how long to jump for.
     pub jump_timer: f32,
@@ -30,7 +30,7 @@ pub struct ControllerSettings {
     ///
     /// Keys are generally either not saturated or fully saturated, while analog controls like a joystick can be partially saturated (half tilt).
     pub max_speed: f32,
-    /// The maximum amount of force that can be applied to fulfill [`acceleration`].
+    /// The maximum amount of force that can be applied to fulfill [`acceleration`](ControllerSettings::acceleration).
     pub max_acceleration_force: f32,
     /// The direction to jump, which is also the direction that gravity is opposite to.
     pub up_vector: Vec3,
@@ -48,7 +48,7 @@ pub struct ControllerSettings {
     /// How long a jump can last.
     pub jump_time: f32,
     /// A function taking the current progress of a jump, from 0.0 to 1.0, with 0.0 indicating a jump has just begun and 1.0 indicating the jump has ended,
-    /// which returns a modifier (usually from 0.0 to 1.0, but not necessarily) to multiply [`jump_force`] by.
+    /// which returns a modifier (usually from 0.0 to 1.0, but not necessarily) to multiply [`jump_force`](ControllerSettings::jump_force) by.
     #[reflect(ignore)]
     pub jump_decay_function: fn(f32) -> f32,
     /// How long to skip ground checks after jumping. Usually this should be set just high enough that the character is out of range of the ground

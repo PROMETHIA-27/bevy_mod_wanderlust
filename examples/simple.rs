@@ -1,3 +1,5 @@
+//! A simple example of setting up a character controlled player.
+
 use bevy::{input::mouse::MouseMotion, prelude::*};
 use bevy_editor_pls::prelude::*;
 use bevy_mod_wanderlust::{CharacterControllerBundle, WanderlustPlugin};
