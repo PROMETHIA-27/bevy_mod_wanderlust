@@ -8,6 +8,23 @@ as many projects will have vastly different requirements for mouselook. The `sim
 
 To use Wanderlust, simply add the [`WanderlustPlugin`](plugins::WanderlustPlugin) to your `App`, and create an entity with the [`CharacterControllerBundle`](bundles::CharacterControllerBundle). 
 
+## Planned Features
+- Wallrunning
+- Be more agnostic to up-vectors
+- More examples
+  - 2D
+  - Spaceship
+  - Mario-Galaxy-style planetoids
+  - Moving platforms
+- Fix various jitter issues
+
+## Potential Features
+- Become agnostic to physics backend?
+- Dashing?
+- Ledge grappling?
+- Input rework?
+- More bundles for different common configurations?
+
 ## Contributions
 Wanderlust is intended to cover nearly every possible use case of a character controller, so if your use case is not supported (or there's a feature you would like to see)
 please drop an issue on the repository! PRs are also welcome, but I may not accept all PRs. Open an issue first if you're not certain that I would accept.
