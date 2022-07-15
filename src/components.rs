@@ -20,6 +20,8 @@ pub struct CharacterController {
     pub jump_pressed_last_frame: bool,
     /// A timer to track coyote time. See [`coyote_time_duration`](ControllerSettings::coyote_time_duration)
     pub coyote_timer: f32,
+    /// A timer to track jump buffering. See [`jump_buffer_duration`](ControllerSettings::jump_buffer_duration)
+    pub jump_buffer_timer: f32,
 }
 
 /// The settings of a character controller. See each individual field for more description.
@@ -64,6 +66,9 @@ pub struct ControllerSettings {
     /// How long should the character still be able to jump after leaving the ground, in seconds.
     /// For example, if this is set to 0.5, the player can fall off a ledge and then jump if they do so within 0.5 of leaving the ledge.
     pub coyote_time_duration: f32,
+    /// If the jump input is pressed before landing, how long will the jump be buffered for?
+    /// In other words, if this is 0.5, the character can input jump up to 0.5 seconds before landing and the jump will occur when they land.
+    pub jump_buffer_duration: f32,
     /// Scales movement force. This is useful to ensure movement does not affect vertical velocity (by setting it to e.g. `Vec3(1.0, 0.0, 1.0)`).
     pub force_scale: Vec3,
     /// How long of a ray to cast to detect the ground. Setting this unnecessarily high will permanently count the player as grounded,
@@ -102,6 +107,7 @@ impl Default for ControllerSettings {
             jump_decay_function: |_| 1.0,
             jump_skip_ground_check_duration: default(),
             coyote_time_duration: default(),
+            jump_buffer_duration: default(),
             force_scale: default(),
             float_cast_length: default(),
             float_cast_origin: default(),

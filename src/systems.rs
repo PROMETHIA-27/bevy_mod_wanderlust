@@ -112,6 +112,15 @@ pub fn movement(
             needed_accel * settings.force_scale
         };
 
+        let just_jumped = input.jumping && !controller.jump_pressed_last_frame;
+        if ground_cast.is_none() {
+            if just_jumped {
+                controller.jump_buffer_timer = settings.jump_buffer_duration;
+            } else {
+                controller.jump_buffer_timer = (controller.jump_buffer_timer - dt).max(0.0);
+            }
+        }
+
         // Calculate jump force
         let mut jump = if controller.jump_timer > 0.0 && ground_cast.is_none() {
             if !input.jumping {
@@ -134,7 +143,7 @@ pub fn movement(
             Vec3::ZERO
         };
 
-        if (input.jumping && !controller.jump_pressed_last_frame)
+        if (just_jumped || controller.jump_buffer_timer > 0.0)
             && (ground_cast.is_some() || controller.coyote_timer > 0.0)
         {
             controller.jump_timer = settings.jump_time;
