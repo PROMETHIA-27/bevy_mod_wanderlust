@@ -1,12 +1,12 @@
 [package]
 name = "bevy_mod_wanderlust"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["PROMETHIA-27"]
 edition = "2021"
 description = "A character controller library for Bevy Engine"
 # documentation = 
 readme = "README.md"
-# homepage = 
+homepage = "https://crates.io/crates/bevy_mod_wanderlust"
 repository = "https://github.com/PROMETHIA-27/bevy_mod_wanderlust"
 license = "MIT OR Apache-2.0"
 keywords = ["Bevy"]
