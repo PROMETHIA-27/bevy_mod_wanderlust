@@ -22,6 +22,8 @@ pub struct CharacterController {
     pub coyote_timer: f32,
     /// A timer to track jump buffering. See [`jump_buffer_duration`](ControllerSettings::jump_buffer_duration)
     pub jump_buffer_timer: f32,
+    /// How many extra jumps are remaining
+    pub remaining_jumps: u32,
 }
 
 /// The settings of a character controller. See each individual field for more description.
@@ -76,6 +78,8 @@ pub struct ControllerSettings {
     /// How long to skip ground checks after jumping. Usually this should be set just high enough that the character is out of range of the ground
     /// just before the timer elapses.
     pub jump_skip_ground_check_duration: f32,
+    /// How many extra times the character can jump after leaving the ground. 0 is normal, 1 corresponds to double jump, etc.
+    pub extra_jumps: u32,
     /// How long should the character still be able to jump after leaving the ground, in seconds.
     /// For example, if this is set to 0.5, the player can fall off a ledge and then jump if they do so within 0.5 of leaving the ledge.
     pub coyote_time_duration: f32,
@@ -121,6 +125,7 @@ impl Default for ControllerSettings {
             jump_time: 1.0,
             jump_decay_function: |_| 1.0,
             jump_skip_ground_check_duration: default(),
+            extra_jumps: default(),
             coyote_time_duration: default(),
             jump_buffer_duration: default(),
             force_scale: default(),

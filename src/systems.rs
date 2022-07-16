@@ -63,6 +63,7 @@ pub fn movement(
             .unwrap_or(false);
 
         if grounded {
+            controller.remaining_jumps = settings.extra_jumps;
             controller.coyote_timer = settings.coyote_time_duration;
         } else {
             controller.coyote_timer = (controller.coyote_timer - dt).max(0.0);
@@ -162,8 +163,12 @@ pub fn movement(
 
         // Trigger a jump
         if (just_jumped || controller.jump_buffer_timer > 0.0)
-            && (grounded || controller.coyote_timer > 0.0)
+            && (grounded || controller.coyote_timer > 0.0 || controller.remaining_jumps > 0)
         {
+            if !grounded && controller.coyote_timer == 0.0 {
+                controller.remaining_jumps -= 1;
+            }
+
             controller.jump_buffer_timer = 0.0;
             controller.jump_timer = settings.jump_time;
             controller.skip_ground_check_timer = settings.jump_skip_ground_check_duration;

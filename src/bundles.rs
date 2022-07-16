@@ -58,6 +58,7 @@ impl Default for CharacterControllerBundle {
                 jump_stop_force: 0.3,
                 jump_decay_function: |x| (1.0 - x).sqrt(),
                 jump_skip_ground_check_duration: 0.5,
+                extra_jumps: 0,
                 coyote_time_duration: 0.16,
                 jump_buffer_duration: 0.16,
                 force_scale: vec3(1.0, 0.0, 1.0),
