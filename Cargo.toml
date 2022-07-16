@@ -15,11 +15,12 @@ categories = ["game-development"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bevy = "0.7"
-bevy_rapier3d = { version = "0.15.0", features = ["debug-render"] }
+bevy = { version = "0.7", default-features = false, features = ["bevy_render"]}
+bevy_rapier3d = { version = "0.15.0", default-features = false, features = ["dim3"]}
 
 [dev-dependencies]
 bevy_editor_pls = { git = "https://github.com/jakobhellermann/bevy_editor_pls" }
+bevy_rapier3d = { version = "0.15.0", features = ["debug-render"]}
 
 # Enable only a small amount of optimization in debug mode
 [profile.dev]
