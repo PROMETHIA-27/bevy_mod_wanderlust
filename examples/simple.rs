@@ -141,9 +141,18 @@ fn setup(
 
     commands
         .spawn_bundle(PbrBundle {
-            mesh,
+            mesh: mesh.clone(),
             material: material.clone(),
             transform: Transform::from_xyz(3.5, -8.0, 0.0),
+            ..default()
+        })
+        .insert_bundle((Name::from("Wall"), Collider::cuboid(hw, hh, hl)));
+
+    commands
+        .spawn_bundle(PbrBundle {
+            mesh: mesh,
+            material: material.clone(),
+            transform: Transform::from_xyz(6.5, -8.0, 0.0).with_rotation(Quat::from_euler(EulerRot::XYZ, 0.0, -std::f32::consts::FRAC_PI_4, 0.0)),
             ..default()
         })
         .insert_bundle((Name::from("Wall"), Collider::cuboid(hw, hh, hl)));

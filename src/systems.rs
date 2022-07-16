@@ -176,7 +176,6 @@ pub fn movement(
             // and prevents stacking jumps to reach high upwards velocities
             jump = velocity.linvel * settings.up_vector * -1.0;
             jump += settings.jump_initial_force * settings.up_vector;
-            println!("{float_offset:?}");
             // Float force can lead to inconsistent jump power
             float_spring = Vec3::ZERO;
         }
