@@ -1,4 +1,4 @@
-//! A simple example of setting up a character controlled player.
+//! A simple example of setting up a first-person character controlled player.
 
 use bevy::{input::mouse::MouseMotion, prelude::*};
 use bevy_editor_pls::prelude::*;
@@ -152,7 +152,12 @@ fn setup(
         .spawn_bundle(PbrBundle {
             mesh: mesh,
             material: material.clone(),
-            transform: Transform::from_xyz(6.5, -8.0, 0.0).with_rotation(Quat::from_euler(EulerRot::XYZ, 0.0, -std::f32::consts::FRAC_PI_4, 0.0)),
+            transform: Transform::from_xyz(6.5, -8.0, 0.0).with_rotation(Quat::from_euler(
+                EulerRot::XYZ,
+                0.0,
+                -std::f32::consts::FRAC_PI_4,
+                0.0,
+            )),
             ..default()
         })
         .insert_bundle((Name::from("Wall"), Collider::cuboid(hw, hh, hl)));
