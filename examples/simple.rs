@@ -125,6 +125,28 @@ fn setup(
             ..default()
         })
         .insert_bundle((Name::from("Slope"), Collider::cuboid(hw, hh, hl)));
+
+    let (hw, hh, hl) = (0.25, 3.0, 5.0);
+    let mesh = meshes.add(
+        shape::Box {
+            min_x: -hw,
+            max_x: hw,
+            min_y: -hh,
+            max_y: hh,
+            min_z: -hl,
+            max_z: hl,
+        }
+        .into(),
+    );
+
+    commands
+        .spawn_bundle(PbrBundle {
+            mesh,
+            material: material.clone(),
+            transform: Transform::from_xyz(3.5, -8.0, 0.0),
+            ..default()
+        })
+        .insert_bundle((Name::from("Wall"), Collider::cuboid(hw, hh, hl)));
 }
 
 fn movement_input(
