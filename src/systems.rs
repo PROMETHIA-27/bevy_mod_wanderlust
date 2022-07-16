@@ -1,4 +1,5 @@
 use crate::components::{CharacterController, ControllerInput, ControllerSettings};
+use crate::WanderlustPhysicsTweaks;
 use bevy::{math::*, prelude::*};
 use bevy_rapier3d::prelude::*;
 
@@ -228,11 +229,16 @@ pub fn add_settings_and_input(
     }
 }
 
-pub fn setup_physics_context(mut ctx: ResMut<RapierContext>) {
-    let params = &mut ctx.integration_parameters;
-    // This prevents any noticeable jitter when running facefirst into a wall.
-    params.erp = 0.99;
-    // This prevents (most) noticeable jitter when running facefirst into an inverted corner.
-    params.max_velocity_iterations = 16;
-    // TODO: Fix jitter that occurs when running facefirst into a normal corner.
+pub fn setup_physics_context(
+    mut ctx: ResMut<RapierContext>,
+    should_change: Option<Res<WanderlustPhysicsTweaks>>,
+) {
+    if should_change.map(|s| s.0).unwrap_or(true) {
+        let params = &mut ctx.integration_parameters;
+        // This prevents any noticeable jitter when running facefirst into a wall.
+        params.erp = 0.99;
+        // This prevents (most) noticeable jitter when running facefirst into an inverted corner.
+        params.max_velocity_iterations = 16;
+        // TODO: Fix jitter that occurs when running facefirst into a normal corner.
+    }
 }

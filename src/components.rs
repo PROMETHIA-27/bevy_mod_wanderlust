@@ -81,7 +81,7 @@ pub struct ControllerSettings {
     /// How many extra times the character can jump after leaving the ground. 0 is normal, 1 corresponds to double jump, etc.
     pub extra_jumps: u32,
     /// How long should the character still be able to jump after leaving the ground, in seconds.
-    /// For example, if this is set to 0.5, the player can fall off a ledge and then jump if they do so within 0.5 of leaving the ledge.
+    /// For example, if this is set to 0.5, the player can fall off a ledge and then jump if they do so within 0.5 seconds of leaving the ledge.
     pub coyote_time_duration: f32,
     /// If the jump input is pressed before landing, how long will the jump be buffered for?
     /// In other words, if this is 0.5, the character can input jump up to 0.5 seconds before landing and the jump will occur when they land.
