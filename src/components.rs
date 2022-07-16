@@ -25,6 +25,9 @@ pub struct CharacterController {
 }
 
 /// The settings of a character controller. See each individual field for more description.
+///
+/// The [`Default::default()`] of this type is not well configured; it is not a good reference for any character controller, and will not do much.
+/// See bundles like [`CharacterControllerBundle`](super::bundles::CharacterControllerBundle) for well-config
 #[derive(Component, Reflect)]
 #[reflect(Component)]
 pub struct ControllerSettings {
@@ -47,6 +50,16 @@ pub struct ControllerSettings {
     /// For example, if this is set to `π/4` (45 degrees), then a player standing on a slope steeper than 45 degrees will slip and fall, and will not have
     /// their jump refreshed by landing on that surface.
     pub max_ground_angle: f32,
+    /// While floating, the character can be floating at a different exact distance than [`float_distance`] depending on other forces acting on them.
+    /// This field controls how much lower than [`float_distance`] they can be and still be considered grounded.
+    ///
+    /// This helps keep jumps more consistent when the ground cast length is longer than the float distance.
+    pub min_float_offset: f32,
+    /// While floating, the character can be floating at a different exact distance than [`float_distance`] depending on other forces acting on them.
+    /// This field controls how much higher than [`float_distance`] they can be and still be considered grounded.
+    ///
+    /// This helps keep jumps more consistent when the ground cast length is longer than the float distance.
+    pub max_float_offset: f32,
     /// The amount of force to apply on the first frame when a jump begins.
     pub jump_initial_force: f32,
     /// The amount of force to continuously apply every second during a jump.
@@ -100,6 +113,8 @@ impl Default for ControllerSettings {
             up_vector: default(),
             gravity: default(),
             max_ground_angle: default(),
+            min_float_offset: default(),
+            max_float_offset: default(),
             jump_initial_force: default(),
             jump_force: default(),
             jump_stop_force: default(),

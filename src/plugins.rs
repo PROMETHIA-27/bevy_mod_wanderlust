@@ -10,6 +10,7 @@ impl Plugin for WanderlustPlugin {
         app.register_type::<CharacterController>()
             .register_type::<ControllerSettings>()
             .register_type::<ControllerInput>()
+            .add_startup_system(setup_physics_context)
             .add_system(movement)
             .add_system_to_stage(CoreStage::PreUpdate, add_settings_and_input);
     }

@@ -50,6 +50,8 @@ impl Default for CharacterControllerBundle {
                 up_vector: Vec3::Y,
                 gravity: 25.0,
                 max_ground_angle: 45.0 * (std::f32::consts::PI / 180.0),
+                min_float_offset: -0.3,
+                max_float_offset: 0.05,
                 jump_time: 0.5,
                 jump_initial_force: 15.0,
                 jump_force: 0.0,

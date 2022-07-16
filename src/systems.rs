@@ -45,7 +45,24 @@ pub fn movement(
             None
         };
 
-        if ground_cast.is_some() {
+        // If we hit something, just get back up instead of waiting.
+        if ctx.contacts_with(entity).next().is_some() {
+            controller.skip_ground_check_timer = 0.0;
+        }
+
+        let float_offset = if let Some((_, toi)) = ground_cast {
+            Some(toi.toi - settings.float_distance)
+        } else {
+            None
+        };
+
+        let grounded = float_offset
+            .map(|offset| {
+                offset <= settings.max_float_offset && offset >= settings.min_float_offset
+            })
+            .unwrap_or(false);
+
+        if grounded {
             controller.coyote_timer = settings.coyote_time_duration;
         } else {
             controller.coyote_timer = (controller.coyote_timer - dt).max(0.0);
@@ -113,7 +130,7 @@ pub fn movement(
         };
 
         let just_jumped = input.jumping && !controller.jump_pressed_last_frame;
-        if ground_cast.is_none() {
+        if !grounded {
             if just_jumped {
                 controller.jump_buffer_timer = settings.jump_buffer_duration;
             } else {
@@ -122,7 +139,7 @@ pub fn movement(
         }
 
         // Calculate jump force
-        let mut jump = if controller.jump_timer > 0.0 && ground_cast.is_none() {
+        let mut jump = if controller.jump_timer > 0.0 && !grounded {
             if !input.jumping {
                 controller.jump_timer = 0.0;
                 velocity.linvel.project_onto(settings.up_vector) * -settings.jump_stop_force
@@ -143,15 +160,18 @@ pub fn movement(
             Vec3::ZERO
         };
 
+        // Trigger a jump
         if (just_jumped || controller.jump_buffer_timer > 0.0)
-            && (ground_cast.is_some() || controller.coyote_timer > 0.0)
+            && (grounded || controller.coyote_timer > 0.0)
         {
+            controller.jump_buffer_timer = 0.0;
             controller.jump_timer = settings.jump_time;
             controller.skip_ground_check_timer = settings.jump_skip_ground_check_duration;
             // Negating the current velocity increases consistency for falling jumps,
             // and prevents stacking jumps to reach high upwards velocities
             jump = velocity.linvel * settings.up_vector * -1.0;
             jump += settings.jump_initial_force * settings.up_vector;
+            println!("{float_offset:?}");
             // Float force can lead to inconsistent jump power
             float_spring = Vec3::ZERO;
         }
@@ -202,4 +222,10 @@ pub fn add_settings_and_input(
             c.entity(entity).insert(ControllerInput::default());
         }
     }
+}
+
+pub fn setup_physics_context(mut ctx: ResMut<RapierContext>) {
+    let params = &mut ctx.integration_parameters;
+    // This prevents any noticeable jitter when running facefirst into a wall.
+    params.erp = 0.99
 }
