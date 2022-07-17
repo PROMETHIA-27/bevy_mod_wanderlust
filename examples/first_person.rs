@@ -2,7 +2,7 @@
 
 use bevy::{input::mouse::MouseMotion, prelude::*};
 use bevy_editor_pls::prelude::*;
-use bevy_mod_wanderlust::{CharacterControllerBundle, ControllerInput, WanderlustPlugin};
+use bevy_mod_wanderlust::{ControllerInput, FPSControllerBundle, WanderlustPlugin};
 use bevy_rapier3d::prelude::*;
 
 fn main() {
@@ -48,7 +48,7 @@ fn setup(
     let material = mats.add(Color::WHITE.into());
 
     commands
-        .spawn_bundle(CharacterControllerBundle::default())
+        .spawn_bundle(FPSControllerBundle::default())
         .insert_bundle(PbrBundle {
             mesh,
             material: material.clone(),

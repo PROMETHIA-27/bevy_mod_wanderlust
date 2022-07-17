@@ -6,7 +6,7 @@ use bevy_rapier3d::prelude::*;
 /// as well as many physics-related components that can be used to tweak the behavior of the controller, with reasonable default
 /// values.
 #[derive(Bundle)]
-pub struct CharacterControllerBundle {
+pub struct FPSControllerBundle {
     /// See [`CharacterController`].
     pub controller: CharacterController,
     /// See [`ControllerSettings`].
@@ -39,7 +39,7 @@ pub struct CharacterControllerBundle {
     pub restitution: Restitution,
 }
 
-impl Default for CharacterControllerBundle {
+impl Default for FPSControllerBundle {
     fn default() -> Self {
         Self {
             controller: default(),
