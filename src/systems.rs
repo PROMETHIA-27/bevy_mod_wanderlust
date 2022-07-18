@@ -1,4 +1,4 @@
-use crate::components::{CharacterController, ControllerInput, ControllerSettings};
+use crate::components::{ControllerInput, ControllerSettings, ControllerState};
 use crate::WanderlustPhysicsTweaks;
 use bevy::{math::*, prelude::*};
 use bevy_rapier3d::prelude::*;
@@ -8,7 +8,7 @@ pub fn movement(
         Entity,
         &GlobalTransform,
         &mut ExternalImpulse,
-        &mut CharacterController,
+        &mut ControllerState,
         &ControllerSettings,
         &ControllerInput,
     )>,
@@ -202,30 +202,6 @@ pub fn movement(
         body.torque_impulse = upright;
 
         controller.jump_pressed_last_frame = input.jumping;
-    }
-}
-
-pub fn add_settings_and_input(
-    mut c: Commands,
-    query: Query<
-        (
-            Entity,
-            Option<&ControllerSettings>,
-            Option<&ControllerInput>,
-        ),
-        (
-            With<CharacterController>,
-            Or<(Without<ControllerSettings>, Without<ControllerInput>)>,
-        ),
-    >,
-) {
-    for (entity, settings, input) in query.iter() {
-        if let None = settings {
-            c.entity(entity).insert(ControllerSettings::default());
-        }
-        if let None = input {
-            c.entity(entity).insert(ControllerInput::default());
-        }
     }
 }
 

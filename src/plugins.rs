@@ -7,11 +7,10 @@ pub struct WanderlustPlugin;
 
 impl Plugin for WanderlustPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<CharacterController>()
+        app.register_type::<ControllerState>()
             .register_type::<ControllerSettings>()
             .register_type::<ControllerInput>()
             .add_startup_system(setup_physics_context)
-            .add_system(movement)
-            .add_system_to_stage(CoreStage::PreUpdate, add_settings_and_input);
+            .add_system(movement);
     }
 }

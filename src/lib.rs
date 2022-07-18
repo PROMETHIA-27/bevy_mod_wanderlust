@@ -4,12 +4,14 @@
 mod bundles;
 mod components;
 mod plugins;
+mod presets;
 mod resources;
 mod systems;
 
 pub use self::{
-    bundles::{FPSControllerBundle, SpaceshipControllerBundle},
-    components::{CharacterController, ControllerInput, ControllerSettings},
+    bundles::{CharacterControllerBundle, StarshipControllerBundle},
+    components::{ControllerInput, ControllerSettings, ControllerState},
     plugins::WanderlustPlugin,
+    presets::{CharacterControllerPreset, StarshipControllerPreset},
     resources::WanderlustPhysicsTweaks,
 };

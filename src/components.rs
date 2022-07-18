@@ -1,13 +1,12 @@
 use bevy::{math::*, prelude::*};
 use bevy_rapier3d::prelude::*;
 
-/// The character controller. Contains settings and controller state.
+/// The character controller's state.
 /// This is the component responsible for adding controls to an entity.
-/// Requires a [`ControllerSettings`] and a [`ControllerInput`] to work, but these will automatically be added.
-/// Requires a [`GlobalTransform`] and [`ExternalImpulse`](bevy_rapier3d::prelude::ExternalImpulse) to work.
+/// Requires [`ControllerSettings`], [`ControllerInput`], [`GlobalTransform`], and [`ExternalImpulse`](bevy_rapier3d::prelude::ExternalImpulse) to work.
 #[derive(Component, Default, Reflect)]
 #[reflect(Component)]
-pub struct CharacterController {
+pub struct ControllerState {
     /// Every frame, as part of input -> movement translation, a goal velocity is calculated.
     /// The goal velocity represents the input after being directly translated to a desired final motion.
     /// This field represents the goal velocity that was calculated last frame.

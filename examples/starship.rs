@@ -4,7 +4,7 @@ use bevy::input::mouse::MouseMotion;
 use bevy::math::vec3;
 use bevy::prelude::*;
 use bevy_editor_pls::prelude::*;
-use bevy_mod_wanderlust::{ControllerInput, SpaceshipControllerBundle, WanderlustPlugin};
+use bevy_mod_wanderlust::{ControllerInput, StarshipControllerBundle, WanderlustPlugin};
 use bevy_rapier3d::plugin::{NoUserData, RapierPhysicsPlugin};
 
 fn main() {
@@ -67,7 +67,7 @@ fn setup(
     });
 
     // The ship itself
-    c.spawn_bundle(SpaceshipControllerBundle {
+    c.spawn_bundle(StarshipControllerBundle {
         transform: Transform::from_xyz(0.0, 0.0, 5.0),
         ..default()
     })
