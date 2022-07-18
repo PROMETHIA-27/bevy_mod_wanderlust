@@ -8,7 +8,7 @@ mod resources;
 mod systems;
 
 pub use self::{
-    bundles::FPSControllerBundle,
+    bundles::{FPSControllerBundle, SpaceshipControllerBundle},
     components::{CharacterController, ControllerInput, ControllerSettings},
     plugins::WanderlustPlugin,
     resources::WanderlustPhysicsTweaks,
