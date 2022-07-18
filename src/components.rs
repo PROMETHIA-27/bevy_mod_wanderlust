@@ -1,6 +1,8 @@
 use bevy::{math::*, prelude::*};
 use bevy_rapier3d::prelude::*;
 
+use crate::{CharacterControllerPreset, StarshipControllerPreset};
+
 /// The character controller's state.
 /// This is the component responsible for adding controls to an entity.
 /// Requires [`ControllerSettings`], [`ControllerInput`], [`GlobalTransform`], and [`ExternalImpulse`](bevy_rapier3d::prelude::ExternalImpulse) to work.
@@ -105,6 +107,18 @@ pub struct ControllerSettings {
     pub upright_spring_strength: f32,
     /// How strongly to dampen staying upright. Prevents jittering/oscillating upright movement.
     pub upright_spring_damping: f32,
+}
+
+impl ControllerSettings {
+    /// See [`CharacterControllerPreset`].
+    pub fn character() -> Self {
+        CharacterControllerPreset.into()
+    }
+
+    /// See [`StarshipControllerPreset`].
+    pub fn starship() -> Self {
+        StarshipControllerPreset.into()
+    }
 }
 
 impl Default for ControllerSettings {
