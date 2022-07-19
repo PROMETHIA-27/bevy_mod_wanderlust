@@ -93,7 +93,7 @@ fn setup(
             ..default()
         })
         .with_children(|c| {
-            c.spawn_scene(ass.load("gltf/starship3.glb#Scene0"));
+            c.spawn_scene(ass.load("gltf/starship.glb#Scene0"));
         });
 
         c.spawn_bundle(PerspectiveCameraBundle {
