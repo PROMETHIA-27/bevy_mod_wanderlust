@@ -19,7 +19,6 @@ To use Wanderlust, simply add the [`WanderlustPlugin`](plugins::WanderlustPlugin
 - Be more agnostic to up-vectors
 - More examples
   - 2D
-  - Spaceship
   - Mario-Galaxy-style planetoids
   - Moving platforms
 - Fix various jitter issues
@@ -36,6 +35,7 @@ Wanderlust is intended to cover nearly every possible use case of a character co
 please drop an issue on the repository! PRs are also welcome, but I may not accept all PRs. Open an issue first if you're not certain that I would accept.
 
 ## Examples
-See the `first_person.rs` example which shows a simple character controller setup.
+The `first_person.rs` example which shows a simple character controller setup.
+The `starship.rs` example which shows a simple spaceship controller setup.
 
 Dual-licensed under MIT OR Apache 2.0.
