@@ -166,4 +166,14 @@ pub struct ControllerInput {
     pub movement: Vec3,
     /// This field represents if the jump control is currently pressed.
     pub jumping: bool,
+    /// Allows supplying a custom force to the controller to be applied next frame,
+    /// which is necessary because the controller monopolizes and controls the [`ExternalImpulse`]
+    /// which rapier uses to apply impulse forces to a rigidbody.
+    /// Will be reset to 0 after being applied.
+    pub custom_impulse: Vec3,
+    /// Allows supplying a custom torque to the controller to be applied next frame,
+    /// which is necessary because the controller monopolizes and controls the [`ExternalImpulse`]
+    /// which rapier uses to apply impulse forces to a rigidbody.
+    /// Will be reset to 0 after being applied.
+    pub custom_torque: Vec3,
 }

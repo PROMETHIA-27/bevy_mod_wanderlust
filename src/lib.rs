@@ -9,7 +9,7 @@ mod resources;
 mod systems;
 
 pub use self::{
-    bundles::{CharacterControllerBundle, StarshipControllerBundle},
+    bundles::{CharacterControllerBundle, ControllerPhysicsBundle, StarshipControllerBundle},
     components::{ControllerInput, ControllerSettings, ControllerState},
     plugins::WanderlustPlugin,
     presets::{CharacterControllerPreset, StarshipControllerPreset},

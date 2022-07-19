@@ -1,47 +1,44 @@
 use std::f32::consts::FRAC_PI_2;
 
 use bevy::input::mouse::MouseMotion;
-use bevy::math::vec3;
 use bevy::prelude::*;
+use bevy_editor_pls::controls::{Action, Binding, Button, EditorControls, UserInput};
 use bevy_editor_pls::prelude::*;
-use bevy_mod_wanderlust::{ControllerInput, StarshipControllerBundle, WanderlustPlugin};
+use bevy_mod_wanderlust::{
+    ControllerInput, ControllerPhysicsBundle, StarshipControllerBundle, WanderlustPlugin,
+};
 use bevy_rapier3d::plugin::{NoUserData, RapierPhysicsPlugin};
+use bevy_rapier3d::prelude::Damping;
 
 fn main() {
+    let mut bindings = EditorControls::default_bindings();
+    bindings.unbind(Action::PlayPauseEditor);
+    bindings.insert(
+        Action::PlayPauseEditor,
+        Binding {
+            input: UserInput::Chord(vec![
+                Button::Keyboard(KeyCode::LControl),
+                Button::Keyboard(KeyCode::E),
+            ]),
+            conditions: vec![],
+        },
+    );
+
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
         .add_plugin(WanderlustPlugin)
         .add_plugin(EditorPlugin)
+        .insert_resource(bindings)
         .add_startup_system(setup)
         .add_system_to_stage(CoreStage::PreUpdate, input)
-        .add_system(rotate_to_goal)
-        .register_type::<RotateToGoal>()
+        .register_type::<Player>()
         .run();
 }
 
-#[derive(Component)]
-struct Player;
-
-#[derive(Component, Reflect)]
+#[derive(Component, Default, Reflect)]
 #[reflect(Component)]
-struct RotateToGoal {
-    destination: Quat,
-    sensitivity: f32,
-    acceleration: f32,
-    damping: f32,
-}
-
-impl Default for RotateToGoal {
-    fn default() -> Self {
-        Self {
-            sensitivity: 1.0,
-            destination: Quat::default(),
-            acceleration: 1.0,
-            damping: 1.0,
-        }
-    }
-}
+struct Player;
 
 fn setup(
     mut c: Commands,
@@ -50,7 +47,7 @@ fn setup(
     ass: Res<AssetServer>,
 ) {
     // Origin cube to be able to tell how you're moving
-    let mesh = meshes.add(shape::Cube { size: 1.0 }.into());
+    let mesh = meshes.add(shape::Cube { size: 10.0 }.into());
     let mat = mats.add(Color::WHITE.into());
 
     c.spawn_bundle(PbrBundle {
@@ -62,22 +59,29 @@ fn setup(
 
     // Light so you can see the cube
     c.spawn_bundle(PointLightBundle {
-        transform: Transform::from_xyz(1.0, 2.0, 3.0),
+        transform: Transform::from_xyz(15.0, 16.0, 17.0),
+        point_light: PointLight {
+            color: Color::default(),
+            intensity: 8000.0,
+            range: 50.0,
+            ..default()
+        },
         ..default()
     });
 
     // The ship itself
     c.spawn_bundle(StarshipControllerBundle {
         transform: Transform::from_xyz(0.0, 0.0, 5.0),
-        ..default()
-    })
-    .insert_bundle((
-        Player,
-        RotateToGoal {
-            sensitivity: 1.0,
+        physics: ControllerPhysicsBundle {
+            damping: Damping {
+                angular_damping: 0.5,
+                linear_damping: 0.5,
+            },
             ..default()
         },
-    ))
+        ..default()
+    })
+    .insert_bundle((Player,))
     .with_children(|c| {
         c.spawn_bundle(TransformBundle {
             local: Transform::from_translation(Vec3::ZERO).with_rotation(Quat::from_euler(
@@ -93,20 +97,22 @@ fn setup(
         });
 
         c.spawn_bundle(PerspectiveCameraBundle {
-            transform: Transform::from_xyz(0.0, 15.0, 30.0)
-                .looking_at(vec3(0.0, 5.0, 0.0), Vec3::Y),
+            transform: Transform::from_xyz(0.0, 7.5, 35.0),
             ..default()
         });
     });
 }
 
 fn input(
-    mut body: Query<(&mut ControllerInput, &GlobalTransform, &mut RotateToGoal)>,
+    mut body: Query<(&mut ControllerInput, &GlobalTransform)>,
     input: Res<Input<KeyCode>>,
     mut mouse: EventReader<MouseMotion>,
     time: Res<Time>,
 ) {
-    let (mut body, tf, mut rotate) = body.single_mut();
+    const SENSITIVITY: f32 = 0.025;
+    const ROLL_MULT: f32 = 5.0;
+
+    let (mut body, tf) = body.single_mut();
 
     let mut dir = Vec3::ZERO;
     if input.pressed(KeyCode::A) {
@@ -130,16 +136,15 @@ fn input(
 
     body.movement = dir;
 
+    let dt = time.delta_seconds();
     for &MouseMotion { delta } in mouse.iter() {
-        let motion_x = Quat::from_rotation_y(delta.x * time.delta_seconds());
-        let motion_y = Quat::from_rotation_x(delta.y * time.delta_seconds());
-
-        rotate.destination = motion_x * motion_y * rotate.destination;
+        body.custom_torque += tf.up() * -delta.x * dt * SENSITIVITY;
+        body.custom_torque += tf.right() * -delta.y * dt * SENSITIVITY;
     }
-}
-
-fn rotate_to_goal(mut query: Query<(&mut Transform, &RotateToGoal)>) {
-    for (mut tf, rotate) in query.iter_mut() {
-        tf.rotation = rotate.destination;
+    if input.pressed(KeyCode::Q) {
+        body.custom_torque += -tf.forward() * dt * SENSITIVITY * ROLL_MULT;
+    }
+    if input.pressed(KeyCode::E) {
+        body.custom_torque += tf.forward() * dt * SENSITIVITY * ROLL_MULT;
     }
 }

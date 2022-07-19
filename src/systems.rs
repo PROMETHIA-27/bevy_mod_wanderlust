@@ -10,13 +10,13 @@ pub fn movement(
         &mut ExternalImpulse,
         &mut ControllerState,
         &ControllerSettings,
-        &ControllerInput,
+        &mut ControllerInput,
     )>,
     velocities: Query<&Velocity>,
     time: Res<Time>,
     ctx: Res<RapierContext>,
 ) {
-    for (entity, tf, mut body, mut controller, settings, input) in bodies.iter_mut() {
+    for (entity, tf, mut body, mut controller, settings, mut input) in bodies.iter_mut() {
         let dt = time.delta_seconds();
 
         // Sometimes, such as at the beginning of the game, deltatime is 0. This
@@ -197,9 +197,11 @@ pub fn movement(
         };
 
         // Apply positional force to the rigidbody
-        body.impulse = movement + jump + float_spring + gravity;
+        body.impulse = movement + jump + float_spring + gravity + input.custom_impulse;
+        input.custom_impulse = Vec3::ZERO;
         // Apply rotational force to the rigidbody
-        body.torque_impulse = upright;
+        body.torque_impulse = upright + input.custom_torque;
+        input.custom_torque = Vec3::ZERO;
 
         controller.jump_pressed_last_frame = input.jumping;
     }

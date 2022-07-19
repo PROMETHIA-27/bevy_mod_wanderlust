@@ -1,7 +1,4 @@
-use crate::{
-    CharacterControllerPreset, ControllerInput, ControllerSettings, ControllerState,
-    StarshipControllerPreset,
-};
+use crate::{ControllerInput, ControllerSettings, ControllerState};
 
 use bevy::{math::*, prelude::*};
 use bevy_rapier3d::prelude::*;
@@ -84,7 +81,7 @@ impl Default for CharacterControllerBundle {
     fn default() -> Self {
         Self {
             controller: default(),
-            settings: CharacterControllerPreset.into(),
+            settings: ControllerSettings::character(),
             input: default(),
             physics: default(),
             transform: default(),
@@ -115,7 +112,7 @@ impl Default for StarshipControllerBundle {
     fn default() -> Self {
         Self {
             controller: default(),
-            settings: StarshipControllerPreset.into(),
+            settings: ControllerSettings::starship(),
             input: default(),
             physics: default(),
             transform: default(),
