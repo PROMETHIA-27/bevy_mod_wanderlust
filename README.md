@@ -3,9 +3,6 @@
  <a href="https://crates.io/crates/bevy_mod_wanderlust">
   <img src="https://img.shields.io/badge/crates.io-wanderlust-orange">
  </a>
-</p>
-
-<p align="left">
  <a href="https://github.com/PROMETHIA-27/bevy_mod_wanderlust">
   <img src="https://img.shields.io/badge/github-wanderlust-brightgreen">
  </a>
