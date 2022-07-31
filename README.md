@@ -5,6 +5,12 @@
  </a>
 </p>
 
+<p align="left">
+ <a href="https://github.com/PROMETHIA-27/bevy_mod_wanderlust">
+  <img src="https://img.shields.io/badge/github-wanderlust-brightgreen">
+ </a>
+</p>
+
 Wanderlust is a character controller addon. Inspired by [this excellent video](https://www.youtube.com/watch?v=qdskE8PJy6Q) and
 my previous attempts at creating a character controller, it is implemented on top of [Rapier physics](https://rapier.rs/)
 and highly customizable.

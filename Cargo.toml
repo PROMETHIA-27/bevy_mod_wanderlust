@@ -1,6 +1,6 @@
 [package]
 name = "bevy_mod_wanderlust"
-version = "0.1.5"
+version = "0.2.0"
 authors = ["PROMETHIA-27"]
 edition = "2021"
 description = "A character controller library for Bevy Engine"
@@ -15,12 +15,13 @@ categories = ["game-development"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bevy = { version = "0.7", default-features = false, features = ["bevy_render"]}
-bevy_rapier3d = { version = "0.15.0", default-features = false, features = ["dim3"]}
+bevy = { version = "0.8", default-features = false, features = ["bevy_render"]}
+bevy_rapier3d = { version = "0.16.0", default-features = false, features = ["dim3"]}
 
 [dev-dependencies]
-bevy_editor_pls = { git = "https://github.com/jakobhellermann/bevy_editor_pls" }
-bevy_rapier3d = { version = "0.15.0", features = ["debug-render"]}
+# bevy_editor_pls = { git = "https://github.com/jakobhellermann/bevy_editor_pls" }
+bevy = "0.8"
+bevy_rapier3d = { version = "0.16.0", features = ["debug-render"]}
 
 # Enable only a small amount of optimization in debug mode
 [profile.dev]

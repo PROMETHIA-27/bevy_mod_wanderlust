@@ -1,7 +1,8 @@
 //! A simple example of setting up a first-person character controlled player.
 
+use bevy::render::camera::Projection;
 use bevy::{input::mouse::MouseMotion, prelude::*};
-use bevy_editor_pls::prelude::*;
+// use bevy_editor_pls::prelude::*;
 use bevy_mod_wanderlust::{CharacterControllerBundle, ControllerInput, WanderlustPlugin};
 use bevy_rapier3d::prelude::*;
 
@@ -16,7 +17,7 @@ fn main() {
         // Add to PreUpdate to ensure updated before movement is calculated
         .add_system_to_stage(CoreStage::PreUpdate, movement_input)
         .add_system(mouse_look)
-        .add_plugin(EditorPlugin)
+        // .add_plugin(EditorPlugin)
         .run()
 }
 
@@ -57,14 +58,14 @@ fn setup(
         .insert_bundle((Name::from("Player"), PlayerBody))
         .with_children(|commands| {
             commands
-                .spawn_bundle(PerspectiveCameraBundle {
+                .spawn_bundle(Camera3dBundle {
                     transform: Transform::from_xyz(0.0, 0.5, 0.0),
-                    perspective_projection: PerspectiveProjection {
+                    projection: Projection::Perspective(PerspectiveProjection {
                         fov: 90.0 * (std::f32::consts::PI / 180.0),
                         aspect_ratio: 1.0,
                         near: 0.3,
                         far: 1000.0,
-                    },
+                    }),
                     ..default()
                 })
                 .insert(PlayerCam)

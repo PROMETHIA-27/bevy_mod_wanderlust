@@ -31,7 +31,7 @@ pub fn movement(
         let ground_cast = if controller.skip_ground_check_timer == 0.0 {
             ctx.cast_shape(
                 tf.mul_vec3(settings.float_cast_origin),
-                tf.rotation,
+                tf.to_scale_rotation_translation().1,
                 -settings.up_vector,
                 &settings.float_cast_collider,
                 settings.float_cast_length,

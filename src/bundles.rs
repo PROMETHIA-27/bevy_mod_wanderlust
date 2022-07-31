@@ -75,6 +75,10 @@ pub struct CharacterControllerBundle {
     pub transform: Transform,
     /// See [`GlobalTransform`]
     pub global_transform: GlobalTransform,
+    /// See [`Visibility`]
+    pub visibility: Visibility,
+    /// See [`ComputedVisibility`]
+    pub computed_visibility: ComputedVisibility,
 }
 
 impl Default for CharacterControllerBundle {
@@ -86,6 +90,8 @@ impl Default for CharacterControllerBundle {
             physics: default(),
             transform: default(),
             global_transform: default(),
+            visibility: default(),
+            computed_visibility: default(),
         }
     }
 }
@@ -93,7 +99,7 @@ impl Default for CharacterControllerBundle {
 /// A flying character controller with spaceship-like controls.
 #[derive(Bundle)]
 pub struct StarshipControllerBundle {
-    /// See [`CharacterController`].
+    /// See [`ControllerState`].
     pub controller: ControllerState,
     /// See [`ControllerSettings`].
     pub settings: ControllerSettings,
@@ -106,6 +112,10 @@ pub struct StarshipControllerBundle {
     pub transform: Transform,
     /// See [`GlobalTransform`]
     pub global_transform: GlobalTransform,
+    /// See [`Visibility`]
+    pub visibility: Visibility,
+    /// See [`ComputedVisibility`]
+    pub computed_visibility: ComputedVisibility,
 }
 
 impl Default for StarshipControllerBundle {
@@ -117,6 +127,8 @@ impl Default for StarshipControllerBundle {
             physics: default(),
             transform: default(),
             global_transform: default(),
+            visibility: default(),
+            computed_visibility: default(),
         }
     }
 }

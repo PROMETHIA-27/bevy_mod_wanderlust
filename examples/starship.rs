@@ -2,8 +2,8 @@ use std::f32::consts::FRAC_PI_2;
 
 use bevy::input::mouse::MouseMotion;
 use bevy::prelude::*;
-use bevy_editor_pls::controls::{Action, Binding, Button, EditorControls, UserInput};
-use bevy_editor_pls::prelude::*;
+// use bevy_editor_pls::controls::{Action, Binding, Button, EditorControls, UserInput};
+// use bevy_editor_pls::prelude::*;
 use bevy_mod_wanderlust::{
     ControllerInput, ControllerPhysicsBundle, StarshipControllerBundle, WanderlustPlugin,
 };
@@ -11,25 +11,25 @@ use bevy_rapier3d::plugin::{NoUserData, RapierPhysicsPlugin};
 use bevy_rapier3d::prelude::Damping;
 
 fn main() {
-    let mut bindings = EditorControls::default_bindings();
-    bindings.unbind(Action::PlayPauseEditor);
-    bindings.insert(
-        Action::PlayPauseEditor,
-        Binding {
-            input: UserInput::Chord(vec![
-                Button::Keyboard(KeyCode::LControl),
-                Button::Keyboard(KeyCode::E),
-            ]),
-            conditions: vec![],
-        },
-    );
+    // let mut bindings = EditorControls::default_bindings();
+    // bindings.unbind(Action::PlayPauseEditor);
+    // bindings.insert(
+    //     Action::PlayPauseEditor,
+    //     Binding {
+    //         input: UserInput::Chord(vec![
+    //             Button::Keyboard(KeyCode::LControl),
+    //             Button::Keyboard(KeyCode::E),
+    //         ]),
+    //         conditions: vec![],
+    //     },
+    // );
 
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
         .add_plugin(WanderlustPlugin)
-        .add_plugin(EditorPlugin)
-        .insert_resource(bindings)
+        // .add_plugin(EditorPlugin)
+        // .insert_resource(bindings)
         .add_startup_system(setup)
         .add_system_to_stage(CoreStage::PreUpdate, input)
         .register_type::<Player>()
@@ -83,20 +83,18 @@ fn setup(
     })
     .insert_bundle((Player,))
     .with_children(|c| {
-        c.spawn_bundle(TransformBundle {
-            local: Transform::from_translation(Vec3::ZERO).with_rotation(Quat::from_euler(
+        c.spawn_bundle(SceneBundle {
+            transform: Transform::from_translation(Vec3::ZERO).with_rotation(Quat::from_euler(
                 EulerRot::XYZ,
                 0.0,
                 -FRAC_PI_2,
                 0.0,
             )),
+            scene: ass.load("gltf/starship.glb#Scene0"),
             ..default()
-        })
-        .with_children(|c| {
-            c.spawn_scene(ass.load("gltf/starship.glb#Scene0"));
         });
 
-        c.spawn_bundle(PerspectiveCameraBundle {
+        c.spawn_bundle(Camera3dBundle {
             transform: Transform::from_xyz(0.0, 7.5, 35.0),
             ..default()
         });
