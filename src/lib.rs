@@ -14,4 +14,5 @@ pub use self::{
     plugins::WanderlustPlugin,
     presets::{CharacterControllerPreset, StarshipControllerPreset},
     resources::WanderlustPhysicsTweaks,
+    systems::{movement, setup_physics_context},
 };

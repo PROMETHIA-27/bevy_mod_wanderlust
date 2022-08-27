@@ -6,8 +6,8 @@ use bevy_rapier3d::prelude::Collider;
 /// A basic preset for a standard, walking character controller. Works for most first and third person games.
 pub struct CharacterControllerPreset;
 
-impl Into<ControllerSettings> for CharacterControllerPreset {
-    fn into(self) -> ControllerSettings {
+impl From<CharacterControllerPreset> for ControllerSettings {
+    fn from(_: CharacterControllerPreset) -> ControllerSettings {
         ControllerSettings {
             acceleration: 50.0,
             max_speed: 10.0,
@@ -40,8 +40,8 @@ impl Into<ControllerSettings> for CharacterControllerPreset {
 /// A sample controller preset for a spaceship which can fly in any direction.
 pub struct StarshipControllerPreset;
 
-impl Into<ControllerSettings> for StarshipControllerPreset {
-    fn into(self) -> ControllerSettings {
+impl From<StarshipControllerPreset> for ControllerSettings {
+    fn from(_: StarshipControllerPreset) -> ControllerSettings {
         ControllerSettings {
             acceleration: 0.3,
             max_speed: 100.0,

@@ -3,6 +3,10 @@ use crate::WanderlustPhysicsTweaks;
 use bevy::{math::*, prelude::*};
 use bevy_rapier3d::prelude::*;
 
+/// *Note: Most users will not need to use this directly. Use [`WanderlustPlugin`](crate::plugins::WanderlustPlugin) instead.
+/// This system is useful for cases such as running on a fixed timestep.*
+///
+/// The system that controls movement logic.
 pub fn movement(
     mut bodies: Query<(
         Entity,
@@ -207,11 +211,15 @@ pub fn movement(
     }
 }
 
+/// *Note: Most users will not need to use this directly. Use [`WanderlustPlugin`](crate::plugins::WanderlustPlugin) instead.
+/// Alternatively, if one only wants to disable the system, use [`WanderlustPhysicsTweaks`](WanderlustPhysicsTweaks).*
+///
+/// This system adds some tweaks to rapier's physics settings that make the character controller behave better.
 pub fn setup_physics_context(
     mut ctx: ResMut<RapierContext>,
     should_change: Option<Res<WanderlustPhysicsTweaks>>,
 ) {
-    if should_change.map(|s| s.0).unwrap_or(true) {
+    if should_change.map(|s| s.should_do_tweaks()).unwrap_or(true) {
         let params = &mut ctx.integration_parameters;
         // This prevents any noticeable jitter when running facefirst into a wall.
         params.erp = 0.99;
