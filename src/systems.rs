@@ -121,7 +121,7 @@ pub fn movement(
             let goal_vel = Vec3::lerp(
                 controller.last_goal_velocity,
                 input_goal_vel + ground_vel.map(|v| v.linvel).unwrap_or(Vec3::ZERO),
-                accel * dt,
+                (accel * dt).min(1.0),
             );
 
             let needed_accel = goal_vel - velocity.linvel;
