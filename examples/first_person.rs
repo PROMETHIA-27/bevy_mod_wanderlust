@@ -170,6 +170,7 @@ fn movement_input(
     input: Res<Input<KeyCode>>,
 ) {
     let tf = camera.single();
+
     let mut player_input = body.single_mut();
 
     let mut dir = Vec3::ZERO;
@@ -186,7 +187,7 @@ fn movement_input(
         dir += tf.forward();
     }
     dir.y = 0.0;
-    player_input.movement = dir;
+    player_input.movement = dir.normalize_or_zero();
 
     player_input.jumping = input.pressed(KeyCode::Space);
 }
