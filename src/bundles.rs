@@ -62,7 +62,7 @@ impl Default for ControllerPhysicsBundle {
 /// values.
 #[derive(Bundle)]
 pub struct CharacterControllerBundle {
-    /// See [`CharacterController`].
+    /// See [`ControllerState`].
     pub controller: ControllerState,
     /// See [`ControllerSettings`].
     pub settings: ControllerSettings,
@@ -132,3 +132,109 @@ impl Default for StarshipControllerBundle {
         }
     }
 }
+
+// pub struct ControllerBuilderBundle {
+//     /// See [`RigidBody`].
+//     pub rigidbody: Option<RigidBody>,
+//     /// See [`Collider`].
+//     pub collider: Option<Collider>,
+//     /// See [`Velocity`].
+//     pub velocity: Option<Velocity>,
+//     /// See [`GravityScale`].
+//     pub gravity: Option<GravityScale>,
+//     /// See [`Sleeping`].
+//     pub sleeping: Option<Sleeping>,
+//     /// See [`Ccd`].
+//     pub ccd: Option<Ccd>,
+//     /// See [`ExternalImpulse`].
+//     pub force: Option<ExternalImpulse>,
+//     /// See [`LockedAxes`].
+//     pub locked_axes: Option<LockedAxes>,
+//     /// See [`Friction`].
+//     pub friction: Option<Friction>,
+//     /// See [`Damping`].
+//     pub damping: Option<Damping>,
+//     /// See [`Restitution`].
+//     pub restitution: Option<Restitution>,
+//     /// See [`ControllerState`].
+//     pub controller: Option<ControllerState>,
+//     /// See [`ControllerSettings`].
+//     pub settings: Option<ControllerSettings>,
+//     /// See [`ControllerInput`].
+//     pub input: Option<ControllerInput>,
+//     /// See [`Transform`]
+//     pub transform: Option<Transform>,
+//     /// See [`GlobalTransform`]
+//     pub global_transform: Option<GlobalTransform>,
+//     /// See [`Visibility`]
+//     pub visibility: Option<Visibility>,
+//     /// See [`ComputedVisibility`]
+//     pub computed_visibility: Option<ComputedVisibility>,
+// }
+
+// impl ControllerBuilderBundle {
+//     fn insert<'w, 's, 'a>(
+//         self,
+//         mut entity: EntityCommands<'w, 's, 'a>,
+//     ) -> EntityCommands<'w, 's, 'a> {
+//         if let Some(value) = self.rigidbody {
+//             entity.insert(value);
+//         }
+//         if let Some(value) = self.collider {
+//             entity.insert(value);
+//         }
+//         if let Some(value) = self.velocity {
+//             entity.insert(value);
+//         }
+//         if let Some(value) = self.gravity {
+//             entity.insert(value);
+//         }
+//         if let Some(value) = self.sleeping {
+//             entity.insert(value);
+//         }
+//         if let Some(value) = self.ccd {
+//             entity.insert(value);
+//         }
+//         if let Some(value) = self.force {
+//             entity.insert(value);
+//         }
+//         if let Some(value) = self.locked_axes {
+//             entity.insert(value);
+//         }
+//         if let Some(value) = self.friction {
+//             entity.insert(value);
+//         }
+//         if let Some(value) = self.damping {
+//             entity.insert(value);
+//         }
+//         if let Some(value) = self.restitution {
+//             entity.insert(value);
+//         }
+//         if let Some(value) = self.controller {
+//             entity.insert(value);
+//         }
+//         if let Some(value) = self.settings {
+//             entity.insert(value);
+//         }
+//         if let Some(value) = self.input {
+//             entity.insert(value);
+//         }
+//         if let Some(value) = self.transform {
+//             entity.insert(value);
+//         }
+//         if let Some(value) = self.global_transform {
+//             entity.insert(value);
+//         }
+//         if let Some(value) = self.visibility {
+//             entity.insert(value);
+//         }
+//         if let Some(value) = self.computed_visibility {
+//             entity.insert(value);
+//         }
+//         entity
+//     }
+
+//     fn spawn<'w, 's, 'a>(self, c: &'a mut Commands<'w, 's>) -> EntityCommands<'w, 's, 'a> {
+//         self.insert(c.spawn())
+//     }
+// }
