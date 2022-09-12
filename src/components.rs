@@ -1,4 +1,4 @@
-use bevy::{math::*, prelude::*};
+use bevy::{math::*, prelude::*, utils::HashSet};
 use bevy_rapier3d::prelude::*;
 
 use crate::{CharacterControllerPreset, StarshipControllerPreset};
@@ -179,4 +179,12 @@ pub struct ControllerInput {
     /// which rapier uses to apply impulse forces to a rigidbody.
     /// Will be reset to 0 after being applied.
     pub custom_torque: Vec3,
+}
+
+/// Entities that should be considered as part of the controlled character.
+#[derive(Deref, DerefMut, Component, Default, Reflect)]
+#[reflect(Component)]
+pub struct RelatedEntities {
+    /// Set of entities that should be considered a part of the same character.
+    pub related: HashSet<Entity>,
 }

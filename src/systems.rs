@@ -1,4 +1,4 @@
-use crate::components::{ControllerInput, ControllerSettings, ControllerState};
+use crate::components::{ControllerInput, ControllerSettings, ControllerState, RelatedEntities};
 use crate::WanderlustPhysicsTweaks;
 use bevy::{math::*, prelude::*};
 use bevy_rapier3d::prelude::*;
@@ -15,13 +15,14 @@ pub fn movement(
         &mut ControllerState,
         &ControllerSettings,
         &mut ControllerInput,
+        Option<&RelatedEntities>,
     )>,
     velocities: Query<&Velocity>,
     time: Res<Time>,
     ctx: Res<RapierContext>,
     mut ground_casts: Local<Vec<(Entity, Toi)>>,
 ) {
-    for (entity, tf, mut body, mut controller, settings, mut input) in bodies.iter_mut() {
+    for (entity, tf, mut body, mut controller, settings, mut input, related) in bodies.iter_mut() {
         let dt = time.delta_seconds();
 
         // Sometimes, such as at the beginning of the game, deltatime is 0. This
@@ -43,9 +44,12 @@ pub fn movement(
                 -settings.up_vector,
                 &settings.float_cast_collider,
                 settings.float_cast_length,
-                QueryFilter::new()
-                    .predicate(&|collider| collider != entity)
-                    .exclude_sensors(),
+                QueryFilter::new().exclude_sensors().predicate(&|collider| {
+                    collider != entity
+                        && !related
+                            .map(|related| related.contains(&collider))
+                            .unwrap_or_default()
+                }),
                 &mut *ground_casts,
             );
             ground_casts
