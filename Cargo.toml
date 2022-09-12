@@ -1,6 +1,6 @@
 [package]
 name = "bevy_mod_wanderlust"
-version = "0.2.2"
+version = "0.2.3"
 authors = ["PROMETHIA-27"]
 edition = "2021"
 description = "A character controller library for Bevy Engine"
