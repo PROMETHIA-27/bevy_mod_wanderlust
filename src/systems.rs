@@ -19,6 +19,7 @@ pub fn movement(
     velocities: Query<&Velocity>,
     time: Res<Time>,
     ctx: Res<RapierContext>,
+    mut ground_casts: Local<Vec<(Entity, Toi)>>,
 ) {
     for (entity, tf, mut body, mut controller, settings, mut input) in bodies.iter_mut() {
         let dt = time.delta_seconds();
@@ -33,18 +34,26 @@ pub fn movement(
 
         // Get the ground and velocities
         let ground_cast = if controller.skip_ground_check_timer == 0.0 {
-            ctx.cast_shape(
+            intersections_with_shape_cast(
+                &*ctx,
                 tf.mul_vec3(settings.float_cast_origin),
                 tf.to_scale_rotation_translation().1,
                 -settings.up_vector,
                 &settings.float_cast_collider,
                 settings.float_cast_length,
-                QueryFilter::new().predicate(&|collider| collider != entity),
-            )
-            .filter(|(_, i)| {
-                i.status != TOIStatus::Penetrating
-                    && i.normal1.angle_between(settings.up_vector) <= settings.max_ground_angle
-            })
+                QueryFilter::new()
+                    .predicate(&|collider| collider != entity)
+                    .exclude_sensors(),
+                &mut *ground_casts,
+            );
+            ground_casts
+                .iter()
+                .filter(|(_, i)| {
+                    i.status != TOIStatus::Penetrating
+                        && i.normal1.angle_between(settings.up_vector) <= settings.max_ground_angle
+                })
+                .next()
+                .cloned()
         } else {
             controller.skip_ground_check_timer = (controller.skip_ground_check_timer - dt).max(0.0);
             None
@@ -226,5 +235,36 @@ pub fn setup_physics_context(
         // This prevents (most) noticeable jitter when running facefirst into an inverted corner.
         params.max_velocity_iterations = 16;
         // TODO: Fix jitter that occurs when running facefirst into a normal corner.
+    }
+}
+
+fn intersections_with_shape_cast(
+    ctx: &RapierContext,
+    shape_pos: Vec3,
+    shape_rot: Quat,
+    shape_vel: Vec3,
+    shape: &Collider,
+    max_toi: f32,
+    filter: QueryFilter,
+    collisions: &mut Vec<(Entity, Toi)>,
+) {
+    collisions.clear();
+
+    let orig_predicate = filter.predicate;
+
+    loop {
+        let predicate = |entity| {
+            !collisions.iter().any(|coll| coll.0 == entity)
+                && orig_predicate.map(|pred| pred(entity)).unwrap_or(true)
+        };
+        let filter = filter.predicate(&predicate);
+
+        if let Some(collision) =
+            ctx.cast_shape(shape_pos, shape_rot, shape_vel, shape, max_toi, filter)
+        {
+            collisions.push(collision);
+        } else {
+            break;
+        }
     }
 }
