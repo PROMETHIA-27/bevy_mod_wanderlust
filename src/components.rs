@@ -79,6 +79,8 @@ pub struct ControllerSettings {
     /// How long to skip ground checks after jumping. Usually this should be set just high enough that the character is out of range of the ground
     /// just before the timer elapses.
     pub jump_skip_ground_check_duration: f32,
+    /// Override skip ground check. If true, never checks for the ground.
+    pub skip_ground_check_override: bool,
     /// How many extra times the character can jump after leaving the ground. 0 is normal, 1 corresponds to double jump, etc.
     pub extra_jumps: u32,
     /// How long should the character still be able to jump after leaving the ground, in seconds.
@@ -138,6 +140,7 @@ impl Default for ControllerSettings {
             jump_time: 1.0,
             jump_decay_function: |_| 1.0,
             jump_skip_ground_check_duration: default(),
+            skip_ground_check_override: default(),
             extra_jumps: default(),
             coyote_time_duration: default(),
             jump_buffer_duration: default(),

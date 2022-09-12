@@ -33,7 +33,9 @@ pub fn movement(
         }
 
         // Get the ground and velocities
-        let ground_cast = if controller.skip_ground_check_timer == 0.0 {
+        let ground_cast = if controller.skip_ground_check_timer == 0.0
+            && !settings.skip_ground_check_override
+        {
             intersections_with_shape_cast(
                 &*ctx,
                 tf.mul_vec3(settings.float_cast_origin),
