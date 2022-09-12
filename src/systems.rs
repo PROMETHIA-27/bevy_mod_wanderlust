@@ -117,7 +117,7 @@ pub fn movement(
 
         // Calculate horizontal movement force
         let movement = {
-            let unit_dir = input.movement.normalize_or_zero();
+            let dir = input.movement.clamp_length_max(1.0);
 
             // let unit_vel = controller.last_goal_velocity.normalized();
 
@@ -125,7 +125,7 @@ pub fn movement(
 
             let accel = settings.acceleration;
 
-            let input_goal_vel = unit_dir * settings.max_speed;
+            let input_goal_vel = dir * settings.max_speed;
 
             let goal_vel = Vec3::lerp(
                 controller.last_goal_velocity,
