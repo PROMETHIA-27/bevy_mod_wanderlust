@@ -1,6 +1,6 @@
 use bevy::{math::*, prelude::*};
-use bevy_rapier3d::prelude::*;
 
+use crate::backends::BackendCastableShape;
 use crate::{CharacterControllerPreset, StarshipControllerPreset};
 
 /// The character controller's state.
@@ -33,7 +33,7 @@ pub struct ControllerState {
 /// See bundles like [`CharacterControllerBundle`](super::bundles::CharacterControllerBundle) for well-config
 #[derive(Component, Reflect)]
 #[reflect(Component)]
-pub struct ControllerSettings {
+pub struct ControllerSettings<C: BackendCastableShape> {
     /// How quickly to interpolate from `last_goal_velocity` to the new `input_goal_velocity`.
     /// In other words, how quickly to go from "not moving" to "moving at max speed".
     pub acceleration: f32,
@@ -94,22 +94,24 @@ pub struct ControllerSettings {
     pub float_cast_length: f32,
     /// An offset to start the ground check from, relative to the character's origin.
     pub float_cast_origin: Vec3,
-    /// What shape of ray to cast. See [`Collider`] and [`RapierContext::cast_shape`](RapierContext).
+    /// What shape of ray to cast. See
+    /// [`PhysicsBackend::cast_shape`](crate::PhysicsBackend::cast_shape).
     #[reflect(ignore)]
-    pub float_cast_collider: Collider,
+    pub float_cast_collider: C,
     /// How far to attempt to float away from the ground.
     pub float_distance: f32,
     /// How strongly to float away from the ground.
     pub float_strength: f32,
     /// How strongly to dampen floating away from the ground, to prevent jittering/oscillating float movement.
     pub float_dampen: f32,
-    /// How strongly to attempt to stay upright. Alternatively, see [`LockedAxes`] to lock rotation entirely.
+    /// How strongly to attempt to stay upright. Alternatively, see Rapier's `LockedAxes` to lock
+    /// rotation entirely.
     pub upright_spring_strength: f32,
     /// How strongly to dampen staying upright. Prevents jittering/oscillating upright movement.
     pub upright_spring_damping: f32,
 }
 
-impl ControllerSettings {
+impl<C: BackendCastableShape> ControllerSettings<C> {
     /// See [`CharacterControllerPreset`].
     pub fn character() -> Self {
         CharacterControllerPreset.into()
@@ -121,7 +123,7 @@ impl ControllerSettings {
     }
 }
 
-impl Default for ControllerSettings {
+impl<C: BackendCastableShape> Default for ControllerSettings<C> {
     fn default() -> Self {
         Self {
             acceleration: default(),
@@ -144,7 +146,7 @@ impl Default for ControllerSettings {
             force_scale: default(),
             float_cast_length: default(),
             float_cast_origin: default(),
-            float_cast_collider: Collider::ball(1.0),
+            float_cast_collider: C::ball(1.0),
             float_distance: default(),
             float_strength: default(),
             float_dampen: default(),
@@ -167,12 +169,12 @@ pub struct ControllerInput {
     /// This field represents if the jump control is currently pressed.
     pub jumping: bool,
     /// Allows supplying a custom force to the controller to be applied next frame,
-    /// which is necessary because the controller monopolizes and controls the [`ExternalImpulse`]
+    /// which is necessary because the controller monopolizes and controls the `ExternalImpulse`
     /// which rapier uses to apply impulse forces to a rigidbody.
     /// Will be reset to 0 after being applied.
     pub custom_impulse: Vec3,
     /// Allows supplying a custom torque to the controller to be applied next frame,
-    /// which is necessary because the controller monopolizes and controls the [`ExternalImpulse`]
+    /// which is necessary because the controller monopolizes and controls the `ExternalImpulse`
     /// which rapier uses to apply impulse forces to a rigidbody.
     /// Will be reset to 0 after being applied.
     pub custom_torque: Vec3,

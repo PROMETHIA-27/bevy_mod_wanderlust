@@ -2,6 +2,7 @@
 
 use bevy::render::camera::Projection;
 use bevy::{input::mouse::MouseMotion, prelude::*};
+use bevy_mod_wanderlust::backends::Rapier3dBackend;
 // use bevy_editor_pls::prelude::*;
 use bevy_mod_wanderlust::{CharacterControllerBundle, ControllerInput, WanderlustPlugin};
 use bevy_rapier3d::prelude::*;
@@ -11,7 +12,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
         .add_plugin(RapierDebugRenderPlugin::default())
-        .add_plugin(WanderlustPlugin)
+        .add_plugin(WanderlustPlugin(Rapier3dBackend))
         .insert_resource(Sensitivity(0.15))
         .add_startup_system(setup)
         // Add to PreUpdate to ensure updated before movement is calculated
@@ -49,7 +50,7 @@ fn setup(
     let material = mats.add(Color::WHITE.into());
 
     commands
-        .spawn_bundle(CharacterControllerBundle::default())
+        .spawn_bundle(CharacterControllerBundle::<Rapier3dBackend>::default())
         .insert_bundle(PbrBundle {
             mesh,
             material: material.clone(),

@@ -1,24 +1,22 @@
 use crate::components::{ControllerInput, ControllerSettings, ControllerState};
-use crate::WanderlustPhysicsTweaks;
 use bevy::{math::*, prelude::*};
-use bevy_rapier3d::prelude::*;
 
 /// *Note: Most users will not need to use this directly. Use [`WanderlustPlugin`](crate::plugins::WanderlustPlugin) instead.
 /// This system is useful for cases such as running on a fixed timestep.*
 ///
 /// The system that controls movement logic.
-pub fn movement(
+pub fn movement<B: crate::PhysicsBackend>(
     mut bodies: Query<(
         Entity,
         &GlobalTransform,
-        &mut ExternalImpulse,
+        &mut B::ExternalImpulse,
         &mut ControllerState,
-        &ControllerSettings,
+        &ControllerSettings<B::CastableShape>,
         &mut ControllerInput,
     )>,
-    velocities: Query<&Velocity>,
+    velocities: Query<&B::Velocity>,
     time: Res<Time>,
-    ctx: Res<RapierContext>,
+    ctx: Res<B::PhysicsContext>,
 ) {
     for (entity, tf, mut body, mut controller, settings, mut input) in bodies.iter_mut() {
         let dt = time.delta_seconds();
@@ -33,16 +31,8 @@ pub fn movement(
 
         // Get the ground and velocities
         let ground_cast = if controller.skip_ground_check_timer == 0.0 {
-            ctx.cast_shape(
-                tf.mul_vec3(settings.float_cast_origin),
-                tf.to_scale_rotation_translation().1,
-                -settings.up_vector,
-                &settings.float_cast_collider,
-                settings.float_cast_length,
-                QueryFilter::new().predicate(&|collider| collider != entity),
-            )
-            .filter(|(_, i)| {
-                i.status != TOIStatus::Penetrating
+            B::cast_shape(ctx.as_ref(), &tf, settings, entity).filter(|(_, i)| {
+                i.status != crate::backends::TOIStatusProxy::Penetrating
                     && i.normal1.angle_between(settings.up_vector) <= settings.max_ground_angle
             })
         } else {
@@ -51,7 +41,8 @@ pub fn movement(
         };
 
         // If we hit something, just get back up instead of waiting.
-        if ctx.contacts_with(entity).next().is_some() {
+        // if ctx.contacts_with(entity).next().is_some() {
+        if B::entity_has_contacts(ctx.as_ref(), entity) {
             controller.skip_ground_check_timer = 0.0;
         }
 
@@ -91,9 +82,9 @@ pub fn movement(
         let mut float_spring = if let Some((ground, intersection)) = ground_cast {
             ground_vel = velocities.get(ground).ok();
 
-            let vel_align = (-settings.up_vector).dot(velocity.linvel);
+            let vel_align = (-settings.up_vector).dot(B::extract_linvel(velocity));
             let ground_vel_align =
-                (-settings.up_vector).dot(ground_vel.map(|v| v.linvel).unwrap_or(Vec3::ZERO));
+                (-settings.up_vector).dot(ground_vel.map(B::extract_linvel).unwrap_or(Vec3::ZERO));
 
             let relative_align = vel_align - ground_vel_align;
 
@@ -120,11 +111,11 @@ pub fn movement(
 
             let goal_vel = Vec3::lerp(
                 controller.last_goal_velocity,
-                input_goal_vel + ground_vel.map(|v| v.linvel).unwrap_or(Vec3::ZERO),
+                input_goal_vel + ground_vel.map(B::extract_linvel).unwrap_or(Vec3::ZERO),
                 (accel * dt).min(1.0),
             );
 
-            let needed_accel = goal_vel - velocity.linvel;
+            let needed_accel = goal_vel - B::extract_linvel(velocity);
 
             let max_accel_force = settings.max_acceleration_force;
 
@@ -148,7 +139,8 @@ pub fn movement(
         let mut jump = if controller.jump_timer > 0.0 && !grounded {
             if !input.jumping {
                 controller.jump_timer = 0.0;
-                velocity.linvel.project_onto(settings.up_vector) * -settings.jump_stop_force
+                B::extract_linvel(velocity).project_onto(settings.up_vector)
+                    * -settings.jump_stop_force
             } else {
                 controller.jump_timer = (controller.jump_timer - dt).max(0.0);
 
@@ -179,7 +171,7 @@ pub fn movement(
             controller.skip_ground_check_timer = settings.jump_skip_ground_check_duration;
             // Negating the current velocity increases consistency for falling jumps,
             // and prevents stacking jumps to reach high upwards velocities
-            jump = velocity.linvel * settings.up_vector * -1.0;
+            jump = B::extract_linvel(velocity) * settings.up_vector * -1.0;
             jump += settings.jump_initial_force * settings.up_vector;
             // Float force can lead to inconsistent jump power
             float_spring = Vec3::ZERO;
@@ -196,35 +188,19 @@ pub fn movement(
             };
 
             ((to_goal_axis * (to_goal_angle * settings.upright_spring_strength))
-                - (velocity.angvel * settings.upright_spring_damping))
+                - (B::extract_angvel(velocity) * settings.upright_spring_damping))
                 * dt
         };
 
-        // Apply positional force to the rigidbody
-        body.impulse = movement + jump + float_spring + gravity + input.custom_impulse;
+        // Positional force to apply to the rigidbody
+        let impulse = movement + jump + float_spring + gravity + input.custom_impulse;
         input.custom_impulse = Vec3::ZERO;
-        // Apply rotational force to the rigidbody
-        body.torque_impulse = upright + input.custom_torque;
+        // Rotational force to apply to the rigidbody
+        let torque_impulse = upright + input.custom_torque;
         input.custom_torque = Vec3::ZERO;
 
-        controller.jump_pressed_last_frame = input.jumping;
-    }
-}
+        B::apply_impulses(&mut body, impulse, torque_impulse);
 
-/// *Note: Most users will not need to use this directly. Use [`WanderlustPlugin`](crate::plugins::WanderlustPlugin) instead.
-/// Alternatively, if one only wants to disable the system, use [`WanderlustPhysicsTweaks`](WanderlustPhysicsTweaks).*
-///
-/// This system adds some tweaks to rapier's physics settings that make the character controller behave better.
-pub fn setup_physics_context(
-    mut ctx: ResMut<RapierContext>,
-    should_change: Option<Res<WanderlustPhysicsTweaks>>,
-) {
-    if should_change.map(|s| s.should_do_tweaks()).unwrap_or(true) {
-        let params = &mut ctx.integration_parameters;
-        // This prevents any noticeable jitter when running facefirst into a wall.
-        params.erp = 0.99;
-        // This prevents (most) noticeable jitter when running facefirst into an inverted corner.
-        params.max_velocity_iterations = 16;
-        // TODO: Fix jitter that occurs when running facefirst into a normal corner.
+        controller.jump_pressed_last_frame = input.jumping;
     }
 }

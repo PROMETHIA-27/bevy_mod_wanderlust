@@ -1,13 +1,13 @@
+use crate::backends::BackendCastableShape;
 use crate::ControllerSettings;
 use bevy::math::vec3;
 use bevy::prelude::*;
-use bevy_rapier3d::prelude::Collider;
 
 /// A basic preset for a standard, walking character controller. Works for most first and third person games.
 pub struct CharacterControllerPreset;
 
-impl From<CharacterControllerPreset> for ControllerSettings {
-    fn from(_: CharacterControllerPreset) -> ControllerSettings {
+impl<C: BackendCastableShape> From<CharacterControllerPreset> for ControllerSettings<C> {
+    fn from(_: CharacterControllerPreset) -> ControllerSettings<C> {
         ControllerSettings {
             acceleration: 50.0,
             max_speed: 10.0,
@@ -26,7 +26,7 @@ impl From<CharacterControllerPreset> for ControllerSettings {
             jump_buffer_duration: 0.16,
             force_scale: vec3(1.0, 0.0, 1.0),
             float_cast_length: 1.0,
-            float_cast_collider: Collider::ball(0.45),
+            float_cast_collider: C::ball(0.45),
             float_distance: 0.55,
             float_strength: 10.0,
             float_dampen: 0.5,
@@ -40,8 +40,8 @@ impl From<CharacterControllerPreset> for ControllerSettings {
 /// A sample controller preset for a spaceship which can fly in any direction.
 pub struct StarshipControllerPreset;
 
-impl From<StarshipControllerPreset> for ControllerSettings {
-    fn from(_: StarshipControllerPreset) -> ControllerSettings {
+impl<C: BackendCastableShape> From<StarshipControllerPreset> for ControllerSettings<C> {
+    fn from(_: StarshipControllerPreset) -> ControllerSettings<C> {
         ControllerSettings {
             acceleration: 0.3,
             max_speed: 100.0,

@@ -1,6 +1,7 @@
 #![deny(missing_docs)]
 #![doc = include_str!("../README.md")]
 
+pub mod backends;
 mod bundles;
 mod components;
 mod plugins;
@@ -9,10 +10,11 @@ mod resources;
 mod systems;
 
 pub use self::{
-    bundles::{CharacterControllerBundle, ControllerPhysicsBundle, StarshipControllerBundle},
+    backends::PhysicsBackend,
+    bundles::{CharacterControllerBundle, StarshipControllerBundle},
     components::{ControllerInput, ControllerSettings, ControllerState},
     plugins::WanderlustPlugin,
     presets::{CharacterControllerPreset, StarshipControllerPreset},
     resources::WanderlustPhysicsTweaks,
-    systems::{movement, setup_physics_context},
+    systems::movement,
 };
