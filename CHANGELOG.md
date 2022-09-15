@@ -31,13 +31,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## 0.1.5 - 2022-07-19
 ### Added
-- Globaltransform to bundles.
+- GlobalTransform to bundles.
 - Starship example.
 - Preset constructors.
 
 ### Changed
 - Tweak upright force to feel better.
-- Renam CCBundle to FPSBundle.
+- Rename CCBundle to FPSBundle.
 
 ## 0.1.4 - 2022-07-16
 ### Changed
