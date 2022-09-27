@@ -17,7 +17,7 @@ fn main() {
         .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
         .add_plugin(RapierDebugRenderPlugin::default())
         .add_plugin(WanderlustPlugin)
-        .insert_resource(Sensitivity(0.15))
+        .insert_resource(Sensitivity(1.0))
         .add_startup_system(setup)
         // Add to PreUpdate to ensure updated before movement is calculated
         .add_system_to_stage(CoreStage::PreUpdate, movement_input)
@@ -207,20 +207,19 @@ fn mouse_look(
     let mut cam_tf = cam.single_mut();
     let mut body_tf = body.single_mut();
 
-    let dt = time.delta_seconds();
     let sens = sensitivity.0;
 
-    for motion in input.iter() {
-        // Vertical
-        let rot = cam_tf.rotation;
-        cam_tf.rotate(Quat::from_scaled_axis(
-            rot * Vec3::X * -motion.delta.y * dt * sens,
-        ));
+    let cumulative: Vec2 = input.iter().map(|motion| &motion.delta).sum();
 
-        // Horizontal
-        let rot = body_tf.rotation;
-        body_tf.rotate(Quat::from_scaled_axis(
-            rot * Vec3::Y * -motion.delta.x * dt * sens,
-        ));
-    }
+    // Vertical
+    let rot = cam_tf.rotation;
+    cam_tf.rotate(Quat::from_scaled_axis(
+        rot * Vec3::X * (-cumulative.y / 180.0) * sens,
+    ));
+
+    // Horizontal
+    let rot = body_tf.rotation;
+    body_tf.rotate(Quat::from_scaled_axis(
+        rot * Vec3::Y * (-cumulative.x / 180.0) * sens,
+    ));
 }
