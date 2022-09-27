@@ -6,6 +6,7 @@ mod components;
 mod plugins;
 mod presets;
 mod resources;
+mod spring;
 mod systems;
 
 pub use self::{
@@ -14,5 +15,6 @@ pub use self::{
     plugins::WanderlustPlugin,
     presets::{CharacterControllerPreset, StarshipControllerPreset},
     resources::WanderlustPhysicsTweaks,
+    spring::Spring,
     systems::{movement, setup_physics_context},
 };

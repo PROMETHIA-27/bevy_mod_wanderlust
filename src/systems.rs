@@ -16,14 +16,19 @@ pub fn movement(
         &ControllerSettings,
         &mut ControllerInput,
         Option<&RelatedEntities>,
+        &ReadMassProperties,
     )>,
     velocities: Query<&Velocity>,
     time: Res<Time>,
     ctx: Res<RapierContext>,
     mut ground_casts: Local<Vec<(Entity, Toi)>>,
 ) {
-    for (entity, tf, mut body, mut controller, settings, mut input, related) in bodies.iter_mut() {
+    for (entity, tf, mut body, mut controller, settings, mut input, related, mass_properties) in
+        bodies.iter_mut()
+    {
         let dt = time.delta_seconds();
+        let mass = mass_properties.0.mass;
+        let center_of_mass = mass_properties.0.local_center_of_mass;
 
         // Sometimes, such as at the beginning of the game, deltatime is 0. This
         // can cause division by 0 so I just skip those frames. A better solution
@@ -91,7 +96,7 @@ pub fn movement(
 
         // Gravity
         let gravity = if ground_cast.is_none() {
-            settings.up_vector * -settings.gravity * dt
+            -settings.up_vector * settings.gravity
         } else {
             Vec3::ZERO
         };
@@ -115,7 +120,8 @@ pub fn movement(
             let snap = intersection.toi - settings.float_distance;
 
             (-settings.up_vector)
-                * ((snap * settings.float_strength) - (relative_align * settings.float_dampen))
+                * ((snap * settings.float_spring.strength)
+                    - (relative_align * settings.float_spring.damp_coefficient(mass)))
         } else {
             ground_vel = None;
             Vec3::ZERO
@@ -136,7 +142,7 @@ pub fn movement(
             let goal_vel = Vec3::lerp(
                 controller.last_goal_velocity,
                 input_goal_vel + ground_vel.map(|v| v.linvel).unwrap_or(Vec3::ZERO),
-                (accel * dt).min(1.0),
+                accel.min(1.0),
             );
 
             let needed_accel = goal_vel - velocity.linvel;
@@ -172,7 +178,6 @@ pub fn movement(
 
                 settings.jump_force
                     * settings.up_vector
-                    * dt
                     * (settings.jump_decay_function)(
                         (settings.jump_time - controller.jump_timer) / settings.jump_time,
                     )
@@ -210,9 +215,8 @@ pub fn movement(
                 )
             };
 
-            ((to_goal_axis * (to_goal_angle * settings.upright_spring_strength))
-                - (velocity.angvel * settings.upright_spring_damping))
-                * dt
+            (to_goal_axis * (to_goal_angle * settings.upright_spring.strength))
+                - (velocity.angvel * settings.upright_spring.damp_coefficient(mass))
         };
 
         // Apply positional force to the rigidbody
