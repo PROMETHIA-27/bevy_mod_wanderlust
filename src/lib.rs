@@ -11,7 +11,7 @@ mod systems;
 
 pub use self::{
     bundles::{CharacterControllerBundle, ControllerPhysicsBundle, StarshipControllerBundle},
-    components::{ControllerInput, ControllerSettings, ControllerState, RelatedEntities},
+    components::{ControllerInput, ControllerSettings, ControllerState},
     plugins::WanderlustPlugin,
     presets::{CharacterControllerPreset, StarshipControllerPreset},
     resources::WanderlustPhysicsTweaks,

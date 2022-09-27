@@ -105,6 +105,8 @@ pub struct ControllerSettings {
     pub float_spring: Spring,
     /// How strongly to force the character upright/avoid overshooting. Alternatively, see [`LockedAxes`] to lock rotation entirely.
     pub upright_spring: Spring,
+    /// Set of entities that should be ignored when ground casting.
+    pub exclude_from_ground: HashSet<Entity>,
 }
 
 impl ControllerSettings {
@@ -147,6 +149,7 @@ impl Default for ControllerSettings {
             float_distance: default(),
             float_spring: default(),
             upright_spring: default(),
+            exclude_from_ground: default(),
         }
     }
 }
@@ -173,12 +176,4 @@ pub struct ControllerInput {
     /// which rapier uses to apply impulse forces to a rigidbody.
     /// Will be reset to 0 after being applied.
     pub custom_torque: Vec3,
-}
-
-/// Entities that should be considered as part of the controlled character.
-#[derive(Deref, DerefMut, Component, Default, Reflect)]
-#[reflect(Component)]
-pub struct RelatedEntities {
-    /// Set of entities that should be considered a part of the same character.
-    pub related: HashSet<Entity>,
 }

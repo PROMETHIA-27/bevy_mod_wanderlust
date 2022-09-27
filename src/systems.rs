@@ -1,4 +1,4 @@
-use crate::components::{ControllerInput, ControllerSettings, ControllerState, RelatedEntities};
+use crate::components::{ControllerInput, ControllerSettings, ControllerState};
 use crate::WanderlustPhysicsTweaks;
 use bevy::{math::*, prelude::*};
 use bevy_rapier3d::prelude::*;
@@ -15,7 +15,6 @@ pub fn movement(
         &mut ControllerState,
         &ControllerSettings,
         &mut ControllerInput,
-        Option<&RelatedEntities>,
         &ReadMassProperties,
     )>,
     velocities: Query<&Velocity>,
@@ -23,7 +22,7 @@ pub fn movement(
     ctx: Res<RapierContext>,
     mut ground_casts: Local<Vec<(Entity, Toi)>>,
 ) {
-    for (entity, tf, mut body, mut controller, settings, mut input, related, mass_properties) in
+    for (entity, tf, mut body, mut controller, settings, mut input, mass_properties) in
         bodies.iter_mut()
     {
         let dt = time.delta_seconds();
@@ -50,10 +49,7 @@ pub fn movement(
                 &settings.float_cast_collider,
                 settings.float_cast_length,
                 QueryFilter::new().exclude_sensors().predicate(&|collider| {
-                    collider != entity
-                        && !related
-                            .map(|related| related.contains(&collider))
-                            .unwrap_or_default()
+                    collider != entity && !settings.exclude_from_ground.contains(&collider)
                 }),
                 &mut *ground_casts,
             );
@@ -172,7 +168,7 @@ pub fn movement(
         let mut jump = if controller.jump_timer > 0.0 && !grounded {
             if !input.jumping {
                 controller.jump_timer = 0.0;
-                velocity.linvel.project_onto(settings.up_vector) * -settings.jump_stop_force * dt
+                velocity.linvel.project_onto(settings.up_vector) * -settings.jump_stop_force
             } else {
                 controller.jump_timer = (controller.jump_timer - dt).max(0.0);
 
