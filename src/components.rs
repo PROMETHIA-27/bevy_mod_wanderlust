@@ -1,7 +1,7 @@
-use bevy::{math::*, prelude::*};
+use bevy::{math::*, prelude::*, utils::HashSet};
 use bevy_rapier3d::prelude::*;
 
-use crate::{CharacterControllerPreset, StarshipControllerPreset};
+use crate::{CharacterControllerPreset, Spring, StarshipControllerPreset};
 
 /// The character controller's state.
 /// This is the component responsible for adding controls to an entity.
@@ -102,13 +102,11 @@ pub struct ControllerSettings {
     /// How far to attempt to float away from the ground.
     pub float_distance: f32,
     /// How strongly to float away from the ground.
-    pub float_strength: f32,
-    /// How strongly to dampen floating away from the ground, to prevent jittering/oscillating float movement.
-    pub float_dampen: f32,
-    /// How strongly to attempt to stay upright. Alternatively, see [`LockedAxes`] to lock rotation entirely.
-    pub upright_spring_strength: f32,
-    /// How strongly to dampen staying upright. Prevents jittering/oscillating upright movement.
-    pub upright_spring_damping: f32,
+    pub float_spring: Spring,
+    /// How strongly to force the character upright/avoid overshooting. Alternatively, see [`LockedAxes`] to lock rotation entirely.
+    pub upright_spring: Spring,
+    /// Set of entities that should be ignored when ground casting.
+    pub exclude_from_ground: HashSet<Entity>,
 }
 
 impl ControllerSettings {
@@ -149,10 +147,9 @@ impl Default for ControllerSettings {
             float_cast_origin: default(),
             float_cast_collider: Collider::ball(1.0),
             float_distance: default(),
-            float_strength: default(),
-            float_dampen: default(),
-            upright_spring_strength: default(),
-            upright_spring_damping: default(),
+            float_spring: default(),
+            upright_spring: default(),
+            exclude_from_ground: default(),
         }
     }
 }

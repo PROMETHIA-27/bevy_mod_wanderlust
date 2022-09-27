@@ -1,4 +1,4 @@
-use crate::ControllerSettings;
+use crate::{ControllerSettings, Spring};
 use bevy::math::vec3;
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::Collider;
@@ -13,7 +13,7 @@ impl From<CharacterControllerPreset> for ControllerSettings {
             max_speed: 10.0,
             max_acceleration_force: 10.0,
             up_vector: Vec3::Y,
-            gravity: 25.0,
+            gravity: -9.8,
             max_ground_angle: 45.0 * (std::f32::consts::PI / 180.0),
             min_float_offset: -0.3,
             max_float_offset: 0.05,
@@ -28,10 +28,14 @@ impl From<CharacterControllerPreset> for ControllerSettings {
             float_cast_length: 1.0,
             float_cast_collider: Collider::ball(0.45),
             float_distance: 0.55,
-            float_strength: 10.0,
-            float_dampen: 0.5,
-            upright_spring_strength: 100.0,
-            upright_spring_damping: 10.0,
+            float_spring: Spring {
+                strength: 10.0,
+                damping: 0.5,
+            },
+            upright_spring: Spring {
+                strength: 10.0,
+                damping: 0.5,
+            },
             ..default()
         }
     }

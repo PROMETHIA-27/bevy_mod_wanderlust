@@ -8,6 +8,11 @@ use bevy_rapier3d::prelude::*;
 
 fn main() {
     App::new()
+        .insert_resource(WindowDescriptor {
+            cursor_locked: true,
+            cursor_visible: false,
+            ..default()
+        })
         .add_plugins(DefaultPlugins)
         .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
         .add_plugin(RapierDebugRenderPlugin::default())

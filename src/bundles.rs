@@ -28,6 +28,8 @@ pub struct ControllerPhysicsBundle {
     pub damping: Damping,
     /// See [`Restitution`].
     pub restitution: Restitution,
+    /// See [`ReadMassProperties`].
+    pub read_mass_properties: ReadMassProperties,
 }
 
 impl Default for ControllerPhysicsBundle {
@@ -53,6 +55,7 @@ impl Default for ControllerPhysicsBundle {
                 coefficient: 0.0,
                 combine_rule: CoefficientCombineRule::Min,
             },
+            read_mass_properties: default(),
         }
     }
 }
