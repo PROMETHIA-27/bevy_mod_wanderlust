@@ -28,7 +28,7 @@ pub fn movement(
     {
         let dt = time.delta_seconds();
         let mass = mass_properties.0.mass;
-        let center_of_mass = mass_properties.0.local_center_of_mass;
+        let local_center_of_mass = mass_properties.0.local_center_of_mass;
 
         // Sometimes, such as at the beginning of the game, deltatime is 0. This
         // can cause division by 0 so I just skip those frames. A better solution
@@ -111,7 +111,9 @@ pub fn movement(
         let mut float_spring = if let Some((ground, intersection)) = ground_cast {
             ground_vel = velocities.get(ground).ok();
 
-            let vel_align = (-settings.up_vector).dot(velocity.linvel);
+            let point_velocity =
+                velocity.linvel + velocity.angvel.cross(Vec3::ZERO - local_center_of_mass);
+            let vel_align = (-settings.up_vector).dot(point_velocity);
             let ground_vel_align =
                 (-settings.up_vector).dot(ground_vel.map(|v| v.linvel).unwrap_or(Vec3::ZERO));
 
