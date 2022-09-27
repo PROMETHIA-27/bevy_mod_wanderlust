@@ -7,12 +7,22 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 ### Added
 - An override for skipping ground check.
+- Exclude entities set for the controller settings to ignore certain entities in ground cast.
 
 ### Changed
 - Do multiple shape casts.
+- Spring damping force is now the damping ratio instead of a direct coefficient to the damped harmonic oscillator equation
+    - <1 is under-damped
+    - 1 is critically damped
+    - \>1 is over-damped
+- First person example:
+    - Mouse sensitivity no longer dependent on delta time
+    - Sensitivity also scaled more based on common default sensitivities in FPS games (e.g. Valorant)
+    - Cursor locked/invisible on launch
 
 ### Fixed
 - Clamp instead of normalize, so partial inputs work
+- Damping velocity takes into account angular velocity
 
 ## 0.2.2 - 2022-08-28
 ### Fixed
