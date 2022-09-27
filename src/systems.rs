@@ -96,7 +96,7 @@ pub fn movement(
 
         // Gravity
         let gravity = if ground_cast.is_none() {
-            -settings.up_vector * settings.gravity
+            settings.up_vector * mass * settings.gravity * dt
         } else {
             Vec3::ZERO
         };
@@ -122,6 +122,7 @@ pub fn movement(
             (-settings.up_vector)
                 * ((snap * settings.float_spring.strength)
                     - (relative_align * settings.float_spring.damp_coefficient(mass)))
+                * dt
         } else {
             ground_vel = None;
             Vec3::ZERO
@@ -142,7 +143,7 @@ pub fn movement(
             let goal_vel = Vec3::lerp(
                 controller.last_goal_velocity,
                 input_goal_vel + ground_vel.map(|v| v.linvel).unwrap_or(Vec3::ZERO),
-                accel.min(1.0),
+                (accel * dt).min(1.0),
             );
 
             let needed_accel = goal_vel - velocity.linvel;
@@ -169,7 +170,7 @@ pub fn movement(
         let mut jump = if controller.jump_timer > 0.0 && !grounded {
             if !input.jumping {
                 controller.jump_timer = 0.0;
-                velocity.linvel.project_onto(settings.up_vector) * -settings.jump_stop_force
+                velocity.linvel.project_onto(settings.up_vector) * -settings.jump_stop_force * dt
             } else {
                 controller.jump_timer = (controller.jump_timer - dt).max(0.0);
 
@@ -181,6 +182,7 @@ pub fn movement(
                     * (settings.jump_decay_function)(
                         (settings.jump_time - controller.jump_timer) / settings.jump_time,
                     )
+                    * dt
             }
         } else {
             Vec3::ZERO
@@ -216,7 +218,7 @@ pub fn movement(
             };
 
             (to_goal_axis * (to_goal_angle * settings.upright_spring.strength))
-                - (velocity.angvel * settings.upright_spring.damp_coefficient(mass))
+                - (velocity.angvel * settings.upright_spring.damp_coefficient(mass)) * dt
         };
 
         // Apply positional force to the rigidbody

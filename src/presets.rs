@@ -13,7 +13,7 @@ impl From<CharacterControllerPreset> for ControllerSettings {
             max_speed: 10.0,
             max_acceleration_force: 10.0,
             up_vector: Vec3::Y,
-            gravity: 25.0,
+            gravity: -9.8,
             max_ground_angle: 45.0 * (std::f32::consts::PI / 180.0),
             min_float_offset: -0.3,
             max_float_offset: 0.05,
