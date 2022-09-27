@@ -55,7 +55,7 @@ impl Default for ControllerPhysicsBundle {
                 coefficient: 0.0,
                 combine_rule: CoefficientCombineRule::Min,
             },
-            read_mass_properties: ReadMassProperties::default(),
+            read_mass_properties: default(),
         }
     }
 }
