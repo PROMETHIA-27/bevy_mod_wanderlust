@@ -19,7 +19,7 @@ bevy = { version = "0.8", default-features = false, features = ["bevy_render"]}
 bevy_rapier3d = { version = "0.17", default-features = false, features = ["dim3"]}
 
 [dev-dependencies]
-# bevy_editor_pls = { git = "https://github.com/jakobhellermann/bevy_editor_pls" }
+bevy_editor_pls = { git = "https://github.com/jakobhellermann/bevy_editor_pls" }
 bevy = "0.8"
 bevy_rapier3d = { version = "0.17", features = ["debug-render"]}
 
