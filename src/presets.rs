@@ -30,8 +30,8 @@ impl From<CharacterControllerPreset> for ControllerSettings {
             float_cast_collider: Collider::ball(0.45),
             float_distance: 0.55,
             float_spring: Spring {
-                strength: 10.0,
-                damping: 0.5,
+                strength: 100.0,
+                damping: 0.8,
             },
             upright_spring: Spring {
                 strength: 10.0,

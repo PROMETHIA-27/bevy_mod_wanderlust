@@ -2,7 +2,7 @@
 
 use bevy::render::camera::Projection;
 use bevy::{input::mouse::MouseMotion, prelude::*};
-// use bevy_editor_pls::prelude::*;
+use bevy_editor_pls::prelude::*;
 use bevy_mod_wanderlust::{CharacterControllerBundle, ControllerInput, WanderlustPlugin};
 use bevy_rapier3d::prelude::*;
 
@@ -22,7 +22,8 @@ fn main() {
         // Add to PreUpdate to ensure updated before movement is calculated
         .add_system_to_stage(CoreStage::PreUpdate, movement_input)
         .add_system(mouse_look)
-        // .add_plugin(EditorPlugin)
+        .add_system(toggle_cursor_lock)
+        .add_plugin(EditorPlugin)
         .run()
 }
 
@@ -202,7 +203,6 @@ fn mouse_look(
     mut body: Query<&mut Transform, (With<PlayerBody>, Without<PlayerCam>)>,
     sensitivity: Res<Sensitivity>,
     mut input: EventReader<MouseMotion>,
-    time: Res<Time>,
 ) {
     let mut cam_tf = cam.single_mut();
     let mut body_tf = body.single_mut();
@@ -222,4 +222,14 @@ fn mouse_look(
     body_tf.rotate(Quat::from_scaled_axis(
         rot * Vec3::Y * (-cumulative.x / 180.0) * sens,
     ));
+}
+
+fn toggle_cursor_lock(input: Res<Input<KeyCode>>, mut windows: ResMut<Windows>) {
+    if input.just_pressed(KeyCode::Escape) {
+        let window = windows.get_primary_mut().unwrap();
+        let locked = window.cursor_locked();
+        let visible = window.cursor_visible();
+        window.set_cursor_lock_mode(!locked);
+        window.set_cursor_visibility(!visible);
+    }
 }

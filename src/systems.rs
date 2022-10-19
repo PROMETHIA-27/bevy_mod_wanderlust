@@ -17,6 +17,7 @@ pub fn movement(
         &mut ControllerInput,
         &ReadMassProperties,
     )>,
+    rigid_body_handles: Query<(&GlobalTransform, &RapierRigidBodyHandle)>,
     velocities: Query<&Velocity>,
     mut ctx: ResMut<RapierContext>,
     mut ground_casts: Local<Vec<(Entity, Toi)>>,
@@ -219,11 +220,27 @@ pub fn movement(
         };
 
         // Apply positional force to the rigidbody
-        body.impulse = movement + jump + float_spring + gravity + input.custom_impulse;
+        let impulse = movement + jump + float_spring + gravity;
+        body.impulse = impulse + input.custom_impulse;
         input.custom_impulse = Vec3::ZERO;
         // Apply rotational force to the rigidbody
         body.torque_impulse = upright + input.custom_torque;
         input.custom_torque = Vec3::ZERO;
+
+        // Opposite force to whatever we were touching
+        if let Some((ground_entity, toi)) = ground_cast {
+            if let Ok((ground_transform, ground_handle)) = rigid_body_handles.get(ground_entity) {
+                if let Some(ground_body) = ctx.bodies.get_mut(ground_handle.0) {
+                    if toi.status != TOIStatus::Penetrating {
+                        ground_body.apply_impulse_at_point(
+                            (-impulse).into(),
+                            (ground_transform.compute_transform() * toi.witness1).into(),
+                            true,
+                        );
+                    }
+                }
+            }
+        }
 
         controller.jump_pressed_last_frame = input.jumping;
     }
