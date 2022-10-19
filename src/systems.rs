@@ -19,14 +19,13 @@ pub fn movement(
     )>,
     rigid_body_handles: Query<(&GlobalTransform, &RapierRigidBodyHandle)>,
     velocities: Query<&Velocity>,
-    time: Res<Time>,
     mut ctx: ResMut<RapierContext>,
     mut ground_casts: Local<Vec<(Entity, Toi)>>,
 ) {
     for (entity, tf, mut body, mut controller, settings, mut input, mass_properties) in
         bodies.iter_mut()
     {
-        let dt = time.delta_seconds();
+        let dt = ctx.integration_parameters.dt;
         let mass = mass_properties.0.mass;
         let local_center_of_mass = mass_properties.0.local_center_of_mass;
 
