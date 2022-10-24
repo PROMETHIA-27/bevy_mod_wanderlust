@@ -207,7 +207,18 @@ pub fn movement(
 
         // Calculate force to stay upright
         let upright = {
-            let (to_goal_axis, to_goal_angle) = {
+            let (axis, angle) = if let Some(forward) = settings.forward_vector {
+                let right = settings.up_vector.cross(forward).normalize();
+                let up = forward.cross(right);
+                let target_rot = Quat::from_mat3(&Mat3::from_cols(right, up, forward));
+                let current = tf.to_scale_rotation_translation().1;
+                let rot = target_rot * current.inverse();
+                let (axis, mut angle) = rot.to_axis_angle();
+                if angle > std::f32::consts::PI {
+                    angle -= 2.0 * std::f32::consts::PI;
+                }
+                (axis, angle)
+            } else {
                 let current = tf.up();
                 (
                     current.cross(settings.up_vector).normalize_or_zero(),
@@ -215,7 +226,7 @@ pub fn movement(
                 )
             };
 
-            (to_goal_axis * (to_goal_angle * settings.upright_spring.strength))
+            (axis * (angle * settings.upright_spring.strength))
                 - (velocity.angvel * settings.upright_spring.damp_coefficient(mass)) * dt
         };
 

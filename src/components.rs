@@ -46,6 +46,8 @@ pub struct ControllerSettings {
     pub max_acceleration_force: f32,
     /// The direction to jump, which is also the direction that gravity is opposite to.
     pub up_vector: Vec3,
+    /// The direction to face towards, or `None` to not rotate to face any direction. Must be perpendicular to the up vector and normalized.
+    pub forward_vector: Option<Vec3>,
     /// The strength of gravity.
     pub gravity: f32,
     /// The maximum angle that the ground can be, in radians, before it is no longer considered suitable for being "grounded" on.
@@ -128,6 +130,7 @@ impl Default for ControllerSettings {
             max_speed: default(),
             max_acceleration_force: default(),
             up_vector: default(),
+            forward_vector: default(),
             gravity: default(),
             max_ground_angle: default(),
             min_float_offset: default(),
