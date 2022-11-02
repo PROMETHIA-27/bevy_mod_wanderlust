@@ -221,11 +221,9 @@ pub fn movement(
 
         // Apply positional force to the rigidbody
         let impulse = movement + jump + float_spring + gravity;
-        body.impulse = impulse + input.custom_impulse;
-        input.custom_impulse = Vec3::ZERO;
+        body.impulse += impulse;
         // Apply rotational force to the rigidbody
-        body.torque_impulse = upright + input.custom_torque;
-        input.custom_torque = Vec3::ZERO;
+        body.torque_impulse += upright;
 
         // Opposite force to whatever we were touching
         if let Some((ground_entity, toi)) = ground_cast {
