@@ -1,27 +1,27 @@
 [package]
-name = "bevy_mod_wanderlust"
-version = "0.2.3"
 authors = ["PROMETHIA-27"]
-edition = "2021"
+categories = ["game-development"]
 description = "A character controller library for Bevy Engine"
 documentation = "https://docs.rs/bevy_mod_wanderlust/*/bevy_mod_wanderlust/"
-readme = "README.md"
+edition = "2021"
 homepage = "https://crates.io/crates/bevy_mod_wanderlust"
-repository = "https://github.com/PROMETHIA-27/bevy_mod_wanderlust"
-license = "MIT OR Apache-2.0"
 keywords = ["Bevy"]
-categories = ["game-development"]
+license = "MIT OR Apache-2.0"
+name = "bevy_mod_wanderlust"
+readme = "README.md"
+repository = "https://github.com/PROMETHIA-27/bevy_mod_wanderlust"
+version = "0.2.3"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bevy = { version = "0.8", default-features = false, features = ["bevy_render"]}
-bevy_rapier3d = { version = "0.17", default-features = false, features = ["dim3"]}
+bevy = {version = "0.8", default-features = false, features = ["bevy_render"]}
+bevy_rapier3d = {version = "0.18", default-features = false, features = ["dim3"]}
 
 [dev-dependencies]
-bevy_editor_pls = { git = "https://github.com/jakobhellermann/bevy_editor_pls" }
 bevy = "0.8"
-bevy_rapier3d = { version = "0.17", features = ["debug-render"]}
+bevy_editor_pls = {git = "https://github.com/jakobhellermann/bevy_editor_pls"}
+bevy_rapier3d = {version = "0.18", features = ["debug-render"]}
 
 # Enable only a small amount of optimization in debug mode
 [profile.dev]
