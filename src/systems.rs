@@ -3,6 +3,9 @@ use crate::WanderlustPhysicsTweaks;
 use bevy::{math::*, prelude::*};
 use bevy_rapier3d::prelude::*;
 
+#[cfg(feature = "debug_lines")]
+use bevy_prototype_debug_lines::*;
+
 /// *Note: Most users will not need to use this directly. Use [`WanderlustPlugin`](crate::plugins::WanderlustPlugin) instead.
 /// This system is useful for cases such as running on a fixed timestep.*
 ///
@@ -11,7 +14,6 @@ pub fn movement(
     mut bodies: Query<(
         Entity,
         &GlobalTransform,
-        &mut ExternalImpulse,
         &mut ControllerState,
         &ControllerSettings,
         &mut ControllerInput,
@@ -19,12 +21,15 @@ pub fn movement(
     )>,
     rigid_body_handles: Query<(&GlobalTransform, &RapierRigidBodyHandle)>,
     velocities: Query<&Velocity>,
+    globals: Query<&GlobalTransform>,
+    masses: Query<&ReadMassProperties>,
+    mut impulses: Query<&mut ExternalImpulse>,
     mut ctx: ResMut<RapierContext>,
     mut ground_casts: Local<Vec<(Entity, Toi)>>,
+
+    #[cfg(feature = "debug_lines")] mut lines: ResMut<DebugLines>,
 ) {
-    for (entity, tf, mut body, mut controller, settings, mut input, mass_properties) in
-        bodies.iter_mut()
-    {
+    for (entity, tf, mut controller, settings, mut input, mass_properties) in bodies.iter_mut() {
         let dt = ctx.integration_parameters.dt;
         let mass = mass_properties.0.mass;
         let local_center_of_mass = mass_properties.0.local_center_of_mass;
@@ -219,23 +224,37 @@ pub fn movement(
                 - (velocity.angvel * settings.upright_spring.damp_coefficient(mass)) * dt
         };
 
-        // Apply positional force to the rigidbody
         let impulse = movement + jump + float_spring + gravity;
-        body.impulse += impulse;
-        // Apply rotational force to the rigidbody
-        body.torque_impulse += upright;
+
+        if let Ok(mut body_impulse) = impulses.get_mut(entity) {
+            // Apply positional force to the rigidbody
+            body_impulse.impulse += impulse;
+            // Apply rotational force to the rigidbody
+            body_impulse.torque_impulse += upright;
+        }
 
         // Opposite force to whatever we were touching
         if let Some((ground_entity, toi)) = ground_cast {
-            if let Ok((ground_transform, ground_handle)) = rigid_body_handles.get(ground_entity) {
-                if let Some(ground_body) = ctx.bodies.get_mut(ground_handle.0) {
-                    if toi.status != TOIStatus::Penetrating {
-                        ground_body.apply_impulse_at_point(
-                            (-impulse).into(),
-                            (ground_transform.compute_transform() * toi.witness1).into(),
-                            true,
-                        );
-                    }
+            if toi.status != TOIStatus::Penetrating {
+                if let Ok(mut ground_impulse) = impulses.get_mut(ground_entity) {
+                    let ground_transform = match globals.get(ground_entity) {
+                        Ok(global) => global.compute_transform(),
+                        _ => Transform::default(),
+                    };
+
+                    let local_center_of_mass = match masses.get(ground_entity) {
+                        Ok(properties) => properties.0.local_center_of_mass,
+                        _ => Vec3::ZERO,
+                    };
+
+                    let center_of_mass = ground_transform * local_center_of_mass;
+
+                    let push_impulse =
+                        ExternalImpulse::at_point(-impulse, toi.witness1, center_of_mass);
+                    *ground_impulse += push_impulse;
+
+                    #[cfg(feature = "debug_lines")]
+                    lines.line_colored(toi.witness1, toi.witness1 - impulse, dt, Color::RED);
                 }
             }
         }
