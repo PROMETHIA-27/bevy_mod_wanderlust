@@ -107,6 +107,11 @@ pub struct ControllerSettings {
     pub upright_spring: Spring,
     /// Set of entities that should be ignored when ground casting.
     pub exclude_from_ground: HashSet<Entity>,
+    /// Scaling factor for the impulse applied to the ground to keep the character moving/off the ground.
+    pub opposing_impulse_scale: f32,
+    /// Scaling factor for the movement impulse applied to the ground.
+    /// Setting this to 0.0 would make it so things don't "slip" out from the characters feet.
+    pub opposing_movement_impulse_scale: f32,
 }
 
 impl ControllerSettings {
@@ -150,6 +155,8 @@ impl Default for ControllerSettings {
             float_spring: default(),
             upright_spring: default(),
             exclude_from_ground: default(),
+            opposing_impulse_scale: 1.0,
+            opposing_movement_impulse_scale: 1.0,
         }
     }
 }
