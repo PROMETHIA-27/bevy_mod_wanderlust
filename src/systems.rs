@@ -3,6 +3,9 @@ use crate::WanderlustPhysicsTweaks;
 use bevy::{math::*, prelude::*};
 use bevy_rapier3d::prelude::*;
 
+#[cfg(feature = "debug_lines")]
+use bevy_prototype_debug_lines::*;
+
 /// *Note: Most users will not need to use this directly. Use [`WanderlustPlugin`](crate::plugins::WanderlustPlugin) instead.
 /// This system is useful for cases such as running on a fixed timestep.*
 ///
@@ -21,6 +24,8 @@ pub fn movement(
     velocities: Query<&Velocity>,
     mut ctx: ResMut<RapierContext>,
     mut ground_casts: Local<Vec<(Entity, Toi)>>,
+
+    #[cfg(feature = "debug_lines")] mut lines: ResMut<DebugLines>,
 ) {
     for (entity, tf, mut body, mut controller, settings, mut input, mass_properties) in
         bodies.iter_mut()
