@@ -14,22 +14,14 @@ version = "0.2.3"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[features]
-debug_lines = ["bevy_prototype_debug_lines"]
-
 [dependencies]
-bevy = { version = "0.8", default-features = false, features = ["bevy_render"] }
-bevy_rapier3d = { version = "0.18", default-features = false, features = [
-    "dim3",
-] }
-bevy_prototype_debug_lines = { version = "0.8", features = [
-    "3d",
-], optional = true }
+bevy = {version = "0.8", default-features = false, features = ["bevy_render"]}
+bevy_rapier3d = {version = "0.18", default-features = false, features = ["dim3"]}
 
 [dev-dependencies]
 bevy = "0.8"
-bevy_editor_pls = { git = "https://github.com/jakobhellermann/bevy_editor_pls" }
-bevy_rapier3d = { version = "0.18", features = ["debug-render"] }
+bevy_editor_pls = {git = "https://github.com/jakobhellermann/bevy_editor_pls"}
+bevy_rapier3d = {version = "0.18", features = ["debug-render"]}
 
 # Enable only a small amount of optimization in debug mode
 [profile.dev]
