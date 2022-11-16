@@ -224,11 +224,14 @@ pub fn movement(
                 - (velocity.angvel * settings.upright_spring.damp_coefficient(mass)) * dt
         };
 
-        let impulse = movement + jump + float_spring + gravity;
+        let pushing_impulse = jump + float_spring + gravity;
+        let total_impulse = movement + pushing_impulse;
+        let opposing_impulse = -(movement * settings.opposing_movement_impulse_scale
+            + pushing_impulse * settings.opposing_impulse_scale);
 
         if let Ok(mut body_impulse) = impulses.get_mut(entity) {
             // Apply positional force to the rigidbody
-            body_impulse.impulse += impulse;
+            body_impulse.impulse += total_impulse;
             // Apply rotational force to the rigidbody
             body_impulse.torque_impulse += upright;
         }
@@ -250,11 +253,16 @@ pub fn movement(
                     let center_of_mass = ground_transform * local_center_of_mass;
 
                     let push_impulse =
-                        ExternalImpulse::at_point(-impulse, toi.witness1, center_of_mass);
+                        ExternalImpulse::at_point(opposing_impulse, toi.witness1, center_of_mass);
                     *ground_impulse += push_impulse;
 
                     #[cfg(feature = "debug_lines")]
-                    lines.line_colored(toi.witness1, toi.witness1 - impulse, dt, Color::RED);
+                    lines.line_colored(
+                        toi.witness1,
+                        toi.witness1 + opposing_impulse,
+                        dt,
+                        Color::RED,
+                    );
                 }
             }
         }
