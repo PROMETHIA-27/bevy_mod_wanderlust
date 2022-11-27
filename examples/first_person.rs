@@ -10,8 +10,6 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             window: WindowDescriptor {
-                monitor: MonitorSelection::Index(1),
-                position: WindowPosition::Centered,
                 cursor_visible: false,
                 cursor_grab_mode: CursorGrabMode::Locked,
                 ..default()
@@ -233,7 +231,7 @@ fn toggle_cursor_lock(input: Res<Input<KeyCode>>, mut windows: ResMut<Windows>) 
         let window = windows.get_primary_mut().unwrap();
         match window.cursor_grab_mode() {
             CursorGrabMode::Locked => {
-                window.set_cursor_grab_mode(CursorGrabMode::Confined);
+                window.set_cursor_grab_mode(CursorGrabMode::None);
                 window.set_cursor_visibility(true);
             }
             _ => {
