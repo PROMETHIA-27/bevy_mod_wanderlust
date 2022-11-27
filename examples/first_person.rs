@@ -1,21 +1,25 @@
 //! A simple example of setting up a first-person character controlled player.
 
 use bevy::render::camera::Projection;
+use bevy::window::CursorGrabMode;
 use bevy::{input::mouse::MouseMotion, prelude::*};
-use bevy_editor_pls::prelude::*;
 use bevy_mod_wanderlust::{CharacterControllerBundle, ControllerInput, WanderlustPlugin};
 use bevy_rapier3d::prelude::*;
 
 fn main() {
     App::new()
-        .insert_resource(WindowDescriptor {
-            cursor_locked: true,
-            cursor_visible: false,
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            window: WindowDescriptor {
+                monitor: MonitorSelection::Index(1),
+                position: WindowPosition::Centered,
+                cursor_visible: false,
+                cursor_grab_mode: CursorGrabMode::Locked,
+                ..default()
+            },
             ..default()
-        })
-        .add_plugins(DefaultPlugins)
+        }))
         .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
-        .add_plugin(RapierDebugRenderPlugin::default())
+        //.add_plugin(RapierDebugRenderPlugin::default())
         .add_plugin(WanderlustPlugin)
         .insert_resource(Sensitivity(1.0))
         .add_startup_system(setup)
@@ -23,7 +27,7 @@ fn main() {
         .add_system_to_stage(CoreStage::PreUpdate, movement_input)
         .add_system(mouse_look)
         .add_system(toggle_cursor_lock)
-        .add_plugin(EditorPlugin)
+        //.add_plugin(EditorPlugin)
         .run()
 }
 
@@ -35,7 +39,7 @@ struct PlayerCam;
 #[reflect(Component)]
 struct PlayerBody;
 
-#[derive(Reflect)]
+#[derive(Reflect, Resource)]
 struct Sensitivity(f32);
 
 fn setup(
@@ -55,16 +59,16 @@ fn setup(
     let material = mats.add(Color::WHITE.into());
 
     commands
-        .spawn_bundle(CharacterControllerBundle::default())
-        .insert_bundle(PbrBundle {
+        .spawn(CharacterControllerBundle::default())
+        .insert(PbrBundle {
             mesh,
             material: material.clone(),
             ..default()
         })
-        .insert_bundle((Name::from("Player"), PlayerBody))
+        .insert((Name::from("Player"), PlayerBody))
         .with_children(|commands| {
             commands
-                .spawn_bundle(Camera3dBundle {
+                .spawn(Camera3dBundle {
                     transform: Transform::from_xyz(0.0, 0.5, 0.0),
                     projection: Projection::Perspective(PerspectiveProjection {
                         fov: 90.0 * (std::f32::consts::PI / 180.0),
@@ -78,7 +82,7 @@ fn setup(
                 .with_children(|commands| {
                     let mesh = meshes.add(shape::Cube { size: 0.5 }.into());
 
-                    commands.spawn_bundle(PbrBundle {
+                    commands.spawn(PbrBundle {
                         mesh,
                         material: material.clone(),
                         transform: Transform::from_xyz(0.0, 0.0, -0.5),
@@ -90,18 +94,18 @@ fn setup(
     let mesh = meshes.add(shape::Plane { size: 10.0 }.into());
 
     commands
-        .spawn_bundle(PbrBundle {
+        .spawn(PbrBundle {
             mesh,
             material: material.clone(),
             transform: Transform::from_xyz(0.0, -10.0, 0.0),
             ..default()
         })
-        .insert_bundle((
+        .insert((
             Collider::halfspace(Vec3::Y * 10.0).unwrap(),
             Name::from("Ground"),
         ));
 
-    commands.spawn_bundle(PointLightBundle {
+    commands.spawn(PointLightBundle {
         transform: Transform::from_xyz(0.0, -5.0, 0.0),
         ..default()
     });
@@ -120,7 +124,7 @@ fn setup(
     );
 
     commands
-        .spawn_bundle(PbrBundle {
+        .spawn(PbrBundle {
             mesh,
             material: material.clone(),
             transform: Transform::from_xyz(-3.5, -8.0, 0.3).with_rotation(Quat::from_euler(
@@ -131,7 +135,7 @@ fn setup(
             )),
             ..default()
         })
-        .insert_bundle((Name::from("Slope"), Collider::cuboid(hw, hh, hl)));
+        .insert((Name::from("Slope"), Collider::cuboid(hw, hh, hl)));
 
     let (hw, hh, hl) = (0.25, 3.0, 5.0);
     let mesh = meshes.add(
@@ -147,16 +151,16 @@ fn setup(
     );
 
     commands
-        .spawn_bundle(PbrBundle {
+        .spawn(PbrBundle {
             mesh: mesh.clone(),
             material: material.clone(),
             transform: Transform::from_xyz(3.5, -8.0, 0.0),
             ..default()
         })
-        .insert_bundle((Name::from("Wall"), Collider::cuboid(hw, hh, hl)));
+        .insert((Name::from("Wall"), Collider::cuboid(hw, hh, hl)));
 
     commands
-        .spawn_bundle(PbrBundle {
+        .spawn(PbrBundle {
             mesh: mesh,
             material: material.clone(),
             transform: Transform::from_xyz(6.5, -8.0, 0.0).with_rotation(Quat::from_euler(
@@ -167,7 +171,7 @@ fn setup(
             )),
             ..default()
         })
-        .insert_bundle((Name::from("Wall"), Collider::cuboid(hw, hh, hl)));
+        .insert((Name::from("Wall"), Collider::cuboid(hw, hh, hl)));
 }
 
 fn movement_input(
@@ -227,9 +231,15 @@ fn mouse_look(
 fn toggle_cursor_lock(input: Res<Input<KeyCode>>, mut windows: ResMut<Windows>) {
     if input.just_pressed(KeyCode::Escape) {
         let window = windows.get_primary_mut().unwrap();
-        let locked = window.cursor_locked();
-        let visible = window.cursor_visible();
-        window.set_cursor_lock_mode(!locked);
-        window.set_cursor_visibility(!visible);
+        match window.cursor_grab_mode() {
+            CursorGrabMode::Locked => {
+                window.set_cursor_grab_mode(CursorGrabMode::Confined);
+                window.set_cursor_visibility(true);
+            }
+            _ => {
+                window.set_cursor_grab_mode(CursorGrabMode::Locked);
+                window.set_cursor_visibility(false);
+            }
+        }
     }
 }
