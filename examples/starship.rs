@@ -1,7 +1,9 @@
 use std::f32::consts::FRAC_PI_2;
 
-use bevy::input::mouse::MouseMotion;
+// use bevy::input::mouse::MouseMotion;
 use bevy::prelude::*;
+// use bevy_editor_pls::EditorPlugin;
+// use bevy_editor_pls::controls::{EditorControls, Action, Binding, UserInput};
 // use bevy_editor_pls::controls::{Action, Binding, Button, EditorControls, UserInput};
 // use bevy_editor_pls::prelude::*;
 use bevy_mod_wanderlust::{
@@ -50,7 +52,7 @@ fn setup(
     let mesh = meshes.add(shape::Cube { size: 10.0 }.into());
     let mat = mats.add(Color::WHITE.into());
 
-    c.spawn_bundle(PbrBundle {
+    c.spawn(PbrBundle {
         mesh,
         material: mat.clone(),
         transform: Transform::from_xyz(0.0, 0.0, 0.0),
@@ -58,7 +60,7 @@ fn setup(
     });
 
     // Light so you can see the cube
-    c.spawn_bundle(PointLightBundle {
+    c.spawn(PointLightBundle {
         transform: Transform::from_xyz(15.0, 16.0, 17.0),
         point_light: PointLight {
             color: Color::default(),
@@ -70,7 +72,7 @@ fn setup(
     });
 
     // The ship itself
-    c.spawn_bundle(StarshipControllerBundle {
+    c.spawn(StarshipControllerBundle {
         transform: Transform::from_xyz(0.0, 0.0, 5.0),
         physics: ControllerPhysicsBundle {
             damping: Damping {
@@ -81,9 +83,9 @@ fn setup(
         },
         ..default()
     })
-    .insert_bundle((Player,))
+    .insert((Player,))
     .with_children(|c| {
-        c.spawn_bundle(SceneBundle {
+        c.spawn(SceneBundle {
             transform: Transform::from_translation(Vec3::ZERO).with_rotation(Quat::from_euler(
                 EulerRot::XYZ,
                 0.0,
@@ -94,7 +96,7 @@ fn setup(
             ..default()
         });
 
-        c.spawn_bundle(Camera3dBundle {
+        c.spawn(Camera3dBundle {
             transform: Transform::from_xyz(0.0, 7.5, 35.0),
             ..default()
         });
@@ -104,11 +106,11 @@ fn setup(
 fn input(
     mut body: Query<(&mut ControllerInput, &GlobalTransform)>,
     input: Res<Input<KeyCode>>,
-    mut mouse: EventReader<MouseMotion>,
-    time: Res<Time>,
+    // mut mouse: EventReader<MouseMotion>,
+    // time: Res<Time>,
 ) {
-    const SENSITIVITY: f32 = 0.025;
-    const ROLL_MULT: f32 = 5.0;
+    // const SENSITIVITY: f32 = 0.025;
+    // const ROLL_MULT: f32 = 5.0;
 
     let (mut body, tf) = body.single_mut();
 
@@ -134,15 +136,15 @@ fn input(
 
     body.movement = dir;
 
-    let dt = time.delta_seconds();
-    for &MouseMotion { delta } in mouse.iter() {
-        body.custom_torque += tf.up() * -delta.x * dt * SENSITIVITY;
-        body.custom_torque += tf.right() * -delta.y * dt * SENSITIVITY;
-    }
-    if input.pressed(KeyCode::Q) {
-        body.custom_torque += -tf.forward() * dt * SENSITIVITY * ROLL_MULT;
-    }
-    if input.pressed(KeyCode::E) {
-        body.custom_torque += tf.forward() * dt * SENSITIVITY * ROLL_MULT;
-    }
+    // let dt = time.delta_seconds();
+    // for &MouseMotion { delta } in mouse.iter() {
+    //     body.torque += tf.up() * -delta.x * dt * SENSITIVITY;
+    //     body.torque_impulse += tf.right() * -delta.y * dt * SENSITIVITY;
+    // }
+    // if input.pressed(KeyCode::Q) {
+    //     body.torque_impulse += -tf.forward() * dt * SENSITIVITY * ROLL_MULT;
+    // }
+    // if input.pressed(KeyCode::E) {
+    //     body.torque_impulse += tf.forward() * dt * SENSITIVITY * ROLL_MULT;
+    // }
 }
