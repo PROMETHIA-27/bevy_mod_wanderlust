@@ -1,5 +1,8 @@
+use bevy::prelude::Resource;
+
 /// Should [`WanderlustPlugin`](crate::plugins::WanderlustPlugin) tweak physics rules to make the character controller work better?
 /// If not present, defaults to true. Must be added before [`WanderlustPlugin`](crate::plugins::WanderlustPlugin).
+#[derive(Resource)]
 pub struct WanderlustPhysicsTweaks(#[deprecated] pub bool);
 
 impl WanderlustPhysicsTweaks {

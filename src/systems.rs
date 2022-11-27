@@ -48,7 +48,7 @@ pub fn movement(
         {
             intersections_with_shape_cast(
                 &*ctx,
-                tf.mul_vec3(settings.float_cast_origin),
+                tf.transform_point(settings.float_cast_origin),
                 tf.to_scale_rotation_translation().1,
                 -settings.up_vector,
                 &settings.float_cast_collider,
