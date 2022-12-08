@@ -1,16 +1,14 @@
 use std::f32::consts::FRAC_PI_2;
 
-// use bevy::input::mouse::MouseMotion;
+use bevy::input::mouse::MouseMotion;
 use bevy::prelude::*;
-// use bevy_editor_pls::EditorPlugin;
-// use bevy_editor_pls::controls::{EditorControls, Action, Binding, UserInput};
-// use bevy_editor_pls::controls::{Action, Binding, Button, EditorControls, UserInput};
-// use bevy_editor_pls::prelude::*;
+use bevy_editor_pls::controls::{Action, Binding, Button, EditorControls, UserInput};
+use bevy_editor_pls::prelude::*;
 use bevy_mod_wanderlust::{
     ControllerInput, ControllerPhysicsBundle, StarshipControllerBundle, WanderlustPlugin,
 };
 use bevy_rapier3d::plugin::{NoUserData, RapierPhysicsPlugin};
-use bevy_rapier3d::prelude::Damping;
+use bevy_rapier3d::prelude::*;
 
 fn main() {
     let mut bindings = EditorControls::default_bindings();
@@ -104,7 +102,7 @@ fn setup(
 }
 
 fn input(
-    mut body: Query<(&mut ControllerInput, &GlobalTransform)>,
+    mut body: Query<(&mut ControllerInput, &GlobalTransform, &mut ExternalImpulse)>,
     input: Res<Input<KeyCode>>,
     mut mouse: EventReader<MouseMotion>,
     time: Res<Time>,
@@ -112,7 +110,7 @@ fn input(
     const SENSITIVITY: f32 = 0.025;
     const ROLL_MULT: f32 = 5.0;
 
-    let (mut body, tf) = body.single_mut();
+    let (mut body, tf, mut impulse) = body.single_mut();
 
     let mut dir = Vec3::ZERO;
     if input.pressed(KeyCode::A) {
@@ -138,13 +136,13 @@ fn input(
 
     let dt = time.delta_seconds();
     for &MouseMotion { delta } in mouse.iter() {
-        body.torque += tf.up() * -delta.x * dt * SENSITIVITY;
-        body.torque_impulse += tf.right() * -delta.y * dt * SENSITIVITY;
+        impulse.torque_impulse += tf.up() * -delta.x * dt * SENSITIVITY;
+        impulse.torque_impulse += tf.right() * -delta.y * dt * SENSITIVITY;
     }
     if input.pressed(KeyCode::Q) {
-        body.torque_impulse += -tf.forward() * dt * SENSITIVITY * ROLL_MULT;
+        impulse.torque_impulse += -tf.forward() * dt * SENSITIVITY * ROLL_MULT;
     }
     if input.pressed(KeyCode::E) {
-        body.torque_impulse += tf.forward() * dt * SENSITIVITY * ROLL_MULT;
+        impulse.torque_impulse += tf.forward() * dt * SENSITIVITY * ROLL_MULT;
     }
 }
