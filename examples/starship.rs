@@ -13,25 +13,25 @@ use bevy_rapier3d::plugin::{NoUserData, RapierPhysicsPlugin};
 use bevy_rapier3d::prelude::Damping;
 
 fn main() {
-    // let mut bindings = EditorControls::default_bindings();
-    // bindings.unbind(Action::PlayPauseEditor);
-    // bindings.insert(
-    //     Action::PlayPauseEditor,
-    //     Binding {
-    //         input: UserInput::Chord(vec![
-    //             Button::Keyboard(KeyCode::LControl),
-    //             Button::Keyboard(KeyCode::E),
-    //         ]),
-    //         conditions: vec![],
-    //     },
-    // );
+    let mut bindings = EditorControls::default_bindings();
+    bindings.unbind(Action::PlayPauseEditor);
+    bindings.insert(
+        Action::PlayPauseEditor,
+        Binding {
+            input: UserInput::Chord(vec![
+                Button::Keyboard(KeyCode::LControl),
+                Button::Keyboard(KeyCode::E),
+            ]),
+            conditions: vec![],
+        },
+    );
 
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
         .add_plugin(WanderlustPlugin)
-        // .add_plugin(EditorPlugin)
-        // .insert_resource(bindings)
+        .add_plugin(EditorPlugin)
+        .insert_resource(bindings)
         .add_startup_system(setup)
         .add_system_to_stage(CoreStage::PreUpdate, input)
         .register_type::<Player>()
@@ -106,11 +106,11 @@ fn setup(
 fn input(
     mut body: Query<(&mut ControllerInput, &GlobalTransform)>,
     input: Res<Input<KeyCode>>,
-    // mut mouse: EventReader<MouseMotion>,
-    // time: Res<Time>,
+    mut mouse: EventReader<MouseMotion>,
+    time: Res<Time>,
 ) {
-    // const SENSITIVITY: f32 = 0.025;
-    // const ROLL_MULT: f32 = 5.0;
+    const SENSITIVITY: f32 = 0.025;
+    const ROLL_MULT: f32 = 5.0;
 
     let (mut body, tf) = body.single_mut();
 
@@ -136,15 +136,15 @@ fn input(
 
     body.movement = dir;
 
-    // let dt = time.delta_seconds();
-    // for &MouseMotion { delta } in mouse.iter() {
-    //     body.torque += tf.up() * -delta.x * dt * SENSITIVITY;
-    //     body.torque_impulse += tf.right() * -delta.y * dt * SENSITIVITY;
-    // }
-    // if input.pressed(KeyCode::Q) {
-    //     body.torque_impulse += -tf.forward() * dt * SENSITIVITY * ROLL_MULT;
-    // }
-    // if input.pressed(KeyCode::E) {
-    //     body.torque_impulse += tf.forward() * dt * SENSITIVITY * ROLL_MULT;
-    // }
+    let dt = time.delta_seconds();
+    for &MouseMotion { delta } in mouse.iter() {
+        body.torque += tf.up() * -delta.x * dt * SENSITIVITY;
+        body.torque_impulse += tf.right() * -delta.y * dt * SENSITIVITY;
+    }
+    if input.pressed(KeyCode::Q) {
+        body.torque_impulse += -tf.forward() * dt * SENSITIVITY * ROLL_MULT;
+    }
+    if input.pressed(KeyCode::E) {
+        body.torque_impulse += tf.forward() * dt * SENSITIVITY * ROLL_MULT;
+    }
 }

@@ -19,7 +19,6 @@ pub fn movement(
         &mut ControllerInput,
         &ReadMassProperties,
     )>,
-    //rigid_body_handles: Query<(&GlobalTransform, &RapierRigidBodyHandle)>,
     velocities: Query<&Velocity>,
     globals: Query<&GlobalTransform>,
     masses: Query<&ReadMassProperties>,

@@ -27,7 +27,7 @@ bevy_prototype_debug_lines = { version = "0.9", features = [
 ], optional = true }
 
 [dev-dependencies]
-bevy = "0.9.0"
+bevy = "0.9"
 bevy_editor_pls = { git = "https://github.com/jakobhellermann/bevy_editor_pls" }
 bevy_rapier3d = { version = "0.19", features = ["debug-render"] }
 

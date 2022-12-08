@@ -5,6 +5,7 @@ use bevy::window::CursorGrabMode;
 use bevy::{input::mouse::MouseMotion, prelude::*};
 use bevy_mod_wanderlust::{CharacterControllerBundle, ControllerInput, WanderlustPlugin};
 use bevy_rapier3d::prelude::*;
+use bevy_editor_pls::prelude::*;
 
 fn main() {
     App::new()
@@ -17,7 +18,7 @@ fn main() {
             ..default()
         }))
         .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
-        //.add_plugin(RapierDebugRenderPlugin::default())
+        .add_plugin(RapierDebugRenderPlugin::default())
         .add_plugin(WanderlustPlugin)
         .insert_resource(Sensitivity(1.0))
         .add_startup_system(setup)
@@ -25,7 +26,7 @@ fn main() {
         .add_system_to_stage(CoreStage::PreUpdate, movement_input)
         .add_system(mouse_look)
         .add_system(toggle_cursor_lock)
-        //.add_plugin(EditorPlugin)
+        .add_plugin(EditorPlugin)
         .run()
 }
 
