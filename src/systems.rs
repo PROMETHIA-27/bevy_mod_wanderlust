@@ -19,17 +19,16 @@ pub fn movement(
         &mut ControllerInput,
         &ReadMassProperties,
     )>,
-    rigid_body_handles: Query<(&GlobalTransform, &RapierRigidBodyHandle)>,
     velocities: Query<&Velocity>,
     globals: Query<&GlobalTransform>,
     masses: Query<&ReadMassProperties>,
     mut impulses: Query<&mut ExternalImpulse>,
-    mut ctx: ResMut<RapierContext>,
+    ctx: ResMut<RapierContext>,
     mut ground_casts: Local<Vec<(Entity, Toi)>>,
 
     #[cfg(feature = "debug_lines")] mut lines: ResMut<DebugLines>,
 ) {
-    for (entity, tf, mut controller, settings, mut input, mass_properties) in bodies.iter_mut() {
+    for (entity, tf, mut controller, settings, input, mass_properties) in bodies.iter_mut() {
         let dt = ctx.integration_parameters.dt;
         let mass = mass_properties.0.mass;
         let local_center_of_mass = mass_properties.0.local_center_of_mass;
@@ -48,7 +47,7 @@ pub fn movement(
         {
             intersections_with_shape_cast(
                 &*ctx,
-                tf.mul_vec3(settings.float_cast_origin),
+                tf.transform_point(settings.float_cast_origin),
                 tf.to_scale_rotation_translation().1,
                 -settings.up_vector,
                 &settings.float_cast_collider,

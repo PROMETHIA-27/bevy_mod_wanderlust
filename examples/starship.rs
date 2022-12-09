@@ -2,34 +2,34 @@ use std::f32::consts::FRAC_PI_2;
 
 use bevy::input::mouse::MouseMotion;
 use bevy::prelude::*;
-// use bevy_editor_pls::controls::{Action, Binding, Button, EditorControls, UserInput};
-// use bevy_editor_pls::prelude::*;
+use bevy_editor_pls::controls::{Action, Binding, Button, EditorControls, UserInput};
+use bevy_editor_pls::prelude::*;
 use bevy_mod_wanderlust::{
     ControllerInput, ControllerPhysicsBundle, StarshipControllerBundle, WanderlustPlugin,
 };
 use bevy_rapier3d::plugin::{NoUserData, RapierPhysicsPlugin};
-use bevy_rapier3d::prelude::Damping;
+use bevy_rapier3d::prelude::*;
 
 fn main() {
-    // let mut bindings = EditorControls::default_bindings();
-    // bindings.unbind(Action::PlayPauseEditor);
-    // bindings.insert(
-    //     Action::PlayPauseEditor,
-    //     Binding {
-    //         input: UserInput::Chord(vec![
-    //             Button::Keyboard(KeyCode::LControl),
-    //             Button::Keyboard(KeyCode::E),
-    //         ]),
-    //         conditions: vec![],
-    //     },
-    // );
+    let mut bindings = EditorControls::default_bindings();
+    bindings.unbind(Action::PlayPauseEditor);
+    bindings.insert(
+        Action::PlayPauseEditor,
+        Binding {
+            input: UserInput::Chord(vec![
+                Button::Keyboard(KeyCode::LControl),
+                Button::Keyboard(KeyCode::E),
+            ]),
+            conditions: vec![],
+        },
+    );
 
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
         .add_plugin(WanderlustPlugin)
-        // .add_plugin(EditorPlugin)
-        // .insert_resource(bindings)
+        //.add_plugin(EditorPlugin)
+        .insert_resource(bindings)
         .add_startup_system(setup)
         .add_system_to_stage(CoreStage::PreUpdate, input)
         .register_type::<Player>()
@@ -50,7 +50,7 @@ fn setup(
     let mesh = meshes.add(shape::Cube { size: 10.0 }.into());
     let mat = mats.add(Color::WHITE.into());
 
-    c.spawn_bundle(PbrBundle {
+    c.spawn(PbrBundle {
         mesh,
         material: mat.clone(),
         transform: Transform::from_xyz(0.0, 0.0, 0.0),
@@ -58,7 +58,7 @@ fn setup(
     });
 
     // Light so you can see the cube
-    c.spawn_bundle(PointLightBundle {
+    c.spawn(PointLightBundle {
         transform: Transform::from_xyz(15.0, 16.0, 17.0),
         point_light: PointLight {
             color: Color::default(),
@@ -70,7 +70,7 @@ fn setup(
     });
 
     // The ship itself
-    c.spawn_bundle(StarshipControllerBundle {
+    c.spawn(StarshipControllerBundle {
         transform: Transform::from_xyz(0.0, 0.0, 5.0),
         physics: ControllerPhysicsBundle {
             damping: Damping {
@@ -81,9 +81,9 @@ fn setup(
         },
         ..default()
     })
-    .insert_bundle((Player,))
+    .insert((Player,))
     .with_children(|c| {
-        c.spawn_bundle(SceneBundle {
+        c.spawn(SceneBundle {
             transform: Transform::from_translation(Vec3::ZERO).with_rotation(Quat::from_euler(
                 EulerRot::XYZ,
                 0.0,
@@ -94,7 +94,7 @@ fn setup(
             ..default()
         });
 
-        c.spawn_bundle(Camera3dBundle {
+        c.spawn(Camera3dBundle {
             transform: Transform::from_xyz(0.0, 7.5, 35.0),
             ..default()
         });
@@ -102,7 +102,7 @@ fn setup(
 }
 
 fn input(
-    mut body: Query<(&mut ControllerInput, &GlobalTransform)>,
+    mut body: Query<(&mut ControllerInput, &GlobalTransform, &mut ExternalImpulse)>,
     input: Res<Input<KeyCode>>,
     mut mouse: EventReader<MouseMotion>,
     time: Res<Time>,
@@ -110,7 +110,7 @@ fn input(
     const SENSITIVITY: f32 = 0.025;
     const ROLL_MULT: f32 = 5.0;
 
-    let (mut body, tf) = body.single_mut();
+    let (mut body, tf, mut impulse) = body.single_mut();
 
     let mut dir = Vec3::ZERO;
     if input.pressed(KeyCode::A) {
@@ -136,13 +136,13 @@ fn input(
 
     let dt = time.delta_seconds();
     for &MouseMotion { delta } in mouse.iter() {
-        body.custom_torque += tf.up() * -delta.x * dt * SENSITIVITY;
-        body.custom_torque += tf.right() * -delta.y * dt * SENSITIVITY;
+        impulse.torque_impulse += tf.up() * -delta.x * dt * SENSITIVITY;
+        impulse.torque_impulse += tf.right() * -delta.y * dt * SENSITIVITY;
     }
     if input.pressed(KeyCode::Q) {
-        body.custom_torque += -tf.forward() * dt * SENSITIVITY * ROLL_MULT;
+        impulse.torque_impulse += -tf.forward() * dt * SENSITIVITY * ROLL_MULT;
     }
     if input.pressed(KeyCode::E) {
-        body.custom_torque += tf.forward() * dt * SENSITIVITY * ROLL_MULT;
+        impulse.torque_impulse += tf.forward() * dt * SENSITIVITY * ROLL_MULT;
     }
 }
