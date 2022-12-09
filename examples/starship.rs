@@ -28,7 +28,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
         .add_plugin(WanderlustPlugin)
-        .add_plugin(EditorPlugin)
+        //.add_plugin(EditorPlugin)
         .insert_resource(bindings)
         .add_startup_system(setup)
         .add_system_to_stage(CoreStage::PreUpdate, input)

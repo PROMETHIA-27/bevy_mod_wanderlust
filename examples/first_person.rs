@@ -26,7 +26,7 @@ fn main() {
         .add_system_to_stage(CoreStage::PreUpdate, movement_input)
         .add_system(mouse_look)
         .add_system(toggle_cursor_lock)
-        .add_plugin(EditorPlugin)
+        //.add_plugin(EditorPlugin)
         .run()
 }
 
