@@ -33,11 +33,7 @@ pub fn movement(
         let mass = mass_properties.0.mass;
         let local_center_of_mass = mass_properties.0.local_center_of_mass;
 
-        // Sometimes, such as at the beginning of the game, deltatime is 0. This
-        // can cause division by 0 so I just skip those frames. A better solution
-        // is a fixed framerate that has a static dt, but bevy doesn't have
-        // that to my knowledge.
-        if dt == 0.0 {
+        if !settings.valid() || dt == 0.0 {
             return;
         }
 
@@ -211,7 +207,7 @@ pub fn movement(
 
         // Calculate force to stay upright
         let upright = {
-            let (axis, angle) = if let Some(forward) = settings.forward_vector {
+            let desired_axis = if let Some(forward) = settings.forward_vector {
                 let right = settings.up_vector.cross(forward).normalize();
                 let up = forward.cross(right);
                 let target_rot = Quat::from_mat3(&Mat3::from_cols(right, up, forward));
@@ -221,17 +217,15 @@ pub fn movement(
                 if angle > std::f32::consts::PI {
                     angle -= 2.0 * std::f32::consts::PI;
                 }
-                (axis, angle)
+                axis * angle
             } else {
                 let current = tf.up();
-                (
-                    current.cross(settings.up_vector).normalize_or_zero(),
-                    current.angle_between(settings.up_vector),
-                )
+                current.cross(settings.up_vector)
             };
 
-            (axis * (angle * settings.upright_spring.strength))
-                - (velocity.angvel * settings.upright_spring.damp_coefficient(mass)) * dt
+            let spring = (desired_axis * settings.upright_spring.strength)
+                - (velocity.angvel * settings.upright_spring.damp_coefficient(mass)) * dt;
+            spring.clamp_length_max(settings.upright_spring.strength)
         };
 
         let pushing_impulse = jump + float_spring + gravity;

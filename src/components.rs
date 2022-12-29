@@ -126,6 +126,17 @@ impl ControllerSettings {
     pub fn starship() -> Self {
         StarshipControllerPreset.into()
     }
+
+    /// Validate that assumptions made in the settings are correct.
+    pub fn valid(&self) -> bool {
+        let mut valid = true;
+        if !self.up_vector.is_normalized() {
+            warn!("Controller up vector is not normalized");
+            valid = false;
+        }
+
+        valid
+    }
 }
 
 impl Default for ControllerSettings {
