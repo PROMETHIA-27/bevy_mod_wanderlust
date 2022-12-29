@@ -33,7 +33,7 @@ pub fn movement(
         let mass = mass_properties.0.mass;
         let local_center_of_mass = mass_properties.0.local_center_of_mass;
 
-        if !settings.validate() || dt == 0.0 {
+        if !settings.valid() || dt == 0.0 {
             return;
         }
 

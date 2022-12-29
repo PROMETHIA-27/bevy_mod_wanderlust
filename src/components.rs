@@ -128,14 +128,14 @@ impl ControllerSettings {
     }
 
     /// Validate that assumptions made in the settings are correct.
-    pub fn validate(&self) -> bool {
-        let mut invalid = false;
+    pub fn valid(&self) -> bool {
+        let mut valid = true;
         if !self.up_vector.is_normalized() {
             warn!("Controller up vector is not normalized");
-            invalid = true;
+            valid = false;
         }
 
-        invalid
+        valid
     }
 }
 
