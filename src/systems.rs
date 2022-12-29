@@ -211,7 +211,7 @@ pub fn movement(
 
         // Calculate force to stay upright
         let upright = {
-            let (axis, angle) = if let Some(forward) = settings.forward_vector {
+            let desired_axis = if let Some(forward) = settings.forward_vector {
                 let right = settings.up_vector.cross(forward).normalize();
                 let up = forward.cross(right);
                 let target_rot = Quat::from_mat3(&Mat3::from_cols(right, up, forward));
@@ -221,17 +221,15 @@ pub fn movement(
                 if angle > std::f32::consts::PI {
                     angle -= 2.0 * std::f32::consts::PI;
                 }
-                (axis, angle)
+                axis * angle
             } else {
                 let current = tf.up();
-                (
-                    current.cross(settings.up_vector).normalize_or_zero(),
-                    current.angle_between(settings.up_vector),
-                )
+                current.normalize().cross(settings.up_vector.normalize())
             };
 
-            (axis * (angle * settings.upright_spring.strength))
-                - (velocity.angvel * settings.upright_spring.damp_coefficient(mass)) * dt
+            let spring = (desired_axis * settings.upright_spring.strength)
+                - (velocity.angvel * settings.upright_spring.damp_coefficient(mass)) * dt;
+            spring.clamp_length_max(settings.upright_spring.strength)
         };
 
         let pushing_impulse = jump + float_spring + gravity;
