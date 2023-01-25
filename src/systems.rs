@@ -31,6 +31,7 @@ pub fn movement(
     for (entity, tf, mut controller, settings, input, mass_properties) in bodies.iter_mut() {
         let dt = ctx.integration_parameters.dt;
         let mass = mass_properties.0.mass;
+        let inertia = mass_properties.0.principal_inertia;
         let local_center_of_mass = mass_properties.0.local_center_of_mass;
 
         if !settings.valid() || dt == 0.0 {
@@ -104,7 +105,7 @@ pub fn movement(
         let ground_vel;
 
         // Calculate "floating" force, as seen [here](https://www.youtube.com/watch?v=qdskE8PJy6Q)
-        let mut float_spring = if let Some((ground, intersection)) = ground_cast {
+        let float_spring_force = if let Some((ground, intersection)) = ground_cast {
             ground_vel = velocities.get(ground).ok();
 
             let point_velocity =
@@ -120,11 +121,12 @@ pub fn movement(
             (-settings.up_vector)
                 * ((snap * settings.float_spring.strength)
                     - (relative_align * settings.float_spring.damp_coefficient(mass)))
-                * dt
         } else {
             ground_vel = None;
             Vec3::ZERO
         };
+
+        let mut float_spring = float_spring_force * dt;
 
         // Calculate horizontal movement force
         let movement = {
@@ -223,8 +225,14 @@ pub fn movement(
                 current.cross(settings.up_vector)
             };
 
+            let damping = Vec3::new(
+                settings.upright_spring.damp_coefficient(inertia.x),
+                settings.upright_spring.damp_coefficient(inertia.y),
+                settings.upright_spring.damp_coefficient(inertia.z),
+            );
+
             let spring = (desired_axis * settings.upright_spring.strength)
-                - (velocity.angvel * settings.upright_spring.damp_coefficient(mass)) * dt;
+                - (velocity.angvel * damping);
             spring.clamp_length_max(settings.upright_spring.strength)
         };
 
@@ -237,7 +245,7 @@ pub fn movement(
             // Apply positional force to the rigidbody
             body_impulse.impulse += total_impulse;
             // Apply rotational force to the rigidbody
-            body_impulse.torque_impulse += upright;
+            body_impulse.torque_impulse += upright * dt;
         }
 
         // Opposite force to whatever we were touching
