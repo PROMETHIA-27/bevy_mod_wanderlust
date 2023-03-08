@@ -2,7 +2,7 @@
 
 use bevy::render::camera::Projection;
 use bevy::window::CursorGrabMode;
-use bevy::{input::mouse::MouseMotion, prelude::*};
+use bevy::{input::mouse::MouseMotion, prelude::*, window::{Cursor, PrimaryWindow}};
 use bevy_mod_wanderlust::{CharacterControllerBundle, ControllerInput, WanderlustPlugin};
 use bevy_rapier3d::prelude::*;
 use bevy_editor_pls::prelude::*;
@@ -10,11 +10,15 @@ use bevy_editor_pls::prelude::*;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
-            window: WindowDescriptor {
-                cursor_visible: false,
-                cursor_grab_mode: CursorGrabMode::Locked,
+            primary_window: Some(Window {
+                cursor: {
+                    let mut cursor = Cursor::default();
+                    cursor.visible = false;
+                    cursor.grab_mode = CursorGrabMode::Locked;
+                    cursor
+                },
                 ..default()
-            },
+            }),
             ..default()
         }))
         .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
@@ -23,7 +27,7 @@ fn main() {
         .insert_resource(Sensitivity(1.0))
         .add_startup_system(setup)
         // Add to PreUpdate to ensure updated before movement is calculated
-        .add_system_to_stage(CoreStage::PreUpdate, movement_input)
+        .add_system(movement_input.before(bevy_mod_wanderlust::movement))
         .add_system(mouse_look)
         .add_system(toggle_cursor_lock)
         //.add_plugin(EditorPlugin)
@@ -90,7 +94,7 @@ fn setup(
                 });
         });
 
-    let mesh = meshes.add(shape::Plane { size: 10.0 }.into());
+    let mesh = meshes.add(shape::Plane { size: 10.0, ..default() }.into());
 
     commands
         .spawn(PbrBundle {
@@ -227,17 +231,17 @@ fn mouse_look(
     ));
 }
 
-fn toggle_cursor_lock(input: Res<Input<KeyCode>>, mut windows: ResMut<Windows>) {
+fn toggle_cursor_lock(input: Res<Input<KeyCode>>, mut windows: Query<&mut Window, With<PrimaryWindow>>) {
     if input.just_pressed(KeyCode::Escape) {
-        let window = windows.get_primary_mut().unwrap();
-        match window.cursor_grab_mode() {
+        let mut window = windows.single_mut();
+        match window.cursor.grab_mode {
             CursorGrabMode::Locked => {
-                window.set_cursor_grab_mode(CursorGrabMode::None);
-                window.set_cursor_visibility(true);
+                window.cursor.grab_mode = CursorGrabMode::None;
+                window.cursor.visible = true;
             }
             _ => {
-                window.set_cursor_grab_mode(CursorGrabMode::Locked);
-                window.set_cursor_visibility(false);
+                window.cursor.grab_mode = CursorGrabMode::Locked;
+                window.cursor.visible = false;
             }
         }
     }
