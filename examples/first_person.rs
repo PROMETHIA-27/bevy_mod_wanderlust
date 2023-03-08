@@ -5,7 +5,6 @@ use bevy::window::CursorGrabMode;
 use bevy::{input::mouse::MouseMotion, prelude::*, window::{Cursor, PrimaryWindow}};
 use bevy_mod_wanderlust::{CharacterControllerBundle, ControllerInput, WanderlustPlugin};
 use bevy_rapier3d::prelude::*;
-use bevy_editor_pls::prelude::*;
 
 fn main() {
     App::new()
