@@ -31,7 +31,7 @@ fn main() {
         //.add_plugin(EditorPlugin)
         .insert_resource(bindings)
         .add_startup_system(setup)
-        .add_system_to_stage(CoreStage::PreUpdate, input)
+        .add_system(input.before(bevy_mod_wanderlust::movement))
         .register_type::<Player>()
         .run();
 }
