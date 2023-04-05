@@ -43,7 +43,7 @@ pub fn movement(
             && !settings.skip_ground_check_override
         {
             intersections_with_shape_cast(
-                &*ctx,
+                &ctx,
                 tf.transform_point(settings.float_cast_origin),
                 tf.to_scale_rotation_translation().1,
                 -settings.up_vector,
@@ -52,15 +52,14 @@ pub fn movement(
                 QueryFilter::new().exclude_sensors().predicate(&|collider| {
                     collider != entity && !settings.exclude_from_ground.contains(&collider)
                 }),
-                &mut *ground_casts,
+                &mut ground_casts,
             );
             ground_casts
                 .iter()
-                .filter(|(_, i)| {
+                .find(|(_, i)| {
                     i.status != TOIStatus::Penetrating
                         && i.normal1.angle_between(settings.up_vector) <= settings.max_ground_angle
                 })
-                .next()
                 .cloned()
         } else {
             controller.skip_ground_check_timer = (controller.skip_ground_check_timer - dt).max(0.0);
@@ -231,8 +230,8 @@ pub fn movement(
                 settings.upright_spring.damp_coefficient(inertia.z),
             );
 
-            let spring = (desired_axis * settings.upright_spring.strength)
-                - (velocity.angvel * damping);
+            let spring =
+                (desired_axis * settings.upright_spring.strength) - (velocity.angvel * damping);
             spring.clamp_length_max(settings.upright_spring.strength)
         };
 
