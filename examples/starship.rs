@@ -2,6 +2,7 @@ use std::f32::consts::FRAC_PI_2;
 
 use bevy::input::mouse::MouseMotion;
 use bevy::prelude::*;
+use bevy::window::{Cursor, CursorGrabMode};
 use bevy_editor_pls::controls::{Action, Binding, Button, EditorControls, UserInput};
 use bevy_mod_wanderlust::{
     ControllerBundle, ControllerInput, ControllerPhysicsBundle, WanderlustPlugin,
@@ -24,7 +25,18 @@ fn main() {
     );
 
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                cursor: {
+                    let mut cursor = Cursor::default();
+                    cursor.visible = false;
+                    cursor.grab_mode = CursorGrabMode::Locked;
+                    cursor
+                },
+                ..default()
+            }),
+            ..default()
+        }))
         .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
         .add_plugin(WanderlustPlugin)
         //.add_plugin(EditorPlugin)
