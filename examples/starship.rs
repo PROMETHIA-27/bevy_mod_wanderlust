@@ -2,7 +2,7 @@ use std::f32::consts::FRAC_PI_2;
 
 use bevy::input::mouse::MouseMotion;
 use bevy::prelude::*;
-use bevy::window::{Cursor, CursorGrabMode};
+use bevy::window::{Cursor, CursorGrabMode, PrimaryWindow};
 use bevy_editor_pls::controls::{Action, Binding, Button, EditorControls, UserInput};
 use bevy_mod_wanderlust::{
     ControllerBundle, ControllerInput, ControllerPhysicsBundle, WanderlustPlugin,
@@ -43,6 +43,7 @@ fn main() {
         .insert_resource(bindings)
         .add_startup_system(setup)
         .add_system(input.before(bevy_mod_wanderlust::movement))
+        .add_system(toggle_cursor_lock)
         .register_type::<Player>()
         .run();
 }
@@ -155,5 +156,24 @@ fn input(
     }
     if input.pressed(KeyCode::E) {
         impulse.torque_impulse += tf.forward() * dt * SENSITIVITY * ROLL_MULT;
+    }
+}
+
+fn toggle_cursor_lock(
+    input: Res<Input<KeyCode>>,
+    mut windows: Query<&mut Window, With<PrimaryWindow>>,
+) {
+    if input.just_pressed(KeyCode::Escape) {
+        let mut window = windows.single_mut();
+        match window.cursor.grab_mode {
+            CursorGrabMode::Locked => {
+                window.cursor.grab_mode = CursorGrabMode::None;
+                window.cursor.visible = true;
+            }
+            _ => {
+                window.cursor.grab_mode = CursorGrabMode::Locked;
+                window.cursor.visible = false;
+            }
+        }
     }
 }
