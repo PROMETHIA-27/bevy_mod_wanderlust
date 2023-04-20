@@ -67,14 +67,14 @@ fn setup(
     commands
         .spawn((
             ControllerBundle::character(),
-            PbrBundle {
-                mesh,
-                material: material.clone(),
-                ..default()
-            },
             Name::from("Player"),
             PlayerBody,
         ))
+        .insert(PbrBundle {
+            mesh,
+            material: material.clone(),
+            ..default()
+        })
         .with_children(|commands| {
             commands
                 .spawn((
