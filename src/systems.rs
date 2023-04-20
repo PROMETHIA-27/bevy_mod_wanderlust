@@ -14,11 +14,9 @@ pub struct MovementParams<'w, 's> {
         's,
         (
             Entity,
-            &'static GlobalTransform,
             &'static mut ControllerState,
             &'static ControllerSettings,
             &'static mut ControllerInput,
-            &'static ReadMassProperties,
         ),
     >,
     velocities: Query<'w, 's, &'static Velocity>,
@@ -47,7 +45,14 @@ pub fn movement(
         ctx,
     } = params;
 
-    for (entity, tf, mut controller, settings, input, mass_properties) in bodies.iter_mut() {
+    for (entity, mut controller, settings, input) in bodies.iter_mut() {
+        let mass_properties = masses
+            .get(entity)
+            .expect("character controllers must have a `ReadMassProperties` component");
+        let tf = globals
+            .get(entity)
+            .expect("character controllers must have a `GlobalTransform` component");
+
         let dt = ctx.integration_parameters.dt;
         let mass = mass_properties.0.mass;
         let inertia = mass_properties.0.principal_inertia;
@@ -121,7 +126,7 @@ pub fn movement(
         // Collect velocities
         let velocity = velocities
             .get(entity)
-            .expect("Character controllers must have a Velocity component");
+            .expect("character controllers must have a `Velocity` component");
         let ground_vel;
 
         // Calculate "floating" force, as seen [here](https://www.youtube.com/watch?v=qdskE8PJy6Q)
