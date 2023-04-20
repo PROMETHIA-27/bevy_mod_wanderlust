@@ -4,7 +4,7 @@ use bevy::input::mouse::MouseMotion;
 use bevy::prelude::*;
 use bevy_editor_pls::controls::{Action, Binding, Button, EditorControls, UserInput};
 use bevy_mod_wanderlust::{
-    ControllerInput, ControllerPhysicsBundle, StarshipControllerBundle, WanderlustPlugin,
+    ControllerBundle, ControllerInput, ControllerPhysicsBundle, WanderlustPlugin,
 };
 use bevy_rapier3d::plugin::{NoUserData, RapierPhysicsPlugin};
 use bevy_rapier3d::prelude::*;
@@ -69,7 +69,7 @@ fn setup(
     });
 
     // The ship itself
-    c.spawn(StarshipControllerBundle {
+    c.spawn(ControllerBundle {
         transform: Transform::from_xyz(0.0, 0.0, 5.0),
         physics: ControllerPhysicsBundle {
             damping: Damping {
@@ -78,7 +78,7 @@ fn setup(
             },
             ..default()
         },
-        ..default()
+        ..ControllerBundle::starship()
     })
     .insert((Player,))
     .with_children(|c| {

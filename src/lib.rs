@@ -1,4 +1,8 @@
-#![deny(missing_docs)]
+#![deny(
+    missing_docs,
+    rustdoc::broken_intra_doc_links,
+    rustdoc::private_intra_doc_links
+)]
 #![doc = include_str!("../README.md")]
 
 mod bundles;
@@ -9,7 +13,7 @@ mod spring;
 mod systems;
 
 pub use {
-    bundles::{CharacterControllerBundle, ControllerPhysicsBundle, StarshipControllerBundle},
+    bundles::{ControllerBundle, ControllerPhysicsBundle},
     components::{ControllerInput, ControllerSettings, ControllerState},
     plugins::WanderlustPlugin,
     resources::WanderlustPhysicsTweaks,

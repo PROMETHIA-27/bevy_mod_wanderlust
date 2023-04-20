@@ -7,7 +7,7 @@ use bevy::{
     prelude::*,
     window::{Cursor, PrimaryWindow},
 };
-use bevy_mod_wanderlust::{CharacterControllerBundle, ControllerInput, WanderlustPlugin};
+use bevy_mod_wanderlust::{ControllerBundle, ControllerInput, WanderlustPlugin};
 use bevy_rapier3d::prelude::*;
 
 fn main() {
@@ -65,7 +65,7 @@ fn setup(
     let material = mats.add(Color::WHITE.into());
 
     commands
-        .spawn(CharacterControllerBundle::default())
+        .spawn(ControllerBundle::character())
         .insert(PbrBundle {
             mesh,
             material: material.clone(),
