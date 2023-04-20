@@ -82,18 +82,20 @@ fn setup(
     });
 
     // The ship itself
-    c.spawn(ControllerBundle {
-        transform: Transform::from_xyz(0.0, 0.0, 5.0),
-        physics: ControllerPhysicsBundle {
-            damping: Damping {
-                angular_damping: 0.5,
-                linear_damping: 0.5,
+    c.spawn((
+        ControllerBundle {
+            transform: Transform::from_xyz(0.0, 0.0, 5.0),
+            physics: ControllerPhysicsBundle {
+                damping: Damping {
+                    angular_damping: 0.5,
+                    linear_damping: 0.5,
+                },
+                ..default()
             },
-            ..default()
+            ..ControllerBundle::starship()
         },
-        ..ControllerBundle::starship()
-    })
-    .insert((Player,))
+        Player,
+    ))
     .with_children(|c| {
         c.spawn(SceneBundle {
             transform: Transform::from_translation(Vec3::ZERO).with_rotation(Quat::from_euler(

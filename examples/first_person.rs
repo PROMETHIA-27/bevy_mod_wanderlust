@@ -65,26 +65,31 @@ fn setup(
     let material = mats.add(Color::WHITE.into());
 
     commands
-        .spawn(ControllerBundle::character())
-        .insert(PbrBundle {
-            mesh,
-            material: material.clone(),
-            ..default()
-        })
-        .insert((Name::from("Player"), PlayerBody))
+        .spawn((
+            ControllerBundle::character(),
+            PbrBundle {
+                mesh,
+                material: material.clone(),
+                ..default()
+            },
+            Name::from("Player"),
+            PlayerBody,
+        ))
         .with_children(|commands| {
             commands
-                .spawn(Camera3dBundle {
-                    transform: Transform::from_xyz(0.0, 0.5, 0.0),
-                    projection: Projection::Perspective(PerspectiveProjection {
-                        fov: 90.0 * (std::f32::consts::PI / 180.0),
-                        aspect_ratio: 1.0,
-                        near: 0.3,
-                        far: 1000.0,
-                    }),
-                    ..default()
-                })
-                .insert(PlayerCam)
+                .spawn((
+                    Camera3dBundle {
+                        transform: Transform::from_xyz(0.0, 0.5, 0.0),
+                        projection: Projection::Perspective(PerspectiveProjection {
+                            fov: 90.0 * (std::f32::consts::PI / 180.0),
+                            aspect_ratio: 1.0,
+                            near: 0.3,
+                            far: 1000.0,
+                        }),
+                        ..default()
+                    },
+                    PlayerCam,
+                ))
                 .with_children(|commands| {
                     let mesh = meshes.add(shape::Cube { size: 0.5 }.into());
 
@@ -105,17 +110,16 @@ fn setup(
         .into(),
     );
 
-    commands
-        .spawn(PbrBundle {
+    commands.spawn((
+        PbrBundle {
             mesh,
             material: material.clone(),
             transform: Transform::from_xyz(0.0, -10.0, 0.0),
             ..default()
-        })
-        .insert((
-            Collider::halfspace(Vec3::Y * 10.0).unwrap(),
-            Name::from("Ground"),
-        ));
+        },
+        Collider::halfspace(Vec3::Y * 10.0).unwrap(),
+        Name::from("Ground"),
+    ));
 
     commands.spawn(PointLightBundle {
         transform: Transform::from_xyz(0.0, -5.0, 0.0),
@@ -135,8 +139,8 @@ fn setup(
         .into(),
     );
 
-    commands
-        .spawn(PbrBundle {
+    commands.spawn((
+        PbrBundle {
             mesh,
             material: material.clone(),
             transform: Transform::from_xyz(-3.5, -8.0, 0.3).with_rotation(Quat::from_euler(
@@ -146,8 +150,10 @@ fn setup(
                 0.0,
             )),
             ..default()
-        })
-        .insert((Name::from("Slope"), Collider::cuboid(hw, hh, hl)));
+        },
+        Name::from("Slope"),
+        Collider::cuboid(hw, hh, hl),
+    ));
 
     let (hw, hh, hl) = (0.25, 3.0, 5.0);
     let mesh = meshes.add(
@@ -162,17 +168,19 @@ fn setup(
         .into(),
     );
 
-    commands
-        .spawn(PbrBundle {
+    commands.spawn((
+        PbrBundle {
             mesh: mesh.clone(),
             material: material.clone(),
             transform: Transform::from_xyz(3.5, -8.0, 0.0),
             ..default()
-        })
-        .insert((Name::from("Wall"), Collider::cuboid(hw, hh, hl)));
+        },
+        Name::from("Wall"),
+        Collider::cuboid(hw, hh, hl),
+    ));
 
-    commands
-        .spawn(PbrBundle {
+    commands.spawn((
+        PbrBundle {
             mesh,
             material,
             transform: Transform::from_xyz(6.5, -8.0, 0.0).with_rotation(Quat::from_euler(
@@ -182,8 +190,10 @@ fn setup(
                 0.0,
             )),
             ..default()
-        })
-        .insert((Name::from("Wall"), Collider::cuboid(hw, hh, hl)));
+        },
+        Name::from("Wall"),
+        Collider::cuboid(hw, hh, hl),
+    ));
 }
 
 fn movement_input(
