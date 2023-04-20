@@ -4,16 +4,14 @@
 mod bundles;
 mod components;
 mod plugins;
-mod presets;
 mod resources;
 mod spring;
 mod systems;
 
-pub use self::{
+pub use {
     bundles::{CharacterControllerBundle, ControllerPhysicsBundle, StarshipControllerBundle},
     components::{ControllerInput, ControllerSettings, ControllerState},
     plugins::WanderlustPlugin,
-    presets::{CharacterControllerPreset, StarshipControllerPreset},
     resources::WanderlustPhysicsTweaks,
     spring::Spring,
     systems::{movement, setup_physics_context},
