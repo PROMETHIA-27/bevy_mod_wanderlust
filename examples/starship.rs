@@ -3,7 +3,6 @@ use std::f32::consts::FRAC_PI_2;
 use bevy::input::mouse::MouseMotion;
 use bevy::prelude::*;
 use bevy_editor_pls::controls::{Action, Binding, Button, EditorControls, UserInput};
-use bevy_editor_pls::prelude::*;
 use bevy_mod_wanderlust::{
     ControllerInput, ControllerPhysicsBundle, StarshipControllerBundle, WanderlustPlugin,
 };
@@ -48,11 +47,11 @@ fn setup(
 ) {
     // Origin cube to be able to tell how you're moving
     let mesh = meshes.add(shape::Cube { size: 10.0 }.into());
-    let mat = mats.add(Color::WHITE.into());
+    let material = mats.add(Color::WHITE.into());
 
     c.spawn(PbrBundle {
         mesh,
-        material: mat.clone(),
+        material,
         transform: Transform::from_xyz(0.0, 0.0, 0.0),
         ..default()
     });

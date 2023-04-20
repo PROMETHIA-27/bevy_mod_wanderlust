@@ -2,7 +2,11 @@
 
 use bevy::render::camera::Projection;
 use bevy::window::CursorGrabMode;
-use bevy::{input::mouse::MouseMotion, prelude::*, window::{Cursor, PrimaryWindow}};
+use bevy::{
+    input::mouse::MouseMotion,
+    prelude::*,
+    window::{Cursor, PrimaryWindow},
+};
 use bevy_mod_wanderlust::{CharacterControllerBundle, ControllerInput, WanderlustPlugin};
 use bevy_rapier3d::prelude::*;
 
@@ -93,7 +97,13 @@ fn setup(
                 });
         });
 
-    let mesh = meshes.add(shape::Plane { size: 10.0, ..default() }.into());
+    let mesh = meshes.add(
+        shape::Plane {
+            size: 10.0,
+            ..default()
+        }
+        .into(),
+    );
 
     commands
         .spawn(PbrBundle {
@@ -163,8 +173,8 @@ fn setup(
 
     commands
         .spawn(PbrBundle {
-            mesh: mesh,
-            material: material.clone(),
+            mesh,
+            material,
             transform: Transform::from_xyz(6.5, -8.0, 0.0).with_rotation(Quat::from_euler(
                 EulerRot::XYZ,
                 0.0,
@@ -230,7 +240,10 @@ fn mouse_look(
     ));
 }
 
-fn toggle_cursor_lock(input: Res<Input<KeyCode>>, mut windows: Query<&mut Window, With<PrimaryWindow>>) {
+fn toggle_cursor_lock(
+    input: Res<Input<KeyCode>>,
+    mut windows: Query<&mut Window, With<PrimaryWindow>>,
+) {
     if input.just_pressed(KeyCode::Escape) {
         let mut window = windows.single_mut();
         match window.cursor.grab_mode {
