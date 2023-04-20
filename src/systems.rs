@@ -1,33 +1,52 @@
 use crate::components::{ControllerInput, ControllerSettings, ControllerState};
 use crate::WanderlustPhysicsTweaks;
+use bevy::ecs::system::SystemParam;
 use bevy::{math::*, prelude::*};
 use bevy_rapier3d::prelude::*;
 
 #[cfg(feature = "debug_lines")]
 use bevy_prototype_debug_lines::*;
 
+#[derive(SystemParam)]
+pub struct MovementParams<'w, 's> {
+    bodies: Query<
+        'w,
+        's,
+        (
+            Entity,
+            &'static GlobalTransform,
+            &'static mut ControllerState,
+            &'static ControllerSettings,
+            &'static mut ControllerInput,
+            &'static ReadMassProperties,
+        ),
+    >,
+    velocities: Query<'w, 's, &'static Velocity>,
+    globals: Query<'w, 's, &'static GlobalTransform>,
+    masses: Query<'w, 's, &'static ReadMassProperties>,
+    impulses: Query<'w, 's, &'static mut ExternalImpulse>,
+    ctx: ResMut<'w, RapierContext>,
+}
+
 /// *Note: Most users will not need to use this directly. Use [`WanderlustPlugin`](crate::plugins::WanderlustPlugin) instead.
 /// This system is useful for cases such as running on a fixed timestep.*
 ///
 /// The system that controls movement logic.
 pub fn movement(
-    mut bodies: Query<(
-        Entity,
-        &GlobalTransform,
-        &mut ControllerState,
-        &ControllerSettings,
-        &mut ControllerInput,
-        &ReadMassProperties,
-    )>,
-    velocities: Query<&Velocity>,
-    globals: Query<&GlobalTransform>,
-    masses: Query<&ReadMassProperties>,
-    mut impulses: Query<&mut ExternalImpulse>,
-    ctx: ResMut<RapierContext>,
+    params: MovementParams,
     mut ground_casts: Local<Vec<(Entity, Toi)>>,
 
     #[cfg(feature = "debug_lines")] mut lines: ResMut<DebugLines>,
 ) {
+    let MovementParams {
+        mut bodies,
+        velocities,
+        globals,
+        masses,
+        mut impulses,
+        ctx,
+    } = params;
+
     for (entity, tf, mut controller, settings, input, mass_properties) in bodies.iter_mut() {
         let dt = ctx.integration_parameters.dt;
         let mass = mass_properties.0.mass;
@@ -44,10 +63,12 @@ pub fn movement(
         {
             intersections_with_shape_cast(
                 &ctx,
-                tf.transform_point(settings.float_cast_origin),
-                tf.to_scale_rotation_translation().1,
-                -settings.up_vector,
-                &settings.float_cast_collider,
+                ShapeDesc {
+                    shape_pos: tf.transform_point(settings.float_cast_origin),
+                    shape_rot: tf.to_scale_rotation_translation().1,
+                    shape_vel: -settings.up_vector,
+                    shape: &settings.float_cast_collider,
+                },
                 settings.float_cast_length,
                 QueryFilter::new().exclude_sensors().predicate(&|collider| {
                     collider != entity && !settings.exclude_from_ground.contains(&collider)
@@ -300,12 +321,16 @@ pub fn setup_physics_context(
     }
 }
 
-fn intersections_with_shape_cast(
-    ctx: &RapierContext,
+struct ShapeDesc<'c> {
     shape_pos: Vec3,
     shape_rot: Quat,
     shape_vel: Vec3,
-    shape: &Collider,
+    shape: &'c Collider,
+}
+
+fn intersections_with_shape_cast(
+    ctx: &RapierContext,
+    shape: ShapeDesc,
     max_toi: f32,
     filter: QueryFilter,
     collisions: &mut Vec<(Entity, Toi)>,
@@ -320,6 +345,13 @@ fn intersections_with_shape_cast(
                 && orig_predicate.map(|pred| pred(entity)).unwrap_or(true)
         };
         let filter = filter.predicate(&predicate);
+
+        let ShapeDesc {
+            shape_pos,
+            shape_rot,
+            shape_vel,
+            shape,
+        } = shape;
 
         if let Some(collision) =
             ctx.cast_shape(shape_pos, shape_rot, shape_vel, shape, max_toi, filter)
