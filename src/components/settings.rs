@@ -176,6 +176,10 @@ impl ControllerSettings {
             max_acceleration_force: 10.0,
             up_vector: Vec3::Y,
             force_scale: vec3(1.0, 1.0, 1.0),
+            upright_spring: Spring {
+                strength: 0.0,
+                damping: 0.0,
+            },
             ..default()
         }
     }
