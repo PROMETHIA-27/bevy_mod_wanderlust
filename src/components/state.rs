@@ -24,4 +24,6 @@ pub struct ControllerState {
     pub jump_buffer_timer: f32,
     /// How many extra jumps are remaining
     pub remaining_jumps: u32,
+    /// Is the character firmly grounded (and thus able to jump)
+    pub is_grounded: bool,
 }
