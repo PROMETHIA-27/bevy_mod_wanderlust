@@ -10,6 +10,7 @@ impl Plugin for WanderlustPlugin {
         app.register_type::<ControllerState>()
             .register_type::<ControllerSettings>()
             .register_type::<ControllerInput>()
+            .register_type::<Option<Vec3>>()
             .add_startup_system(setup_physics_context)
             .add_system(movement);
     }
