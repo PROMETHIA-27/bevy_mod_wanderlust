@@ -30,11 +30,6 @@ pub struct ControllerSettings {
     pub forward_vector: Option<Vec3>,
     /// The strength of gravity.
     pub gravity: f32,
-    /// The maximum angle that the ground can be, in radians, before it is no longer considered suitable for being "grounded" on.
-    ///
-    /// For example, if this is set to `π/4` (45 degrees), then a player standing on a slope steeper than 45 degrees will slip and fall, and will not have
-    /// their jump refreshed by landing on that surface.
-    pub max_ground_angle: f32,
     /// While floating, the character can be floating at a different exact distance than [`float_distance`] depending on other forces acting on them.
     /// This field controls how much lower than [`float_distance`] they can be and still be considered grounded.
     ///
@@ -61,8 +56,6 @@ pub struct ControllerSettings {
     /// How long to skip ground checks after jumping. Usually this should be set just high enough that the character is out of range of the ground
     /// just before the timer elapses.
     pub jump_skip_ground_check_duration: f32,
-    /// Override skip ground check. If true, never checks for the ground.
-    pub skip_ground_check_override: bool,
     /// How many extra times the character can jump after leaving the ground. 0 is normal, 1 corresponds to double jump, etc.
     pub extra_jumps: u32,
     /// How long should the character still be able to jump after leaving the ground, in seconds.
@@ -73,22 +66,12 @@ pub struct ControllerSettings {
     pub jump_buffer_duration: f32,
     /// Scales movement force. This is useful to ensure movement does not affect vertical velocity (by setting it to e.g. `Vec3(1.0, 0.0, 1.0)`).
     pub force_scale: Vec3,
-    /// How long of a ray to cast to detect the ground. Setting this unnecessarily high will permanently count the player as grounded,
-    /// and too low will allow the player to slip and become disconnected from the ground easily.
-    pub float_cast_length: f32,
-    /// An offset to start the ground check from, relative to the character's origin.
-    pub float_cast_origin: Vec3,
-    /// What shape of ray to cast. See [`Collider`] and [`RapierContext::cast_shape`](RapierContext).
-    #[reflect(ignore)]
-    pub float_cast_collider: Collider,
     /// How far to attempt to float away from the ground.
     pub float_distance: f32,
     /// How strongly to float away from the ground.
     pub float_spring: Spring,
     /// How strongly to force the character upright/avoid overshooting. Alternatively, see [`LockedAxes`] to lock rotation entirely.
     pub upright_spring: Spring,
-    /// Set of entities that should be ignored when ground casting.
-    pub exclude_from_ground: HashSet<Entity>,
     /// Scaling factor for the impulse applied to the ground to keep the character moving/off the ground.
     pub opposing_impulse_scale: f32,
     /// Scaling factor for the movement impulse applied to the ground.

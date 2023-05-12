@@ -12,8 +12,6 @@ pub struct ControllerState {
     /// The goal velocity represents the input after being directly translated to a desired final motion.
     /// This field represents the goal velocity that was calculated last frame.
     pub last_goal_velocity: Vec3,
-    /// A timer to track how long to skip the ground check for (see [`jump_skip_ground_check_duration`](ControllerSettings::jump_skip_ground_check_duration)).
-    pub skip_ground_check_timer: f32,
     /// A timer to track how long to jump for.
     pub jump_timer: f32,
     /// Was [`ControllerInput::jumping`] pressed last frame.

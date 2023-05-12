@@ -1,4 +1,8 @@
-use crate::components::{ControllerInput, ControllerSettings, ControllerState};
+use std::ops::Neg;
+
+use crate::components::{
+    ControllerInput, ControllerSettings, ControllerState, Gravity, GroundCast, Groundcaster,
+};
 use crate::WanderlustPhysicsTweaks;
 use bevy::ecs::system::SystemParam;
 use bevy::{math::*, prelude::*};
@@ -14,6 +18,7 @@ pub struct MovementParams<'w, 's> {
             &'static mut ControllerState,
             &'static ControllerSettings,
             &'static mut ControllerInput,
+            &'static mut GroundCast,
         ),
     >,
     velocities: Query<'w, 's, &'static Velocity>,
@@ -21,6 +26,69 @@ pub struct MovementParams<'w, 's> {
     masses: Query<'w, 's, &'static ReadMassProperties>,
     impulses: Query<'w, 's, &'static mut ExternalImpulse>,
     ctx: ResMut<'w, RapierContext>,
+}
+
+/* Setup phase */
+
+fn create_ground_cast(
+    mut c: Commands,
+    castless_casters: Query<Entity, (With<Groundcaster>, Without<GroundCast>)>,
+) {
+    for ent in &castless_casters {
+        c.entity(ent).insert(GroundCast::default());
+    }
+}
+
+/// Cache the up vector as the normalized negation of acceleration due to gravity.
+pub fn set_up_vector(query: Query<&mut Gravity>) {
+    for gravity in &mut query {
+        gravity.up_vector = gravity.acceleration.neg().normalize_or_zero();
+    }
+}
+
+/* Action phase */
+
+/// Performs groundcasting and updates controller state accordingly.
+pub fn find_ground(
+    casters: Query<(
+        Entity,
+        &GlobalTransform,
+        &Groundcaster,
+        &Gravity,
+        &mut GroundCast,
+    )>,
+    ctx: Res<RapierContext>,
+    mut ground_casts: Local<Vec<(Entity, Toi)>>,
+) {
+    let dt = ctx.integration_parameters.dt;
+    for (entity, tf, caster, gravity, cast) in casters.iter() {
+        cast.cast = if caster.skip_ground_check_timer == 0.0 && !caster.skip_ground_check_override {
+            intersections_with_shape_cast(
+                &ctx,
+                ShapeDesc {
+                    shape_pos: tf.transform_point(caster.cast_origin),
+                    shape_rot: tf.to_scale_rotation_translation().1,
+                    shape_vel: -gravity.up_vector,
+                    shape: &caster.cast_collider,
+                },
+                caster.cast_length,
+                QueryFilter::new().exclude_sensors().predicate(&|collider| {
+                    collider != entity && !caster.exclude_from_ground.contains(&collider)
+                }),
+                &mut ground_casts,
+            );
+            ground_casts
+                .iter()
+                .find(|(_, i)| {
+                    i.status != TOIStatus::Penetrating
+                        && i.normal1.angle_between(gravity.up_vector) <= caster.max_ground_angle
+                })
+                .cloned()
+        } else {
+            caster.skip_ground_check_timer = (caster.skip_ground_check_timer - dt).max(0.0);
+            None
+        };
+    }
 }
 
 /// *Note: Most users will not need to use this directly. Use [`WanderlustPlugin`](crate::plugins::WanderlustPlugin) instead.
@@ -42,7 +110,20 @@ pub fn movement(
         ctx,
     } = params;
 
-    for (entity, mut controller, settings, input) in bodies.iter_mut() {
+    for (entity, mut controller, settings, input, ground_cast) in bodies.iter_mut() {
+        // Things we do per iter:
+        // - ground cast to find certain info
+        // - if we hit something, reset ground timer
+        // - determine groundedness
+        // - determine jumps/coyote time
+        // - determine contribution from gravity
+        // - get velocity
+        // - determine float_spring force
+        // - calculate continuous movement input contribution
+        // - determine jump contribution
+        // - calculate upright force
+        // - apply forces
+        // - apply opposite forces to things being stood on
         let mass_properties = masses
             .get(entity)
             .expect("character controllers must have a `ReadMassProperties` component");
@@ -60,41 +141,13 @@ pub fn movement(
         }
 
         // Get the ground and velocities
-        let ground_cast = if controller.skip_ground_check_timer == 0.0
-            && !settings.skip_ground_check_override
-        {
-            intersections_with_shape_cast(
-                &ctx,
-                ShapeDesc {
-                    shape_pos: tf.transform_point(settings.float_cast_origin),
-                    shape_rot: tf.to_scale_rotation_translation().1,
-                    shape_vel: -settings.up_vector,
-                    shape: &settings.float_cast_collider,
-                },
-                settings.float_cast_length,
-                QueryFilter::new().exclude_sensors().predicate(&|collider| {
-                    collider != entity && !settings.exclude_from_ground.contains(&collider)
-                }),
-                &mut ground_casts,
-            );
-            ground_casts
-                .iter()
-                .find(|(_, i)| {
-                    i.status != TOIStatus::Penetrating
-                        && i.normal1.angle_between(settings.up_vector) <= settings.max_ground_angle
-                })
-                .cloned()
-        } else {
-            controller.skip_ground_check_timer = (controller.skip_ground_check_timer - dt).max(0.0);
-            None
-        };
 
         // If we hit something, just get back up instead of waiting.
         if ctx.contacts_with(entity).next().is_some() {
             controller.skip_ground_check_timer = 0.0;
         }
 
-        let float_offset = if let Some((_, toi)) = ground_cast {
+        let float_offset = if let Some((_, toi)) = ground_cast.cast {
             Some(toi.toi - settings.float_distance)
         } else {
             None
@@ -114,7 +167,7 @@ pub fn movement(
         }
 
         // Gravity
-        let gravity = if ground_cast.is_none() {
+        let gravity = if ground_cast.cast.is_none() {
             settings.up_vector * mass * settings.gravity * dt
         } else {
             Vec3::ZERO
@@ -127,7 +180,7 @@ pub fn movement(
         let ground_vel;
 
         // Calculate "floating" force, as seen [here](https://www.youtube.com/watch?v=qdskE8PJy6Q)
-        let float_spring_force = if let Some((ground, intersection)) = ground_cast {
+        let float_spring_force = if let Some((ground, intersection)) = ground_cast.cast {
             ground_vel = velocities.get(ground).ok();
 
             let point_velocity =
