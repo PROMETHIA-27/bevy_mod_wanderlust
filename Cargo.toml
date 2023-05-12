@@ -10,7 +10,7 @@ license = "MIT OR Apache-2.0"
 name = "bevy_mod_wanderlust"
 readme = "README.md"
 repository = "https://github.com/PROMETHIA-27/bevy_mod_wanderlust"
-version = "0.2.3"
+version = "0.3.0"
 
 [features]
 debug_lines = ["bevy_prototype_debug_lines"]
