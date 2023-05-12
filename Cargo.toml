@@ -29,7 +29,7 @@ bevy_prototype_debug_lines = { version = "0.10", features = [
 
 [dev-dependencies]
 bevy = "0.10"
-bevy_editor_pls = "0.4"
+aether_spyglass = "0.1"
 bevy_rapier3d = { version = "0.21", features = ["debug-render"] }
 
 # Enable a small amount of optimization in debug mode

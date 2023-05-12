@@ -33,7 +33,7 @@ fn main() {
         .add_system(movement_input.before(bevy_mod_wanderlust::movement))
         .add_system(mouse_look)
         .add_system(toggle_cursor_lock)
-        //.add_plugin(EditorPlugin)
+        .add_plugin(aether_spyglass::SpyglassPlugin)
         .run()
 }
 

@@ -3,7 +3,6 @@ use std::f32::consts::FRAC_PI_2;
 use bevy::input::mouse::MouseMotion;
 use bevy::prelude::*;
 use bevy::window::{Cursor, CursorGrabMode, PrimaryWindow};
-use bevy_editor_pls::controls::{Action, Binding, Button, EditorControls, UserInput};
 use bevy_mod_wanderlust::{
     ControllerBundle, ControllerInput, ControllerPhysicsBundle, WanderlustPlugin,
 };
@@ -11,19 +10,6 @@ use bevy_rapier3d::plugin::{NoUserData, RapierPhysicsPlugin};
 use bevy_rapier3d::prelude::*;
 
 fn main() {
-    let mut bindings = EditorControls::default_bindings();
-    bindings.unbind(Action::PlayPauseEditor);
-    bindings.insert(
-        Action::PlayPauseEditor,
-        Binding {
-            input: UserInput::Chord(vec![
-                Button::Keyboard(KeyCode::LControl),
-                Button::Keyboard(KeyCode::E),
-            ]),
-            conditions: vec![],
-        },
-    );
-
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
@@ -39,8 +25,7 @@ fn main() {
         }))
         .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
         .add_plugin(WanderlustPlugin)
-        //.add_plugin(EditorPlugin)
-        .insert_resource(bindings)
+        .add_plugin(aether_spyglass::SpyglassPlugin)
         .add_startup_system(setup)
         .add_system(input.before(bevy_mod_wanderlust::movement))
         .add_system(toggle_cursor_lock)
