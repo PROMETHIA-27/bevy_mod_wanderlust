@@ -305,6 +305,7 @@ pub fn movement(
         }
 
         controller.jump_pressed_last_frame = input.jumping;
+        controller.is_grounded = grounded;
     }
 }
 
