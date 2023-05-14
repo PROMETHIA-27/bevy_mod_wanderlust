@@ -7,8 +7,12 @@ use bevy::{
     prelude::*,
     window::{Cursor, PrimaryWindow},
 };
-use bevy_mod_wanderlust::{ControllerBundle, ControllerInput, WanderlustPlugin};
+use bevy_mod_wanderlust::{
+    ControllerBundle, ControllerInput, ControllerPhysicsBundle, ControllerSettings,
+    WanderlustPlugin,
+};
 use bevy_rapier3d::prelude::*;
+use std::f32::consts::FRAC_2_PI;
 
 fn main() {
     App::new()
@@ -66,7 +70,15 @@ fn setup(
 
     commands
         .spawn((
-            ControllerBundle::character(),
+            ControllerBundle {
+                settings: ControllerSettings::character(),
+                physics: ControllerPhysicsBundle {
+                    // Lock the axes to prevent camera shake whilst moving up slopes
+                    locked_axes: LockedAxes::ROTATION_LOCKED,
+                    ..default()
+                },
+                ..default()
+            },
             Name::from("Player"),
             PlayerBody,
         ))
@@ -235,18 +247,26 @@ fn mouse_look(
 
     let sens = sensitivity.0;
 
-    let cumulative: Vec2 = input.iter().map(|motion| &motion.delta).sum();
+    let mut cumulative: Vec2 = -(input.iter().map(|motion| &motion.delta).sum::<Vec2>());
 
     // Vertical
     let rot = cam_tf.rotation;
+
+    // Ensure the vertical rotation is clamped
+    if rot.x > FRAC_2_PI && cumulative.y.is_sign_positive()
+        || rot.x < -FRAC_2_PI && cumulative.y.is_sign_negative()
+    {
+        cumulative.y = 0.0;
+    }
+
     cam_tf.rotate(Quat::from_scaled_axis(
-        rot * Vec3::X * (-cumulative.y / 180.0) * sens,
+        rot * Vec3::X * cumulative.y / 180.0 * sens,
     ));
 
     // Horizontal
     let rot = body_tf.rotation;
     body_tf.rotate(Quat::from_scaled_axis(
-        rot * Vec3::Y * (-cumulative.x / 180.0) * sens,
+        rot * Vec3::Y * cumulative.x / 180.0 * sens,
     ));
 }
 
