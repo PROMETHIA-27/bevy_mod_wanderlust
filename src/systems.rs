@@ -1,7 +1,9 @@
 use std::ops::Neg;
 
 use crate::components::{
-    ControllerInput, ControllerSettings, ControllerState, Gravity, GroundCast, Groundcaster,
+    ContinuousMovement, ControllerInput, ControllerSettings, ControllerState, CoyoteTime,
+    ExtraJumps, FinalMotion, Float, FloatForce, Gravity, GroundCast, GroundCaster, Grounded, Mass,
+    Velocity,
 };
 use crate::WanderlustPhysicsTweaks;
 use bevy::ecs::system::SystemParam;
@@ -32,10 +34,28 @@ pub struct MovementParams<'w, 's> {
 
 fn create_ground_cast(
     mut c: Commands,
-    castless_casters: Query<Entity, (With<Groundcaster>, Without<GroundCast>)>,
+    castless_casters: Query<Entity, (With<GroundCaster>, Without<GroundCast>)>,
 ) {
     for ent in &castless_casters {
         c.entity(ent).insert(GroundCast::default());
+    }
+}
+
+fn create_grounded(
+    mut c: Commands,
+    groundless_casters: Query<Entity, (With<GroundCaster>, Without<Grounded>)>,
+) {
+    for ent in &groundless_casters {
+        c.entity(ent).insert(Grounded::default());
+    }
+}
+
+fn create_float_force(
+    mut c: Commands,
+    forceless_floaters: Query<Entity, (With<Float>, Without<FloatForce>)>,
+) {
+    for ent in &forceless_floaters {
+        c.entity(ent).insert(FloatForce::default());
     }
 }
 
@@ -46,6 +66,21 @@ pub fn set_up_vector(query: Query<&mut Gravity>) {
     }
 }
 
+pub fn get_mass_from_rapier(query: Query<(&mut Mass, &ReadMassProperties)>) {
+    for (mass, rapier_mass) in &mut query {
+        mass.mass = rapier_mass.0.mass;
+        mass.inertia = rapier_mass.0.principal_inertia;
+        mass.com = rapier_mass.0.local_center_of_mass;
+    }
+}
+
+pub fn get_velocity_from_rapier(query: Query<(&mut Velocity, &bevy_rapier3d::prelude::Velocity)>) {
+    for (vel, rapier_vel) in &mut query {
+        vel.lin = rapier_vel.linvel;
+        vel.ang = rapier_vel.angvel;
+    }
+}
+
 /* Action phase */
 
 /// Performs groundcasting and updates controller state accordingly.
@@ -53,12 +88,13 @@ pub fn find_ground(
     casters: Query<(
         Entity,
         &GlobalTransform,
-        &Groundcaster,
+        &GroundCaster,
         &Gravity,
         &mut GroundCast,
     )>,
+    velocities: Query<&Velocity>,
     ctx: Res<RapierContext>,
-    mut ground_casts: Local<Vec<(Entity, Toi)>>,
+    mut ground_casts: Local<Vec<(Entity, Toi, Velocity)>>,
 ) {
     let dt = ctx.integration_parameters.dt;
     for (entity, tf, caster, gravity, cast) in casters.iter() {
@@ -76,10 +112,11 @@ pub fn find_ground(
                     collider != entity && !caster.exclude_from_ground.contains(&collider)
                 }),
                 &mut ground_casts,
+                velocities,
             );
             ground_casts
                 .iter()
-                .find(|(_, i)| {
+                .find(|(_, i, _)| {
                     i.status != TOIStatus::Penetrating
                         && i.normal1.angle_between(gravity.up_vector) <= caster.max_ground_angle
                 })
@@ -88,6 +125,158 @@ pub fn find_ground(
             caster.skip_ground_check_timer = (caster.skip_ground_check_timer - dt).max(0.0);
             None
         };
+
+        // If we hit something, just get back up instead of waiting.
+        if ctx.contacts_with(entity).next().is_some() {
+            caster.skip_ground_check_timer = 0.0;
+        }
+    }
+}
+
+pub fn determine_groundedness(query: Query<(&Float, &GroundCast, &mut Grounded)>) {
+    for (float, cast, grounded) in &mut query {
+        let float_offset = if let Some((_, toi, _)) = cast.cast {
+            Some(toi.toi - float.distance)
+        } else {
+            None
+        };
+
+        let grounded = float_offset
+            .map(|offset| offset <= float.max_offset && offset >= float.min_offset)
+            .unwrap_or(false);
+    }
+}
+
+pub fn reset_jumps(query: Query<(&mut ExtraJumps, &Grounded)>) {
+    for (jumps, grounded) in &mut query {
+        if grounded.grounded {
+            jumps.remaining = jumps.extra;
+        }
+    }
+}
+
+pub fn tick_coyote_timer(query: Query<(&mut CoyoteTime, &Grounded)>, ctx: Res<RapierContext>) {
+    let dt = ctx.integration_parameters.dt;
+    for (coyote, grounded) in &mut query {
+        if grounded.grounded {
+            coyote.timer = coyote.duration;
+        } else {
+            coyote.timer = (coyote.timer - dt).max(0.0);
+        }
+    }
+}
+
+pub fn get_gravity_contribution(
+    query: Query<(
+        &mut FinalMotion,
+        &Gravity,
+        Option<&GroundCast>,
+        Option<&Mass>,
+    )>,
+    ctx: Res<RapierContext>,
+) {
+    let dt = ctx.integration_parameters.dt;
+    for (motion, gravity, ground, mass) in &mut query {
+        let mass = mass.map(|mass| mass.mass).unwrap_or(1.0);
+        let gravity = if ground.map(|ground| ground.cast.is_none()).unwrap_or(false) {
+            gravity.up_vector * mass * gravity.acceleration * dt
+        } else {
+            Vec3::ZERO
+        };
+    }
+}
+
+/// Calculate "floating" force, as seen [here](https://www.youtube.com/watch?v=qdskE8PJy6Q)
+pub fn determine_float_force(
+    query: Query<(
+        &mut FloatForce,
+        &Float,
+        &GroundCast,
+        Option<&Velocity>,
+        Option<&Mass>,
+        Option<&Gravity>,
+    )>,
+    ctx: Res<RapierContext>,
+) {
+    let dt = ctx.integration_parameters.dt;
+    for (force, float, cast, velocity, mass, gravity) in &mut query {
+        let float_spring_force = if let Some((ground, intersection, ground_vel)) = cast.cast {
+            let velocity = velocity.copied().unwrap_or_default();
+            let com = mass.map(|mass| mass.com).unwrap_or_default();
+            let mass = mass.map(|mass| mass.mass).unwrap_or(1.0);
+            let up_vector = gravity
+                .map(|grav| grav.up_vector)
+                .unwrap_or(intersection.normal1);
+
+            let point_velocity = velocity.lin + velocity.ang.cross(Vec3::ZERO - com);
+            let vel_align = (-up_vector).dot(point_velocity);
+            let ground_vel_align = (-up_vector).dot(ground_vel.lin);
+
+            let relative_align = vel_align - ground_vel_align;
+
+            let snap = intersection.toi - float.distance;
+
+            (-up_vector)
+                * ((snap * float.spring.strength)
+                    - (relative_align * float.spring.damp_coefficient(mass)))
+        } else {
+            Vec3::ZERO
+        };
+
+        force.force = float_spring_force * dt;
+    }
+}
+
+pub fn determine_continuous_movement(
+    query: Query<(
+        &mut FinalMotion,
+        &ContinuousMovement,
+        &ControllerInput,
+        &GroundCast,
+        Option<&Velocity>,
+    )>,
+    ctx: Res<RapierContext>,
+) {
+    let dt = ctx.integration_parameters.dt;
+    for (motion, movement, input, ground, velocity) in &mut query {
+        let movement = {
+            let velocity = velocity.copied().unwrap_or_default();
+
+            let dir = input.movement.clamp_length_max(1.0);
+
+            // let unit_vel = controller.last_goal_velocity.normalized();
+
+            // let vel_dot = unit_dir.dot(unit_vel);
+
+            let accel = movement.acceleration;
+
+            let input_rel_goal = dir * movement.max_speed;
+
+            // let goal_vel = Vec3::lerp(
+            //     controller.last_goal_velocity,
+            //     input_goal_vel + ground.cast.map(|cast| cast.2.lin).unwrap_or(Vec3::ZERO),
+            //     (accel * dt).min(1.0),
+            // );
+
+            // let needed_accel = goal_vel - velocity.linvel;
+
+            let ground_vel = ground.cast.map(|(_, _, vel)| vel.lin).unwrap_or_default();
+
+            let rel_vel = velocity.lin - ground_vel;
+
+            let needed_accel = input_rel_goal - rel_vel;
+
+            let max_accel_force = movement.max_acceleration_force;
+
+            let needed_accel = needed_accel.clamp_length_max(max_accel_force);
+
+            // controller.last_goal_velocity = goal_vel;
+
+            // needed_accel * settings.force_scale
+            needed_accel
+        };
+        motion.internal += movement;
+        motion.total += movement;
     }
 }
 
@@ -120,117 +309,11 @@ pub fn movement(
         // - get velocity
         // - determine float_spring force
         // - calculate continuous movement input contribution
+        // ----- Finished line
         // - determine jump contribution
         // - calculate upright force
         // - apply forces
         // - apply opposite forces to things being stood on
-        let mass_properties = masses
-            .get(entity)
-            .expect("character controllers must have a `ReadMassProperties` component");
-        let tf = globals
-            .get(entity)
-            .expect("character controllers must have a `GlobalTransform` component");
-
-        let dt = ctx.integration_parameters.dt;
-        let mass = mass_properties.0.mass;
-        let inertia = mass_properties.0.principal_inertia;
-        let local_center_of_mass = mass_properties.0.local_center_of_mass;
-
-        if !settings.valid() || dt == 0.0 {
-            return;
-        }
-
-        // Get the ground and velocities
-
-        // If we hit something, just get back up instead of waiting.
-        if ctx.contacts_with(entity).next().is_some() {
-            controller.skip_ground_check_timer = 0.0;
-        }
-
-        let float_offset = if let Some((_, toi)) = ground_cast.cast {
-            Some(toi.toi - settings.float_distance)
-        } else {
-            None
-        };
-
-        let grounded = float_offset
-            .map(|offset| {
-                offset <= settings.max_float_offset && offset >= settings.min_float_offset
-            })
-            .unwrap_or(false);
-
-        if grounded {
-            controller.remaining_jumps = settings.extra_jumps;
-            controller.coyote_timer = settings.coyote_time_duration;
-        } else {
-            controller.coyote_timer = (controller.coyote_timer - dt).max(0.0);
-        }
-
-        // Gravity
-        let gravity = if ground_cast.cast.is_none() {
-            settings.up_vector * mass * settings.gravity * dt
-        } else {
-            Vec3::ZERO
-        };
-
-        // Collect velocities
-        let velocity = velocities
-            .get(entity)
-            .expect("character controllers must have a `Velocity` component");
-        let ground_vel;
-
-        // Calculate "floating" force, as seen [here](https://www.youtube.com/watch?v=qdskE8PJy6Q)
-        let float_spring_force = if let Some((ground, intersection)) = ground_cast.cast {
-            ground_vel = velocities.get(ground).ok();
-
-            let point_velocity =
-                velocity.linvel + velocity.angvel.cross(Vec3::ZERO - local_center_of_mass);
-            let vel_align = (-settings.up_vector).dot(point_velocity);
-            let ground_vel_align =
-                (-settings.up_vector).dot(ground_vel.map(|v| v.linvel).unwrap_or(Vec3::ZERO));
-
-            let relative_align = vel_align - ground_vel_align;
-
-            let snap = intersection.toi - settings.float_distance;
-
-            (-settings.up_vector)
-                * ((snap * settings.float_spring.strength)
-                    - (relative_align * settings.float_spring.damp_coefficient(mass)))
-        } else {
-            ground_vel = None;
-            Vec3::ZERO
-        };
-
-        let mut float_spring = float_spring_force * dt;
-
-        // Calculate horizontal movement force
-        let movement = {
-            let dir = input.movement.clamp_length_max(1.0);
-
-            // let unit_vel = controller.last_goal_velocity.normalized();
-
-            // let vel_dot = unit_dir.dot(unit_vel);
-
-            let accel = settings.acceleration;
-
-            let input_goal_vel = dir * settings.max_speed;
-
-            let goal_vel = Vec3::lerp(
-                controller.last_goal_velocity,
-                input_goal_vel + ground_vel.map(|v| v.linvel).unwrap_or(Vec3::ZERO),
-                (accel * dt).min(1.0),
-            );
-
-            let needed_accel = goal_vel - velocity.linvel;
-
-            let max_accel_force = settings.max_acceleration_force;
-
-            let needed_accel = needed_accel.clamp_length_max(max_accel_force);
-
-            controller.last_goal_velocity = goal_vel;
-
-            needed_accel * settings.force_scale
-        };
 
         let just_jumped = input.jumping && !controller.jump_pressed_last_frame;
         if !grounded {
@@ -394,7 +477,8 @@ fn intersections_with_shape_cast(
     shape: ShapeDesc,
     max_toi: f32,
     filter: QueryFilter,
-    collisions: &mut Vec<(Entity, Toi)>,
+    collisions: &mut Vec<(Entity, Toi, Velocity)>,
+    velocities: Query<&Velocity>,
 ) {
     collisions.clear();
 
@@ -414,10 +498,11 @@ fn intersections_with_shape_cast(
             shape,
         } = shape;
 
-        if let Some(collision) =
+        if let Some((entity, toi)) =
             ctx.cast_shape(shape_pos, shape_rot, shape_vel, shape, max_toi, filter)
         {
-            collisions.push(collision);
+            let velocity = velocities.get(entity).copied().unwrap_or_default();
+            collisions.push((entity, toi, velocity));
         } else {
             break;
         }

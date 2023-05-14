@@ -30,16 +30,6 @@ pub struct ControllerSettings {
     pub forward_vector: Option<Vec3>,
     /// The strength of gravity.
     pub gravity: f32,
-    /// While floating, the character can be floating at a different exact distance than [`float_distance`] depending on other forces acting on them.
-    /// This field controls how much lower than [`float_distance`] they can be and still be considered grounded.
-    ///
-    /// This helps keep jumps more consistent when the ground cast length is longer than the float distance.
-    pub min_float_offset: f32,
-    /// While floating, the character can be floating at a different exact distance than [`float_distance`] depending on other forces acting on them.
-    /// This field controls how much higher than [`float_distance`] they can be and still be considered grounded.
-    ///
-    /// This helps keep jumps more consistent when the ground cast length is longer than the float distance.
-    pub max_float_offset: f32,
     /// The amount of force to apply on the first frame when a jump begins.
     pub jump_initial_force: f32,
     /// The amount of force to continuously apply every second during a jump.
@@ -56,20 +46,11 @@ pub struct ControllerSettings {
     /// How long to skip ground checks after jumping. Usually this should be set just high enough that the character is out of range of the ground
     /// just before the timer elapses.
     pub jump_skip_ground_check_duration: f32,
-    /// How many extra times the character can jump after leaving the ground. 0 is normal, 1 corresponds to double jump, etc.
-    pub extra_jumps: u32,
-    /// How long should the character still be able to jump after leaving the ground, in seconds.
-    /// For example, if this is set to 0.5, the player can fall off a ledge and then jump if they do so within 0.5 seconds of leaving the ledge.
-    pub coyote_time_duration: f32,
     /// If the jump input is pressed before landing, how long will the jump be buffered for?
     /// In other words, if this is 0.5, the character can input jump up to 0.5 seconds before landing and the jump will occur when they land.
     pub jump_buffer_duration: f32,
     /// Scales movement force. This is useful to ensure movement does not affect vertical velocity (by setting it to e.g. `Vec3(1.0, 0.0, 1.0)`).
     pub force_scale: Vec3,
-    /// How far to attempt to float away from the ground.
-    pub float_distance: f32,
-    /// How strongly to float away from the ground.
-    pub float_spring: Spring,
     /// How strongly to force the character upright/avoid overshooting. Alternatively, see [`LockedAxes`] to lock rotation entirely.
     pub upright_spring: Spring,
     /// Scaling factor for the impulse applied to the ground to keep the character moving/off the ground.
@@ -165,16 +146,5 @@ impl ControllerSettings {
             },
             ..default()
         }
-    }
-
-    /// Validate that assumptions made in the settings are correct.
-    pub fn valid(&self) -> bool {
-        let mut valid = true;
-        if !self.up_vector.is_normalized() {
-            warn!("controller up vector is not normalized");
-            valid = false;
-        }
-
-        valid
     }
 }
