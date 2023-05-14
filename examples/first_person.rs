@@ -252,11 +252,13 @@ fn mouse_look(
     // Vertical
     let rot = cam_tf.rotation;
 
+    // Ensure the vertical rotation is clamped
     if rot.x > FRAC_2_PI && cumulative.y.is_sign_positive()
         || rot.x < -FRAC_2_PI && cumulative.y.is_sign_negative()
     {
         cumulative.y = 0.0;
     }
+
     cam_tf.rotate(Quat::from_scaled_axis(
         rot * Vec3::X * cumulative.y / 180.0 * sens,
     ));
