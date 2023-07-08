@@ -186,10 +186,18 @@ pub fn movement(
             let relative_align = vel_align - ground_vel_align;
 
             let snap = intersection.toi - settings.float_distance;
+            info!(
+                "intersection: {:?}, float: {:?}",
+                intersection.toi, settings.float_distance
+            );
 
-            (-settings.up_vector)
-                * ((snap * settings.float_spring.strength)
-                    - (relative_align * settings.float_spring.damp_coefficient(mass)))
+            if snap <= 0.05 {
+                (-settings.up_vector)
+                    * ((snap * settings.float_spring.strength)
+                        - (relative_align * settings.float_spring.damp_coefficient(mass)))
+            } else {
+                Vec3::ZERO
+            }
         } else {
             ground_vel = None;
             Vec3::ZERO
@@ -308,7 +316,7 @@ pub fn movement(
         let pushing_impulse = jump + float_spring + gravity;
         let total_impulse = movement + pushing_impulse;
         let opposing_impulse = -(movement * settings.opposing_movement_impulse_scale
-            + pushing_impulse * settings.opposing_impulse_scale);
+            + (jump + float_spring) * settings.opposing_impulse_scale);
 
         if let Ok(mut body_impulse) = impulses.get_mut(entity) {
             // Apply positional force to the rigidbody
@@ -319,25 +327,37 @@ pub fn movement(
 
         // Opposite force to whatever we were touching
         if let Some((ground_entity, toi)) = ground_cast {
-            if let Ok(mut ground_impulse) = impulses.get_mut(ground_entity) {
-                let ground_transform = match globals.get(ground_entity) {
-                    Ok(global) => global.compute_transform(),
-                    _ => Transform::default(),
-                };
+            if let Some(body) = ctx.collider_parent(ground_entity) {
+                if let Ok(mut ground_impulse) = impulses.get_mut(body) {
+                    let ground_transform = match globals.get(ground_entity) {
+                        Ok(global) => global.compute_transform(),
+                        _ => Transform::default(),
+                    };
 
-                let local_center_of_mass = match masses.get(ground_entity) {
-                    Ok(properties) => properties.0.local_center_of_mass,
-                    _ => Vec3::ZERO,
-                };
+                    let local_center_of_mass = match masses.get(ground_entity) {
+                        Ok(properties) => properties.0.local_center_of_mass,
+                        _ => Vec3::ZERO,
+                    };
 
-                let center_of_mass = ground_transform * local_center_of_mass;
+                    if opposing_impulse.dot(settings.up_vector) < 0.0 {
+                        let push_impulse = ExternalImpulse::at_point(
+                            opposing_impulse,
+                            toi.witness,
+                            ground_transform.transform_point(local_center_of_mass),
+                        );
+                        *ground_impulse += push_impulse;
+                    }
 
-                let push_impulse =
-                    ExternalImpulse::at_point(opposing_impulse, toi.witness, center_of_mass);
-                *ground_impulse += push_impulse;
-
-                #[cfg(feature = "debug_lines")]
-                lines.line_colored(toi.witness, toi.witness + opposing_impulse, dt, Color::RED);
+                    #[cfg(feature = "debug_lines")]
+                    {
+                        let color = if opposing_impulse.dot(settings.up_vector) < 0.0 {
+                            Color::RED
+                        } else {
+                            Color::BLUE
+                        };
+                        lines.line_colored(toi.witness, toi.witness + opposing_impulse, dt, color);
+                    }
+                }
             }
         }
 
@@ -401,10 +421,17 @@ fn intersections_with_shape_cast(
             shape_vel,
             shape,
         } = *shape;
+        let shape_pos = shape_pos + shape_vel * 0.1;
 
-        if let Some((entity, toi)) =
-            ctx.cast_shape(shape_pos, shape_rot, shape_vel, shape, max_toi, filter)
-        {
+        if let Some((entity, mut toi)) = ctx.cast_shape(
+            shape_pos,
+            shape_rot,
+            shape_vel,
+            shape,
+            max_toi + 0.1,
+            filter,
+        ) {
+            toi.toi -= 0.1;
             collisions.push((entity, toi));
         } else {
             break;
