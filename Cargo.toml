@@ -13,24 +13,22 @@ repository = "https://github.com/PROMETHIA-27/bevy_mod_wanderlust"
 version = "0.3.0"
 
 [features]
-debug_lines = ["bevy_prototype_debug_lines"]
+default = []
+debug_lines = []
 
 [dependencies]
-bevy = { version = "0.10", default-features = false, features = [
+bevy = { version = "0.11", default-features = false, features = [
     "bevy_render",
 ] }
-bevy_rapier3d = { version = "0.21", default-features = false, features = [
+bevy_rapier3d = { version = "0.22", default-features = false, features = [
     "async-collider",
     "dim3",
 ] }
-bevy_prototype_debug_lines = { version = "0.10", features = [
-    "3d",
-], optional = true }
 
 [dev-dependencies]
 bevy = "0.10"
 aether_spyglass = "0.1"
-bevy_rapier3d = { version = "0.21", features = ["debug-render"] }
+bevy_rapier3d = { version = "0.22", features = ["debug-render"] }
 
 # Enable a small amount of optimization in debug mode
 [profile.dev]

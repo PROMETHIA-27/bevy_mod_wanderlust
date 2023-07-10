@@ -4,9 +4,6 @@ use bevy::ecs::system::SystemParam;
 use bevy::{math::*, prelude::*};
 use bevy_rapier3d::prelude::*;
 
-#[cfg(feature = "debug_lines")]
-use bevy_prototype_debug_lines::*;
-
 #[derive(SystemParam)]
 pub struct MovementParams<'w, 's> {
     bodies: Query<
@@ -34,7 +31,7 @@ pub fn movement(
     params: MovementParams,
     mut ground_casts: Local<Vec<(Entity, Toi)>>,
 
-    #[cfg(feature = "debug_lines")] mut lines: ResMut<DebugLines>,
+    #[cfg(feature = "debug_lines")] mut gizmos: Gizmos,
 ) {
     let MovementParams {
         mut bodies,
@@ -204,9 +201,12 @@ pub fn movement(
 
                 settings.jump_force
                     * settings.up_vector
-                    * (settings.jump_decay_function)(
-                        (settings.jump_time - controller.jump_timer) / settings.jump_time,
-                    )
+                    * settings
+                        .jump_decay_function
+                        .map(|f| {
+                            (f)((settings.jump_time - controller.jump_timer) / settings.jump_time)
+                        })
+                        .unwrap_or(1.0)
                     * dt
             }
         } else {
@@ -294,12 +294,14 @@ pub fn movement(
                     *ground_impulse += push_impulse;
 
                     #[cfg(feature = "debug_lines")]
-                    lines.line_colored(
-                        toi.witness1,
-                        toi.witness1 + opposing_impulse,
-                        dt,
-                        Color::RED,
-                    );
+                    {
+                        let color = if opposing_impulse.dot(settings.up_vector) < 0.0 {
+                            Color::RED
+                        } else {
+                            Color::BLUE
+                        };
+                        gizmos.line(toi.witness, toi.witness + opposing_impulse, color);
+                    }
                 }
             }
         }

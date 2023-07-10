@@ -57,7 +57,7 @@ pub struct ControllerSettings {
     /// A function taking the current progress of a jump, from 0.0 to 1.0, with 0.0 indicating a jump has just begun and 1.0 indicating the jump has ended,
     /// which returns a modifier (usually from 0.0 to 1.0, but not necessarily) to multiply [`jump_force`](ControllerSettings::jump_force) by.
     #[reflect(ignore)]
-    pub jump_decay_function: fn(f32) -> f32,
+    pub jump_decay_function: Option<fn(f32) -> f32>,
     /// How long to skip ground checks after jumping. Usually this should be set just high enough that the character is out of range of the ground
     /// just before the timer elapses.
     pub jump_skip_ground_check_duration: f32,
@@ -112,7 +112,7 @@ impl Default for ControllerSettings {
             jump_force: default(),
             jump_stop_force: default(),
             jump_time: 1.0,
-            jump_decay_function: |_| 1.0,
+            jump_decay_function: None,
             jump_skip_ground_check_duration: default(),
             skip_ground_check_override: default(),
             extra_jumps: default(),
@@ -148,7 +148,7 @@ impl ControllerSettings {
             jump_time: 0.5,
             jump_initial_force: 15.0,
             jump_stop_force: 0.3,
-            jump_decay_function: |x| (1.0 - x).sqrt(),
+            jump_decay_function: Some(|x| (1.0 - x).sqrt()),
             jump_skip_ground_check_duration: 0.5,
             coyote_time_duration: 0.16,
             jump_buffer_duration: 0.16,
