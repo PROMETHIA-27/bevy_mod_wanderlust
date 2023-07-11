@@ -300,7 +300,7 @@ pub fn movement(
                         } else {
                             Color::BLUE
                         };
-                        gizmos.line(toi.witness, toi.witness + opposing_impulse, color);
+                        gizmos.line(toi.witness1, toi.witness1 + opposing_impulse, color);
                     }
                 }
             }

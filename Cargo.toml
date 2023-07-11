@@ -27,8 +27,8 @@ bevy_rapier3d = { version = "0.22", default-features = false, features = [
 ] }
 
 [dev-dependencies]
-bevy = "0.10"
-aether_spyglass = "0.1"
+bevy = "0.11"
+aether_spyglass = "0.2"
 bevy_rapier3d = { version = "0.22", features = ["debug-render"] }
 
 # Enable a small amount of optimization in debug mode

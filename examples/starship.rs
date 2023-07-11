@@ -11,24 +11,30 @@ use bevy_rapier3d::prelude::*;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                cursor: {
-                    let mut cursor = Cursor::default();
-                    cursor.visible = false;
-                    cursor.grab_mode = CursorGrabMode::Locked;
-                    cursor
-                },
+        .add_plugins((
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    cursor: Cursor {
+                        visible: false,
+                        grab_mode: CursorGrabMode::Locked,
+                        ..default()
+                    },
+                    ..default()
+                }),
                 ..default()
             }),
-            ..default()
-        }))
-        .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
-        .add_plugin(WanderlustPlugin)
-        .add_plugin(aether_spyglass::SpyglassPlugin)
-        .add_startup_system(setup)
-        .add_system(input.before(bevy_mod_wanderlust::movement))
-        .add_system(toggle_cursor_lock)
+            RapierPhysicsPlugin::<NoUserData>::default(),
+            WanderlustPlugin,
+            aether_spyglass::SpyglassPlugin,
+        ))
+        .add_systems(Startup, setup)
+        .add_systems(
+            Update,
+            (
+                input.before(bevy_mod_wanderlust::movement),
+                toggle_cursor_lock,
+            ),
+        )
         .register_type::<Player>()
         .run();
 }
@@ -124,7 +130,7 @@ fn input(
     if input.pressed(KeyCode::W) {
         dir += tf.forward();
     }
-    if input.pressed(KeyCode::LControl) {
+    if input.pressed(KeyCode::ControlLeft) {
         dir += -tf.up();
     }
     if input.pressed(KeyCode::Space) {

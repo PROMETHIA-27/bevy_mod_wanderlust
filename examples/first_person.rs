@@ -16,28 +16,36 @@ use std::f32::consts::FRAC_2_PI;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                cursor: {
-                    let mut cursor = Cursor::default();
-                    cursor.visible = false;
-                    cursor.grab_mode = CursorGrabMode::Locked;
-                    cursor
-                },
+        .add_plugins((
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    cursor: Cursor {
+                        visible: false,
+                        grab_mode: CursorGrabMode::Locked,
+                        ..default()
+                    },
+                    ..default()
+                }),
                 ..default()
             }),
-            ..default()
-        }))
-        .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
-        .add_plugin(RapierDebugRenderPlugin::default())
-        .add_plugin(WanderlustPlugin)
+            RapierPhysicsPlugin::<NoUserData>::default(),
+            // This plugin was causing unhelpful glitchy orange planes, so it's commented out until
+            // it's working again
+            // RapierDebugRenderPlugin::default(),
+            WanderlustPlugin,
+            aether_spyglass::SpyglassPlugin,
+        ))
         .insert_resource(Sensitivity(1.0))
-        .add_startup_system(setup)
+        .add_systems(Startup, setup)
         // Add to PreUpdate to ensure updated before movement is calculated
-        .add_system(movement_input.before(bevy_mod_wanderlust::movement))
-        .add_system(mouse_look)
-        .add_system(toggle_cursor_lock)
-        .add_plugin(aether_spyglass::SpyglassPlugin)
+        .add_systems(
+            Update,
+            (
+                movement_input.before(bevy_mod_wanderlust::movement),
+                mouse_look,
+                toggle_cursor_lock,
+            ),
+        )
         .run()
 }
 
