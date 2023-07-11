@@ -6,10 +6,18 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 ### Added
+
+### Changed
+
+### Fixed
+
+## 0.3 - 2022-07-11
+### Added
 - An override for skipping ground check.
 - Exclude entities set for the controller settings to ignore certain entities in ground cast.
 
 ### Changed
+- Updated to bevy 0.11
 - Do multiple shape casts.
 - Spring damping force is now the damping ratio instead of a direct coefficient to the damped harmonic oscillator equation
     - <1 is under-damped
