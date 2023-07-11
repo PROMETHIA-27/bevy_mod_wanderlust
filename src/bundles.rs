@@ -72,7 +72,6 @@ pub struct ControllerBundle {
     /// See [`ControllerInput`].
     pub input: ControllerInput,
     /// See [`ControllerPhysicsBundle`]
-    #[bundle]
     pub physics: ControllerPhysicsBundle,
     /// See [`Transform`]
     pub transform: Transform,
