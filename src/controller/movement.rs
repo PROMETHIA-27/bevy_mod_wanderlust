@@ -276,7 +276,6 @@ pub fn jump_force(
             // and prevents stacking jumps to reach high upwards velocities
             force.linear = velocity.linear * gravity.up_vector() * -1.0;
             force.linear += jumping.initial_force * gravity.up_vector();
-            float_force.linear = Vec3::ZERO;
         }
 
         jumping.pressed_last_frame = input.jumping;

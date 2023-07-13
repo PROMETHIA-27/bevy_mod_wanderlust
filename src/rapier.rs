@@ -77,7 +77,7 @@ pub fn apply_ground_forces(
 ) {
     let dt = ctx.integration_parameters.dt;
     for (force, cast) in &ground_forces {
-        if let Some((ground, toi, velocity)) = cast.cast {
+        if let Some((ground, _, _)) = cast.cast {
             if let Ok(mut impulse) = impulses.get_mut(ground) {
                 impulse.impulse += force.linear * dt;
                 impulse.torque_impulse += force.angular * dt;

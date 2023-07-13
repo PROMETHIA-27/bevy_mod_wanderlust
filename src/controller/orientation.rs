@@ -54,25 +54,28 @@ pub fn float_force(
     )>,
 ) {
     for (mut force, float, cast, velocity, mass, gravity) in &mut query {
-        let float_spring_force = if let Some((ground, intersection, ground_vel)) = cast.cast {
+        force.linear = if let Some((ground, intersection, ground_vel)) = cast.cast {
             let up_vector = gravity.up_vector();
 
-            let point_velocity = velocity.linear + velocity.angular.cross(Vec3::ZERO - mass.com);
-            let vel_align = (-up_vector).dot(point_velocity);
-            let ground_vel_align = (-up_vector).dot(ground_vel.linvel);
+            let point_velocity = 
+                velocity.linear + velocity.angular.cross(Vec3::ZERO - mass.com);
+            let vel_align = up_vector.dot(point_velocity);
+            let ground_vel_align = up_vector.dot(ground_vel.linvel);
 
-            let relative_align = vel_align - ground_vel_align;
+            let relative_velocity = vel_align - ground_vel_align;
 
-            let snap = intersection.toi - float.distance;
+            let displacement = float.distance - intersection.toi;
 
-            (-up_vector)
-                * ((snap * float.spring.strength)
-                    - (relative_align * float.spring.damp_coefficient(mass.mass)))
+            if displacement > 0.0 {
+                let strength = (displacement * float.spring.strength);
+                let damping = (relative_velocity * float.spring.damp_coefficient(mass.mass));
+                up_vector * (strength - damping)
+            } else {
+                Vec3::ZERO
+            }
         } else {
             Vec3::ZERO
         };
-
-        force.linear = float_spring_force;
     }
 }
 
@@ -141,23 +144,5 @@ pub fn upright_force(
             let spring = (desired_axis * upright.spring.strength) - (velocity.angular * damping);
             spring.clamp_length_max(upright.spring.strength)
         };
-    }
-}
-
-fn create_float_force(
-    mut c: Commands,
-    forceless_floaters: Query<Entity, (With<Float>, Without<FloatForce>)>,
-) {
-    for ent in &forceless_floaters {
-        c.entity(ent).insert(FloatForce::default());
-    }
-}
-
-fn create_upright_force(
-    mut c: Commands,
-    forceless_uprighters: Query<Entity, (With<Upright>, Without<UprightForce>)>,
-) {
-    for ent in &forceless_uprighters {
-        c.entity(ent).insert(UprightForce::default());
     }
 }
