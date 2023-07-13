@@ -10,7 +10,6 @@ pub struct ControllerInput {
     /// This field represents movement in 3D space.
     /// The majority of games will map this to WASD/Analog joystick in 2D space along the ground.
     /// To ensure movement does not affect the Y axis, set [`ControllerSettings::force_scale`] to `Vec3(1.0, 0.0, 1.0)`.
-    /// This field will be normalized when read by the movement system.
     pub movement: Vec3,
     /// This field represents if the jump control is currently pressed.
     pub jumping: bool,
