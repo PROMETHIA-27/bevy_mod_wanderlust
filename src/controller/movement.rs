@@ -2,7 +2,6 @@ use crate::controller::*;
 /// Movements applied via inputs.
 ///
 /// This includes directional movement and jumping.
-use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
 
 /// Settings used to determine movement impulses on this controller.
@@ -200,7 +199,6 @@ pub struct JumpForce {
 pub fn jump_force(
     mut query: Query<(
         &mut JumpForce,
-        &mut FloatForce,
         &mut Jump,
         &mut GroundCaster,
         &ControllerInput,
@@ -212,16 +210,7 @@ pub fn jump_force(
 ) {
     let dt = ctx.integration_parameters.dt;
 
-    for (
-        mut force,
-        mut float_force,
-        mut jumping,
-        mut groundcaster,
-        input,
-        grounded,
-        gravity,
-        velocity,
-    ) in &mut query
+    for (mut force, mut jumping, mut groundcaster, input, grounded, gravity, velocity) in &mut query
     {
         force.linear = Vec3::ZERO;
 
@@ -241,8 +230,8 @@ pub fn jump_force(
         }
 
         // Calculate jump force
-        let mut jump = if jumping.timer > 0.0 && !grounded {
-            if !input.jumping {
+        if jumping.timer > 0.0 && !grounded {
+            force.linear = if !input.jumping {
                 jumping.timer = 0.0;
                 velocity.linear.project_onto(gravity.up_vector()) * -jumping.stop_force
             } else {
@@ -254,9 +243,7 @@ pub fn jump_force(
                         .decay_function
                         .map(|f| (f)((jumping.time - jumping.timer) / jumping.time))
                         .unwrap_or(1.0)
-            }
-        } else {
-            Vec3::ZERO
+            };
         };
 
         // Trigger a jump

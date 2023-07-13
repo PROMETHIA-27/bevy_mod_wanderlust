@@ -1,6 +1,5 @@
 use crate::controller::*;
 /// Keeps the controller properly oriented in a floating state.
-use bevy::prelude::*;
 
 #[derive(Component, Reflect)]
 #[reflect(Component, Default)]
@@ -54,11 +53,10 @@ pub fn float_force(
     )>,
 ) {
     for (mut force, float, cast, velocity, mass, gravity) in &mut query {
-        force.linear = if let Some((ground, intersection, ground_vel)) = cast.cast {
+        force.linear = if let Some((_, intersection, ground_vel)) = cast.cast {
             let up_vector = gravity.up_vector();
 
-            let point_velocity = 
-                velocity.linear + velocity.angular.cross(Vec3::ZERO - mass.com);
+            let point_velocity = velocity.linear + velocity.angular.cross(Vec3::ZERO - mass.com);
             let vel_align = up_vector.dot(point_velocity);
             let ground_vel_align = up_vector.dot(ground_vel.linvel);
 
@@ -67,8 +65,8 @@ pub fn float_force(
             let displacement = float.distance - intersection.toi;
 
             if displacement > 0.0 {
-                let strength = (displacement * float.spring.strength);
-                let damping = (relative_velocity * float.spring.damp_coefficient(mass.mass));
+                let strength = displacement * float.spring.strength;
+                let damping = relative_velocity * float.spring.damp_coefficient(mass.mass);
                 up_vector * (strength - damping)
             } else {
                 Vec3::ZERO

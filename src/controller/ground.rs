@@ -1,5 +1,5 @@
 use crate::controller::*;
-use bevy::{prelude::*, utils::HashSet};
+use bevy::utils::HashSet;
 use bevy_rapier3d::prelude::*;
 
 #[derive(Component, Reflect)]
@@ -70,18 +70,17 @@ pub fn find_ground(
 
     mut ground_shape_casts: Local<Vec<(Entity, Toi)>>,
     mut ground_ray_casts: Local<Vec<(Entity, RayIntersection)>>,
-
-    mut gizmos: Gizmos,
 ) {
     let dt = ctx.integration_parameters.dt;
     for (entity, tf, gravity, mut caster, mut cast) in &mut casters {
-        let casted = if caster.skip_ground_check_timer == 0.0 && !caster.skip_ground_check_override {
+        let casted = if caster.skip_ground_check_timer == 0.0 && !caster.skip_ground_check_override
+        {
             let shape_desc = ShapeDesc {
-                    shape_pos: tf.transform_point(caster.cast_origin),
-                    shape_rot: tf.to_scale_rotation_translation().1,
-                    shape_vel: -gravity.up_vector(),
-                    shape: &caster.cast_collider,
-                };
+                shape_pos: tf.transform_point(caster.cast_origin),
+                shape_rot: tf.to_scale_rotation_translation().1,
+                shape_vel: -gravity.up_vector(),
+                shape: &caster.cast_collider,
+            };
 
             intersections_with_shape_cast(
                 &ctx,

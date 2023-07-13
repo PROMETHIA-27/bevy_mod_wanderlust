@@ -104,7 +104,7 @@ pub fn accumulate_forces(
         let opposing_force = -(movement.linear * settings.opposing_movement_force_scale
             + (jump.linear + float.linear) * settings.opposing_force_scale);
 
-        if let Some((ground_entity, toi, velocity)) = ground_cast.cast {
+        if let Some((ground_entity, toi, _)) = ground_cast.cast {
             let ground_transform = match globals.get(ground_entity) {
                 Ok(global) => global.compute_transform().compute_affine(),
                 _ => Transform::default().compute_affine(),
