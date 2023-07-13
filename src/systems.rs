@@ -179,22 +179,19 @@ pub fn movement(
 
             let point_velocity =
                 velocity.linvel + velocity.angvel.cross(Vec3::ZERO - local_center_of_mass);
-            let vel_align = (-settings.up_vector).dot(point_velocity);
+            let vel_align = settings.up_vector.dot(point_velocity);
             let ground_vel_align =
                 (-settings.up_vector).dot(ground_vel.map(|v| v.linvel).unwrap_or(Vec3::ZERO));
 
-            let relative_align = vel_align - ground_vel_align;
+            let relative_velocity = vel_align;
 
-            let snap = intersection.toi - settings.float_distance;
-            info!(
-                "intersection: {:?}, float: {:?}",
-                intersection.toi, settings.float_distance
-            );
+            let displacement = settings.float_distance - intersection.toi;
+            let max_impulse = displacement * mass / dt;
 
-            if snap <= 0.05 {
-                (-settings.up_vector)
-                    * ((snap * settings.float_spring.strength)
-                        - (relative_align * settings.float_spring.damp_coefficient(mass)))
+            if displacement > 0.0 {
+                let damping = (relative_velocity * settings.float_spring.damp_coefficient(mass));
+                let strength = (displacement * settings.float_spring.strength);
+                settings.up_vector * (strength - damping)
             } else {
                 Vec3::ZERO
             }
@@ -313,10 +310,10 @@ pub fn movement(
             spring.clamp_length_max(settings.upright_spring.strength)
         };
 
-        let pushing_impulse = jump + float_spring + gravity;
-        let total_impulse = movement + pushing_impulse;
-        let opposing_impulse = -(movement * settings.opposing_movement_impulse_scale
-            + (jump + float_spring) * settings.opposing_impulse_scale);
+        let pushing_impulse = jump + float_spring;
+        let total_impulse = movement + pushing_impulse + gravity;
+        let opposing_impulse = -((movement * settings.opposing_movement_impulse_scale)
+            + (pushing_impulse * settings.opposing_impulse_scale));
 
         if let Ok(mut body_impulse) = impulses.get_mut(entity) {
             // Apply positional force to the rigidbody
@@ -340,12 +337,12 @@ pub fn movement(
                     };
 
                     if opposing_impulse.dot(settings.up_vector) < 0.0 {
-                        let push_impulse = ExternalImpulse::at_point(
+                        let mut impulse_at_point = ExternalImpulse::at_point(
                             opposing_impulse,
                             toi.witness,
                             ground_transform.transform_point(local_center_of_mass),
                         );
-                        *ground_impulse += push_impulse;
+                        *ground_impulse += impulse_at_point;
                     }
 
                     #[cfg(feature = "debug_lines")]
@@ -421,17 +418,18 @@ fn intersections_with_shape_cast(
             shape_vel,
             shape,
         } = *shape;
-        let shape_pos = shape_pos + shape_vel * 0.1;
+        let offset = 0.1;
+        let shape_pos = shape_pos - shape_vel * offset;
 
         if let Some((entity, mut toi)) = ctx.cast_shape(
             shape_pos,
             shape_rot,
             shape_vel,
             shape,
-            max_toi + 0.1,
+            max_toi + offset,
             filter,
         ) {
-            toi.toi -= 0.1;
+            toi.toi -= offset;
             collisions.push((entity, toi));
         } else {
             break;

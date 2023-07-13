@@ -13,7 +13,7 @@ repository = "https://github.com/PROMETHIA-27/bevy_mod_wanderlust"
 version = "0.3.0"
 
 [features]
-default = []
+default = ["debug_lines"]
 debug_lines = ["bevy_prototype_debug_lines"]
 
 [dependencies]
