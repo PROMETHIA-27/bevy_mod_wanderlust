@@ -1,4 +1,4 @@
-use crate::{controller::GroundCast, physics::*};
+use crate::{controller::*, physics::*};
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
 
@@ -59,6 +59,7 @@ impl Default for RapierPhysicsBundle {
     }
 }
 
+/// Apply forces to the controller to make it float, move, jump, etc.
 pub fn apply_forces(
     mut forces: Query<(&mut ExternalImpulse, &ControllerForce)>,
     ctx: Res<RapierContext>,
@@ -70,6 +71,7 @@ pub fn apply_forces(
     }
 }
 
+/// Apply the opposing ground force to the entity we are pushing off of to float.
 pub fn apply_ground_forces(
     mut impulses: Query<&mut ExternalImpulse>,
     ground_forces: Query<(&GroundForce, &GroundCast)>,
@@ -86,6 +88,7 @@ pub fn apply_ground_forces(
     }
 }
 
+/// Sync rapier masses over to our masses.
 pub fn get_mass_from_rapier(mut query: Query<(&mut ControllerMass, &ReadMassProperties)>) {
     for (mut mass, rapier_mass) in &mut query {
         mass.mass = rapier_mass.0.mass;
@@ -94,20 +97,10 @@ pub fn get_mass_from_rapier(mut query: Query<(&mut ControllerMass, &ReadMassProp
     }
 }
 
+/// Sync rapier velocities over to our velocities.
 pub fn get_velocity_from_rapier(mut query: Query<(&mut ControllerVelocity, &Velocity)>) {
     for (mut vel, rapier_vel) in &mut query {
         vel.linear = rapier_vel.linvel;
         vel.angular = rapier_vel.angvel;
-    }
-}
-
-pub struct WanderlustRapierPlugin;
-impl Plugin for WanderlustRapierPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_systems(
-            FixedUpdate,
-            (get_mass_from_rapier, get_velocity_from_rapier),
-        );
-        app.add_systems(FixedUpdate, (apply_forces, apply_ground_forces));
     }
 }

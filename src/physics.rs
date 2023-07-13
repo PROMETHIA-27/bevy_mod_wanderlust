@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 
+/// Mass/inertia properties for controller.
 #[derive(Component, Clone, Default, Reflect)]
 #[reflect(Component, Default)]
 pub struct ControllerMass {
@@ -11,6 +12,7 @@ pub struct ControllerMass {
     pub com: Vec3,
 }
 
+/// Current velocity of the controller.
 #[derive(Copy, Clone, Component, Default, Reflect)]
 #[reflect(Component, Default)]
 pub struct ControllerVelocity {
@@ -30,20 +32,14 @@ pub struct ControllerForce {
     pub angular: Vec3,
 }
 
-/// Force applied to the ground the controller is on.
-#[derive(Copy, Clone, Component, Default, Reflect)]
-#[reflect(Component, Default)]
-pub struct GroundForce {
-    /// Change in linear velocity.
-    pub linear: Vec3,
-    /// Change in angular velocity.
-    pub angular: Vec3,
-}
-
+/// Components for computing forces/applying to physics engines.
 #[derive(Bundle)]
 pub struct ControllerPhysicsBundle {
+    /// Mass of the controller.
     pub mass: ControllerMass,
+    /// Current velocity of the controller.
     pub velocity: ControllerVelocity,
+    /// Accumulated force of various controller constraints.
     pub force: ControllerForce,
 }
 

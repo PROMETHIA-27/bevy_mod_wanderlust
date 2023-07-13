@@ -2,6 +2,8 @@ use crate::controller::*;
 use bevy::utils::HashSet;
 use bevy_rapier3d::prelude::*;
 
+/// How to detect if something below the controller is suitable
+/// for standing on.
 #[derive(Component, Reflect)]
 #[reflect(Component, Default)]
 pub struct GroundCaster {
@@ -56,6 +58,16 @@ pub struct GroundCast {
 #[reflect(Component, Default)]
 pub struct Grounded(pub bool);
 
+/// Force applied to the ground the controller is on.
+#[derive(Copy, Clone, Component, Default, Reflect)]
+#[reflect(Component, Default)]
+pub struct GroundForce {
+    /// Change in linear velocity.
+    pub linear: Vec3,
+    /// Change in angular velocity.
+    pub angular: Vec3,
+}
+
 /// Performs groundcasting and updates controller state accordingly.
 pub fn find_ground(
     mut casters: Query<(
@@ -78,7 +90,7 @@ pub fn find_ground(
             let shape_desc = ShapeDesc {
                 shape_pos: tf.transform_point(caster.cast_origin),
                 shape_rot: tf.to_scale_rotation_translation().1,
-                shape_vel: -gravity.up_vector(),
+                shape_vel: -gravity.up_vector,
                 shape: &caster.cast_collider,
             };
 
@@ -96,7 +108,7 @@ pub fn find_ground(
                 .iter()
                 .find(|(_, i)| {
                     i.status != TOIStatus::Penetrating
-                        && i.normal1.angle_between(gravity.up_vector()) <= caster.max_ground_angle
+                        && i.normal1.angle_between(gravity.up_vector) <= caster.max_ground_angle
                 })
                 .cloned()
             {
@@ -122,7 +134,7 @@ pub fn find_ground(
                 if let Some((entity, inter)) = ground_ray_casts
                     .iter()
                     .find(|(_, i)| {
-                        i.normal.angle_between(gravity.up_vector()) <= caster.max_ground_angle
+                        i.normal.angle_between(gravity.up_vector) <= caster.max_ground_angle
                     })
                     .cloned()
                 {

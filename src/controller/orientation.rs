@@ -38,6 +38,7 @@ impl Default for Float {
 #[derive(Component, Default, Reflect)]
 #[reflect(Component, Default)]
 pub struct FloatForce {
+    /// Linear force.
     pub linear: Vec3,
 }
 
@@ -54,7 +55,7 @@ pub fn float_force(
 ) {
     for (mut force, float, cast, velocity, mass, gravity) in &mut query {
         force.linear = if let Some((_, intersection, ground_vel)) = cast.cast {
-            let up_vector = gravity.up_vector();
+            let up_vector = gravity.up_vector;
 
             let point_velocity = velocity.linear + velocity.angular.cross(Vec3::ZERO - mass.com);
             let vel_align = up_vector.dot(point_velocity);
@@ -77,6 +78,8 @@ pub fn float_force(
     }
 }
 
+/// How to keep the controller upright, as well as
+/// facing a specific direction.
 #[derive(Component, Reflect)]
 #[reflect(Component, Default)]
 pub struct Upright {
@@ -102,6 +105,7 @@ impl Default for Upright {
 #[derive(Component, Default, Reflect)]
 #[reflect(Component, Default)]
 pub struct UprightForce {
+    /// Angular force.
     pub angular: Vec3,
 }
 
@@ -118,7 +122,7 @@ pub fn upright_force(
     for (mut impulse, upright, tf, gravity, mass, velocity) in &mut query {
         impulse.angular = {
             let desired_axis = if let Some(forward) = upright.forward_vector {
-                let right = gravity.up_vector().cross(forward).normalize();
+                let right = gravity.up_vector.cross(forward).normalize();
                 let up = forward.cross(right);
                 let target_rot = Quat::from_mat3(&Mat3::from_cols(right, up, forward));
                 let current = tf.to_scale_rotation_translation().1;
@@ -130,7 +134,7 @@ pub fn upright_force(
                 axis * angle
             } else {
                 let current = tf.up();
-                current.cross(gravity.up_vector())
+                current.cross(gravity.up_vector)
             };
 
             let damping = Vec3::new(

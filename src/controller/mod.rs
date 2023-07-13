@@ -11,26 +11,47 @@ use crate::Spring;
 
 pub use {gravity::*, ground::*, input::*, movement::*, orientation::*};
 
+/// Components required for calculating controller forces.
 #[derive(Bundle)]
 pub struct Controller {
+    /// How strong the controller should be pulled down if the ground
+    /// isn't there.
     pub gravity: Gravity,
+    /// Calculated gravity force.
     pub gravity_force: GravityForce,
 
+    /// How to detect if something below the controller is suitable
+    /// for standing on.
     pub ground_caster: GroundCaster,
+    /// Ground entity found that is considered ground.
     pub ground_cast: GroundCast,
+    /// Is the controller currently considered stable on the ground.
     pub grounded: Grounded,
+    /// Force applied to the ground the controller is on.
     pub ground_force: GroundForce,
 
+    /// Adjusting speed of the controller.
     pub movement: Movement,
+    /// Calculated force for moving the controller.
     pub movement_force: MovementForce,
+
+    /// How the controller's jumping should behave.
     pub jump: Jump,
+    /// Calculated force for allowing the controller to jump.
     pub jump_force: JumpForce,
 
+    /// How the far to float and how stiff that floating should be.
     pub float: Float,
+    /// Calculated force for keeping the controller floating.
     pub float_force: FloatForce,
+
+    /// How to keep the controller upright, as well as
+    /// facing a specific direction.
     pub upright: Upright,
+    /// Calculated force for keeping the controller upright.
     pub upright_force: UprightForce,
 
+    /// How should the forces be applied to the physics engine.
     pub force_settings: ForceSettings,
 }
 
@@ -60,6 +81,7 @@ impl Default for Controller {
     }
 }
 
+/// Settings for how the forces applied to the physics engine should be calculated.
 #[derive(Component, Default, Reflect)]
 #[reflect(Component, Default)]
 pub struct ForceSettings {
@@ -70,6 +92,7 @@ pub struct ForceSettings {
     pub opposing_movement_force_scale: f32,
 }
 
+/// Add all forces together into a single force to be applied to the physics engine.
 pub fn accumulate_forces(
     globals: Query<&GlobalTransform>,
     mut forces: Query<(

@@ -98,6 +98,7 @@ pub fn movement_force(
     }
 }
 
+/// How many times should the controller be able to jump even after leaving the ground.
 #[derive(Reflect, Debug, Clone)]
 #[reflect(Default)]
 pub struct ExtraJumps {
@@ -116,6 +117,7 @@ impl Default for ExtraJumps {
     }
 }
 
+/// How long should the character be considered grounded even after leaving the ground.
 #[derive(Reflect, Debug, Clone)]
 #[reflect(Default)]
 pub struct CoyoteTime {
@@ -135,6 +137,7 @@ impl Default for CoyoteTime {
     }
 }
 
+/// How the controller's jumping should behave.
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Default)]
 pub struct Jump {
@@ -163,8 +166,9 @@ pub struct Jump {
     /// How long to skip ground checks after jumping. Usually this should be set just high enough that the character is out of range of the ground
     /// just before the timer elapses.
     pub skip_ground_check_duration: f32,
-
+    /// How long should the character be considered grounded even after leaving the ground.
     pub coyote_time: CoyoteTime,
+    /// How many times should the controller be able to jump even after leaving the ground.
     pub extra_jumps: ExtraJumps,
 }
 
@@ -188,7 +192,7 @@ impl Default for Jump {
     }
 }
 
-/// Calculated force for character jumping.
+/// Calculated force for controller jumping.
 #[derive(Component, Debug, Default, Reflect)]
 #[reflect(Component, Default)]
 pub struct JumpForce {
@@ -196,6 +200,7 @@ pub struct JumpForce {
     pub linear: Vec3,
 }
 
+/// Calculate the jump force for the controller.
 pub fn jump_force(
     mut query: Query<(
         &mut JumpForce,
@@ -233,12 +238,12 @@ pub fn jump_force(
         if jumping.timer > 0.0 && !grounded {
             force.linear = if !input.jumping {
                 jumping.timer = 0.0;
-                velocity.linear.project_onto(gravity.up_vector()) * -jumping.stop_force
+                velocity.linear.project_onto(gravity.up_vector) * -jumping.stop_force
             } else {
                 jumping.timer = (jumping.timer - dt).max(0.0);
 
                 jumping.force
-                    * gravity.up_vector()
+                    * gravity.up_vector
                     * jumping
                         .decay_function
                         .map(|f| (f)((jumping.time - jumping.timer) / jumping.time))
@@ -261,8 +266,8 @@ pub fn jump_force(
             groundcaster.skip_ground_check_timer = jumping.skip_ground_check_duration;
             // Negating the current velocity increases consistency for falling jumps,
             // and prevents stacking jumps to reach high upwards velocities
-            force.linear = velocity.linear * gravity.up_vector() * -1.0;
-            force.linear += jumping.initial_force * gravity.up_vector();
+            force.linear = velocity.linear * gravity.up_vector * -1.0;
+            force.linear += jumping.initial_force * gravity.up_vector;
         }
 
         jumping.pressed_last_frame = input.jumping;
