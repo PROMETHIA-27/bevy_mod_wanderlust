@@ -81,7 +81,7 @@ fn setup(
             ControllerBundle {
                 rapier_physics: RapierPhysicsBundle {
                     // Lock the axes to prevent camera shake whilst moving up slopes
-                    //locked_axes: LockedAxes::ROTATION_LOCKED,
+                    locked_axes: LockedAxes::ROTATION_LOCKED,
                     ..default()
                 },
                 ..default()
