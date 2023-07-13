@@ -139,9 +139,9 @@ impl Default for Jump {
             timer: 0.0,
             buffer_timer: default(),
 
-            force: 20.0,
+            force: 500.0,
             time: 0.5,
-            initial_force: 50.0,
+            initial_force: 1000.0,
             stop_force: 0.3,
             skip_ground_check_duration: 0.5,
             decay_function: Some(|x| (1.0 - x).sqrt()),
@@ -163,6 +163,7 @@ pub struct JumpForce {
 pub fn jump_force(
     mut query: Query<(
         &mut JumpForce,
+        &mut FloatForce,
         &mut Jump,
         &mut GroundCaster,
         &ControllerInput,
@@ -174,7 +175,7 @@ pub fn jump_force(
 ) {
     let dt = ctx.integration_parameters.dt;
 
-    for (mut force, mut jumping, mut groundcaster, input, grounded, gravity, velocity) in &mut query
+    for (mut force, mut float_force, mut jumping, mut groundcaster, input, grounded, gravity, velocity) in &mut query
     {
         force.linear = Vec3::ZERO;
 
@@ -229,7 +230,7 @@ pub fn jump_force(
             // and prevents stacking jumps to reach high upwards velocities
             force.linear = velocity.linear * gravity.up_vector * -1.0;
             force.linear += jumping.initial_force * gravity.up_vector;
-            info!("force: {:?}", force);
+            float_force.linear = Vec3::ZERO;
         }
 
         jumping.pressed_last_frame = input.jumping;

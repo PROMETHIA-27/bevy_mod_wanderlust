@@ -40,15 +40,15 @@ impl Plugin for WanderlustPlugin {
             Update,
             (
                 movement_force,
-                jump_force,
                 upright_force,
                 float_force,
                 apply_gravity,
                 find_ground,
                 determine_groundedness,
+                jump_force,
 
                 accumulate_forces,
-            ),
+            ).chain(),
         );
     }
 }
