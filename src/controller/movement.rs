@@ -6,7 +6,7 @@ use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
 
 /// Settings used to determine movement impulses on this controller.
-#[derive(Component, Reflect)]
+#[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Default)]
 pub struct Movement {
     /// How fast to get to the max speed.
@@ -29,7 +29,7 @@ impl Default for Movement {
 }
 
 /// Calculated impulse for moving the character.
-#[derive(Component, Default, Reflect)]
+#[derive(Component, Debug, Clone, Default, Reflect)]
 #[reflect(Component, Default)]
 pub struct MovementForce {
     /// Linear impulse to apply to move the character.
@@ -62,7 +62,7 @@ pub fn movement_force(
     }
 }
 
-#[derive(Default, Reflect)]
+#[derive(Reflect, Debug, Clone)]
 #[reflect(Default)]
 pub struct ExtraJumps {
     /// How many extra times the character can jump after leaving the ground. 0 is normal, 1 corresponds to double jump, etc.
@@ -71,7 +71,16 @@ pub struct ExtraJumps {
     pub remaining: u32,
 }
 
-#[derive(Default, Reflect)]
+impl Default for ExtraJumps {
+    fn default() -> Self {
+        Self {
+            extra: 0,
+            remaining: 0,
+        }
+    }
+}
+
+#[derive(Reflect, Debug, Clone)]
 #[reflect(Default)]
 pub struct CoyoteTime {
     /// How long should the character still be able to jump after leaving the ground, in seconds.
@@ -81,7 +90,16 @@ pub struct CoyoteTime {
     pub timer: f32,
 }
 
-#[derive(Component, Reflect)]
+impl Default for CoyoteTime {
+    fn default() -> Self {
+        Self {
+            duration: 0.16,
+            timer: 0.0,
+        }
+    }
+}
+
+#[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Default)]
 pub struct Jump {
     /// Was [`ControllerInput::jumping`] true last frame.
@@ -121,9 +139,9 @@ impl Default for Jump {
             timer: 0.0,
             buffer_timer: default(),
 
-            force: 0.0,
+            force: 20.0,
             time: 0.5,
-            initial_force: 15.0,
+            initial_force: 50.0,
             stop_force: 0.3,
             skip_ground_check_duration: 0.5,
             decay_function: Some(|x| (1.0 - x).sqrt()),
@@ -135,7 +153,7 @@ impl Default for Jump {
 }
 
 /// Calculated force for character jumping.
-#[derive(Component, Default, Reflect)]
+#[derive(Component, Debug, Default, Reflect)]
 #[reflect(Component, Default)]
 pub struct JumpForce {
     /// Linear impulse to apply to push the character up.
@@ -158,6 +176,8 @@ pub fn jump_force(
 
     for (mut force, mut jumping, mut groundcaster, input, grounded, gravity, velocity) in &mut query
     {
+        force.linear = Vec3::ZERO;
+
         let grounded = **grounded;
         let just_jumped = input.jumping && !jumping.pressed_last_frame;
         if grounded {
@@ -209,6 +229,9 @@ pub fn jump_force(
             // and prevents stacking jumps to reach high upwards velocities
             force.linear = velocity.linear * gravity.up_vector * -1.0;
             force.linear += jumping.initial_force * gravity.up_vector;
+            info!("force: {:?}", force);
         }
+
+        jumping.pressed_last_frame = input.jumping;
     }
 }

@@ -138,7 +138,8 @@ pub fn upright_force(
                 upright.spring.damp_coefficient(mass.inertia.z),
             );
 
-            let spring = (desired_axis * upright.spring.strength) - (velocity.angular * damping);
+            let spring =
+                (desired_axis * upright.spring.strength) - (velocity.angular * damping);
             spring.clamp_length_max(upright.spring.strength)
         };
     }
