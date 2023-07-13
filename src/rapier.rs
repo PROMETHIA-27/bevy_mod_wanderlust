@@ -104,3 +104,18 @@ pub fn get_velocity_from_rapier(
         vel.angular = rapier_vel.angvel;
     }
 }
+
+pub struct WanderlustRapierPlugin;
+impl Plugin for WanderlustRapierPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(
+            Update,
+            (
+                get_mass_from_rapier,
+                get_velocity_from_rapier,
+                apply_forces,
+                apply_ground_forces,
+            ),
+        );
+    }
+}

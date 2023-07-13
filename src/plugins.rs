@@ -1,15 +1,67 @@
-use crate::controller::ControllerInput;
+use crate::controller::*;
 use bevy::prelude::*;
+use bevy_rapier3d::prelude::*;
 
 /// The [character controller](CharacterController) plugin. Necessary to have the character controller
 /// work.
-pub struct WanderlustPlugin;
+pub struct WanderlustPlugin {
+    tweaks: bool,
+}
+
+impl WanderlustPlugin {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn do_tweaks() -> Self {
+        Self { tweaks: true }
+    }
+}
+
+impl Default for WanderlustPlugin {
+    fn default() -> Self {
+        Self { tweaks: true }
+    }
+}
 
 impl Plugin for WanderlustPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<ControllerInput>()
             .register_type::<Option<Vec3>>();
-        //.add_systems(Startup, setup_physics_context)
-        //.add_systems(Update, movement);
+
+        #[cfg(feature = "rapier")]
+        app.add_plugins(crate::WanderlustRapierPlugin);
+
+        if self.tweaks {
+            app.add_systems(Startup, setup_physics_context);
+        }
+
+        app.add_systems(
+            Update,
+            (
+                movement_force,
+                jump_force,
+                upright_force,
+                float_force,
+                apply_gravity,
+                find_ground,
+                determine_groundedness,
+
+                accumulate_forces,
+            ),
+        );
     }
+}
+
+/// *Note: Most users will not need to use this directly. Use [`WanderlustPlugin`](crate::plugins::WanderlustPlugin) instead.
+/// Alternatively, if one only wants to disable the system, use [`WanderlustPhysicsTweaks`](WanderlustPhysicsTweaks).*
+///
+/// This system adds some tweaks to rapier's physics settings that make the character controller behave better.
+pub fn setup_physics_context(mut ctx: ResMut<RapierContext>) {
+    let params = &mut ctx.integration_parameters;
+    // This prevents any noticeable jitter when running facefirst into a wall.
+    params.erp = 0.99;
+    // This prevents (most) noticeable jitter when running facefirst into an inverted corner.
+    params.max_velocity_iterations = 16;
+    // TODO: Fix jitter that occurs when running facefirst into a normal corner.
 }

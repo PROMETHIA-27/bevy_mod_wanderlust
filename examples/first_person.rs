@@ -8,7 +8,7 @@ use bevy::{
     window::{Cursor, PrimaryWindow},
 };
 use bevy_mod_wanderlust::{
-    ControllerBundle, ControllerInput, ControllerPhysicsBundle, ControllerSettings,
+    ControllerBundle, ControllerInput, ControllerPhysicsBundle, RapierPhysicsBundle,
     WanderlustPlugin,
 };
 use bevy_rapier3d::prelude::*;
@@ -32,7 +32,7 @@ fn main() {
             // This plugin was causing unhelpful glitchy orange planes, so it's commented out until
             // it's working again
             // RapierDebugRenderPlugin::default(),
-            WanderlustPlugin,
+            WanderlustPlugin::default(),
             aether_spyglass::SpyglassPlugin,
         ))
         .insert_resource(Sensitivity(1.0))
@@ -41,7 +41,7 @@ fn main() {
         .add_systems(
             Update,
             (
-                movement_input.before(bevy_mod_wanderlust::movement),
+                movement_input.before(bevy_mod_wanderlust::movement_force),
                 mouse_look,
                 toggle_cursor_lock,
             ),
@@ -79,10 +79,9 @@ fn setup(
     commands
         .spawn((
             ControllerBundle {
-                settings: ControllerSettings::character(),
-                physics: ControllerPhysicsBundle {
+                rapier_physics: RapierPhysicsBundle {
                     // Lock the axes to prevent camera shake whilst moving up slopes
-                    locked_axes: LockedAxes::ROTATION_LOCKED,
+                    //locked_axes: LockedAxes::ROTATION_LOCKED,
                     ..default()
                 },
                 ..default()

@@ -1,13 +1,22 @@
 use crate::controller::*;
 use bevy::prelude::*;
 
-#[derive(Component, Default, Reflect)]
+#[derive(Component, Reflect)]
 #[reflect(Component, Default)]
 pub struct Gravity {
     /// Acceleration due to gravity
     pub acceleration: Vec3,
     /// Normalized negative acceleration
     pub up_vector: Vec3,
+}
+
+impl Default for Gravity {
+    fn default() -> Self {
+        Gravity {
+            acceleration: Vec3::new(0.0, -9.817, 0.0),
+            up_vector: Vec3::new(0.0, 1.0, 0.0),
+        }
+    }
 }
 
 #[derive(Component, Default, Reflect)]
@@ -21,7 +30,7 @@ pub fn apply_gravity(
 ) {
     for (mut force, gravity, ground, mass) in &mut query {
         force.linear = if ground.cast.is_none() {
-            gravity.up_vector * mass.mass * gravity.acceleration
+            mass.mass * gravity.acceleration
         } else {
             Vec3::ZERO
         };

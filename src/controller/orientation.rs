@@ -2,7 +2,7 @@ use crate::controller::*;
 /// Keeps the controller properly oriented in a floating state.
 use bevy::prelude::*;
 
-#[derive(Component, Default, Reflect)]
+#[derive(Component, Reflect)]
 #[reflect(Component, Default)]
 pub struct Float {
     /// How far to attempt to float away from the ground.
@@ -19,6 +19,20 @@ pub struct Float {
     pub max_offset: f32,
     /// How strongly to float away from the ground.
     pub spring: Spring,
+}
+
+impl Default for Float {
+    fn default() -> Self {
+        Self {
+            distance: 0.55,
+            min_offset: -0.3,
+            max_offset: 0.05,
+            spring: Spring {
+                strength: 100.0,
+                damping: 0.8,
+            },
+        }
+    }
 }
 
 /// Force applied to push the controller off the ground.
@@ -62,13 +76,25 @@ pub fn float_force(
     }
 }
 
-#[derive(Component, Default, Reflect)]
+#[derive(Component, Reflect)]
 #[reflect(Component, Default)]
 pub struct Upright {
     /// How strongly to force the character upright/avoid overshooting. Alternatively, see [`LockedAxes`] to lock rotation entirely.
-    pub upright_spring: Spring,
+    pub spring: Spring,
     /// The direction to face towards, or `None` to not rotate to face any direction. Must be perpendicular to the up vector and normalized.
     pub forward_vector: Option<Vec3>,
+}
+
+impl Default for Upright {
+    fn default() -> Self {
+        Self {
+            spring: Spring {
+                strength: 10.0,
+                damping: 0.5,
+            },
+            forward_vector: None,
+        }
+    }
 }
 
 /// Forces applied to keep the controller upright and optionally facing a direction.
@@ -107,14 +133,13 @@ pub fn upright_force(
             };
 
             let damping = Vec3::new(
-                upright.upright_spring.damp_coefficient(mass.inertia.x),
-                upright.upright_spring.damp_coefficient(mass.inertia.y),
-                upright.upright_spring.damp_coefficient(mass.inertia.z),
+                upright.spring.damp_coefficient(mass.inertia.x),
+                upright.spring.damp_coefficient(mass.inertia.y),
+                upright.spring.damp_coefficient(mass.inertia.z),
             );
 
-            let spring =
-                (desired_axis * upright.upright_spring.strength) - (velocity.angular * damping);
-            spring.clamp_length_max(upright.upright_spring.strength)
+            let spring = (desired_axis * upright.spring.strength) - (velocity.angular * damping);
+            spring.clamp_length_max(upright.spring.strength)
         };
     }
 }

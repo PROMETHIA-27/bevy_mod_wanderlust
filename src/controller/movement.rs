@@ -6,7 +6,7 @@ use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
 
 /// Settings used to determine movement impulses on this controller.
-#[derive(Component, Default, Reflect)]
+#[derive(Component, Reflect)]
 #[reflect(Component, Default)]
 pub struct Movement {
     /// How fast to get to the max speed.
@@ -16,6 +16,16 @@ pub struct Movement {
     /// Scales movement force. This is useful to ensure movement does not
     /// affect vertical velocity (by setting it to e.g. `Vec3(1.0, 0.0, 1.0)`).
     pub force_scale: Vec3,
+}
+
+impl Default for Movement {
+    fn default() -> Self {
+        Self {
+            acceleration: 50.0,
+            max_speed: 10.0,
+            force_scale: Vec3::ONE,
+        }
+    }
 }
 
 /// Calculated impulse for moving the character.
@@ -71,9 +81,9 @@ pub struct CoyoteTime {
     pub timer: f32,
 }
 
-#[derive(Component, Default, Reflect)]
+#[derive(Component, Reflect)]
 #[reflect(Component, Default)]
-pub struct Jumping {
+pub struct Jump {
     /// Was [`ControllerInput::jumping`] true last frame.
     pub pressed_last_frame: bool,
     /// A timer to track how long to jump for.
@@ -104,6 +114,26 @@ pub struct Jumping {
     pub extra_jumps: ExtraJumps,
 }
 
+impl Default for Jump {
+    fn default() -> Self {
+        Self {
+            pressed_last_frame: false,
+            timer: 0.0,
+            buffer_timer: default(),
+
+            force: 0.0,
+            time: 0.5,
+            initial_force: 15.0,
+            stop_force: 0.3,
+            skip_ground_check_duration: 0.5,
+            decay_function: Some(|x| (1.0 - x).sqrt()),
+            buffer_duration: 0.16,
+            coyote_time: default(),
+            extra_jumps: default(),
+        }
+    }
+}
+
 /// Calculated force for character jumping.
 #[derive(Component, Default, Reflect)]
 #[reflect(Component, Default)]
@@ -115,7 +145,7 @@ pub struct JumpForce {
 pub fn jump_force(
     mut query: Query<(
         &mut JumpForce,
-        &mut Jumping,
+        &mut Jump,
         &mut GroundCaster,
         &ControllerInput,
         &Grounded,

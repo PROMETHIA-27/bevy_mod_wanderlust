@@ -11,7 +11,6 @@ mod bundles;
 mod controller;
 mod physics;
 mod plugins;
-mod resources;
 mod spring;
 
 #[cfg(feature = "rapier")]
@@ -19,5 +18,5 @@ mod rapier;
 
 pub use {
     bundles::ControllerBundle, controller::*, physics::ControllerPhysicsBundle,
-    plugins::WanderlustPlugin, resources::WanderlustPhysicsTweaks, spring::Spring,
+    plugins::WanderlustPlugin, rapier::*, spring::Spring,
 };

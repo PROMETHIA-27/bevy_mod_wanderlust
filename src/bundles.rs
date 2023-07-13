@@ -1,4 +1,4 @@
-use crate::{physics::ControllerPhysicsBundle, rapier::RapierPhysicsBundle, ControllerInput};
+use crate::{Controller, ControllerInput, ControllerPhysicsBundle, RapierPhysicsBundle};
 
 use bevy::{math::*, prelude::*};
 
@@ -7,8 +7,8 @@ use bevy::{math::*, prelude::*};
 /// [`Self::builder()`] method to construct the bundle!
 #[derive(Bundle)]
 pub struct ControllerBundle {
-    /// See [`ControllerSettings`].
-    //pub settings: ControllerSettings,
+    /// See [`Controller`].
+    pub controller: Controller,
     /// See [`ControllerInput`].
     pub input: ControllerInput,
     /// See [`PhysicsBundle`]
@@ -29,6 +29,7 @@ pub struct ControllerBundle {
 impl Default for ControllerBundle {
     fn default() -> Self {
         Self {
+            controller: default(),
             input: default(),
             physics: default(),
             #[cfg(feature = "rapier")]

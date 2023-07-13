@@ -11,6 +11,55 @@ use crate::Spring;
 
 pub use {gravity::*, ground::*, input::*, movement::*, orientation::*};
 
+#[derive(Bundle)]
+pub struct Controller {
+    pub gravity: Gravity,
+    pub gravity_force: GravityForce,
+
+    pub ground_caster: GroundCaster,
+    pub ground_cast: GroundCast,
+    pub grounded: Grounded,
+    pub ground_force: GroundForce,
+
+    pub movement: Movement,
+    pub movement_force: MovementForce,
+    pub jump: Jump,
+    pub jump_force: JumpForce,
+
+    pub float: Float,
+    pub float_force: FloatForce,
+    pub upright: Upright,
+    pub upright_force: UprightForce,
+
+    pub force_settings: ForceSettings,
+}
+
+impl Default for Controller {
+    fn default() -> Self {
+        Self {
+            gravity: default(),
+            gravity_force: default(),
+
+            ground_caster: default(),
+            ground_cast: default(),
+            grounded: default(),
+            ground_force: default(),
+
+            movement: default(),
+            movement_force: default(),
+            jump: default(),
+            jump_force: default(),
+
+            float: default(),
+            float_force: default(),
+            upright: default(),
+            upright_force: default(),
+
+            force_settings: default(),
+        }
+    }
+}
+
 #[derive(Component, Default, Reflect)]
 #[reflect(Component, Default)]
 pub struct ForceSettings {
@@ -55,15 +104,15 @@ pub fn accumulate_forces(
         let opposing_force = -(movement.linear * settings.opposing_movement_force_scale
             + (jump.linear + float.linear) * settings.opposing_force_scale);
 
-        if let Some((ground_entity, toi, velocity)) = ground_cast {
+        if let Some((ground_entity, toi, velocity)) = ground_cast.cast {
             let ground_transform = match globals.get(ground_entity) {
-                Ok(global) => global.compute_transform(),
-                _ => Transform::default(),
+                Ok(global) => global.compute_transform().compute_affine(),
+                _ => Transform::default().compute_affine(),
             };
 
-            let point = ground_transform.inverse() * toi.witness1;
+            let point = ground_transform.inverse().transform_point3(toi.witness1);
             ground_force.linear = opposing_force;
-            ground_force.angular = (point - mass.com).cross(opposing_force),
+            ground_force.angular = (point - mass.com).cross(opposing_force);
 
             #[cfg(feature = "debug_lines")]
             {

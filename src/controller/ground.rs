@@ -2,7 +2,7 @@ use crate::controller::*;
 use bevy::{prelude::*, utils::HashSet};
 use bevy_rapier3d::prelude::*;
 
-#[derive(Component, Default, Reflect)]
+#[derive(Component, Reflect)]
 #[reflect(Component, Default)]
 pub struct GroundCaster {
     /// A timer to track how long to skip the ground check for (see [`jump_skip_ground_check_duration`](ControllerSettings::jump_skip_ground_check_duration)).
@@ -26,6 +26,20 @@ pub struct GroundCaster {
     ///
     /// This is done by ignoring the ground during ground casting.
     pub max_ground_angle: f32,
+}
+
+impl Default for GroundCaster {
+    fn default() -> Self {
+        Self {
+            skip_ground_check_timer: 0.0,
+            skip_ground_check_override: false,
+            cast_origin: Vec3::ZERO,
+            cast_length: 1.0,
+            cast_collider: Collider::ball(0.45),
+            exclude_from_ground: default(),
+            max_ground_angle: 75.0 * (std::f32::consts::PI / 180.0),
+        }
+    }
 }
 
 #[derive(Component, Default, Reflect)]
