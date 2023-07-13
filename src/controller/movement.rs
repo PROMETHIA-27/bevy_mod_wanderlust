@@ -11,11 +11,14 @@ use bevy_rapier3d::prelude::*;
 pub struct Movement {
     /// How fast to get to the max speed.
     pub acceleration: f32,
+    pub max_acceleration_force: f32,
     /// How fast our controller will move.
     pub max_speed: f32,
     /// Scales movement force. This is useful to ensure movement does not
     /// affect vertical velocity (by setting it to e.g. `Vec3(1.0, 0.0, 1.0)`).
     pub force_scale: Vec3,
+
+    pub last_goal_velocity: Vec3,
 }
 
 impl Default for Movement {
@@ -24,6 +27,8 @@ impl Default for Movement {
             acceleration: 50.0,
             max_speed: 10.0,
             force_scale: Vec3::ONE,
+            last_goal_velocity: Vec3::ZERO,
+            max_acceleration_force: 10.0,
         }
     }
 }
@@ -39,13 +44,15 @@ pub struct MovementForce {
 pub fn movement_force(
     mut query: Query<(
         &mut MovementForce,
-        &Movement,
+        &mut Movement,
         &ControllerInput,
         &GroundCast,
         &ControllerVelocity,
     )>,
+    ctx: Res<RapierContext>,
 ) {
-    for (mut force, movement, input, ground, velocity) in &mut query {
+    for (mut force, mut movement, input, ground, velocity) in &mut query {
+        /*
         force.linear = {
             let ground_velocity = ground
                 .cast
@@ -58,6 +65,35 @@ pub fn movement_force(
             let relative_velocity = velocity.linear - ground_velocity;
             let velocity_displacement = goal - relative_velocity;
             velocity_displacement.clamp_length_max(movement.acceleration)
+        };
+ */
+
+        force.linear = {
+            let dir = input.movement.clamp_length_max(1.0);
+
+            // let unit_vel = controller.last_goal_velocity.normalized();
+
+            // let vel_dot = unit_dir.dot(unit_vel);
+
+            let accel = movement.acceleration;
+
+            let input_goal_vel = dir * movement.max_speed;
+
+            let goal_vel = Vec3::lerp(
+                movement.last_goal_velocity,
+                input_goal_vel + ground.cast.map(|(_, _, v)| v.linvel).unwrap_or(Vec3::ZERO),
+                accel.min(1.0),
+            );
+
+            let needed_accel = goal_vel - velocity.linear;
+
+            let max_accel_force = movement.max_acceleration_force;
+
+            let needed_accel = needed_accel.clamp_length_max(max_accel_force);
+
+            movement.last_goal_velocity = goal_vel;
+
+            needed_accel * movement.force_scale
         };
     }
 }
@@ -175,7 +211,16 @@ pub fn jump_force(
 ) {
     let dt = ctx.integration_parameters.dt;
 
-    for (mut force, mut float_force, mut jumping, mut groundcaster, input, grounded, gravity, velocity) in &mut query
+    for (
+        mut force,
+        mut float_force,
+        mut jumping,
+        mut groundcaster,
+        input,
+        grounded,
+        gravity,
+        velocity,
+    ) in &mut query
     {
         force.linear = Vec3::ZERO;
 
@@ -198,12 +243,12 @@ pub fn jump_force(
         let mut jump = if jumping.timer > 0.0 && !grounded {
             if !input.jumping {
                 jumping.timer = 0.0;
-                velocity.linear.project_onto(gravity.up_vector) * -jumping.stop_force
+                velocity.linear.project_onto(gravity.up_vector()) * -jumping.stop_force
             } else {
                 jumping.timer = (jumping.timer - dt).max(0.0);
 
                 jumping.force
-                    * gravity.up_vector
+                    * gravity.up_vector()
                     * jumping
                         .decay_function
                         .map(|f| (f)((jumping.time - jumping.timer) / jumping.time))
@@ -228,8 +273,8 @@ pub fn jump_force(
             groundcaster.skip_ground_check_timer = jumping.skip_ground_check_duration;
             // Negating the current velocity increases consistency for falling jumps,
             // and prevents stacking jumps to reach high upwards velocities
-            force.linear = velocity.linear * gravity.up_vector * -1.0;
-            force.linear += jumping.initial_force * gravity.up_vector;
+            force.linear = velocity.linear * gravity.up_vector() * -1.0;
+            force.linear += jumping.initial_force * gravity.up_vector();
             float_force.linear = Vec3::ZERO;
         }
 

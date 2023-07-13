@@ -6,15 +6,18 @@ use bevy::prelude::*;
 pub struct Gravity {
     /// Acceleration due to gravity
     pub acceleration: Vec3,
-    /// Normalized negative acceleration
-    pub up_vector: Vec3,
+}
+
+impl Gravity {
+    pub fn up_vector(&self) -> Vec3 {
+        (-self.acceleration).normalize_or_zero()
+    }
 }
 
 impl Default for Gravity {
     fn default() -> Self {
         Gravity {
             acceleration: Vec3::new(0.0, -9.817, 0.0),
-            up_vector: Vec3::new(0.0, 1.0, 0.0),
         }
     }
 }

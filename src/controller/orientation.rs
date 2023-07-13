@@ -55,7 +55,7 @@ pub fn float_force(
 ) {
     for (mut force, float, cast, velocity, mass, gravity) in &mut query {
         let float_spring_force = if let Some((ground, intersection, ground_vel)) = cast.cast {
-            let up_vector = gravity.up_vector;
+            let up_vector = gravity.up_vector();
 
             let point_velocity = velocity.linear + velocity.angular.cross(Vec3::ZERO - mass.com);
             let vel_align = (-up_vector).dot(point_velocity);
@@ -117,7 +117,7 @@ pub fn upright_force(
     for (mut impulse, upright, tf, gravity, mass, velocity) in &mut query {
         impulse.angular = {
             let desired_axis = if let Some(forward) = upright.forward_vector {
-                let right = gravity.up_vector.cross(forward).normalize();
+                let right = gravity.up_vector().cross(forward).normalize();
                 let up = forward.cross(right);
                 let target_rot = Quat::from_mat3(&Mat3::from_cols(right, up, forward));
                 let current = tf.to_scale_rotation_translation().1;
@@ -129,7 +129,7 @@ pub fn upright_force(
                 axis * angle
             } else {
                 let current = tf.up();
-                current.cross(gravity.up_vector)
+                current.cross(gravity.up_vector())
             };
 
             let damping = Vec3::new(
@@ -138,8 +138,7 @@ pub fn upright_force(
                 upright.spring.damp_coefficient(mass.inertia.z),
             );
 
-            let spring =
-                (desired_axis * upright.spring.strength) - (velocity.angular * damping);
+            let spring = (desired_axis * upright.spring.strength) - (velocity.angular * damping);
             spring.clamp_length_max(upright.spring.strength)
         };
     }

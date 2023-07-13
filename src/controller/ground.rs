@@ -77,7 +77,7 @@ pub fn find_ground(
                 ShapeDesc {
                     shape_pos: tf.transform_point(caster.cast_origin),
                     shape_rot: tf.to_scale_rotation_translation().1,
-                    shape_vel: -gravity.up_vector,
+                    shape_vel: -gravity.up_vector(),
                     shape: &caster.cast_collider,
                 },
                 caster.cast_length,
@@ -91,7 +91,7 @@ pub fn find_ground(
                 .iter()
                 .find(|(_, i, _)| {
                     i.status != TOIStatus::Penetrating
-                        && i.normal1.angle_between(gravity.up_vector) <= caster.max_ground_angle
+                        && i.normal1.angle_between(gravity.up_vector()) <= caster.max_ground_angle
                 })
                 .cloned()
         } else {

@@ -33,22 +33,26 @@ impl Plugin for WanderlustPlugin {
         app.add_plugins(crate::WanderlustRapierPlugin);
 
         if self.tweaks {
-            app.add_systems(Startup, setup_physics_context);
+            //app.add_systems(Startup, setup_physics_context);
         }
 
         app.add_systems(
-            Update,
+            FixedUpdate,
             (
-                movement_force,
-                upright_force,
-                float_force,
-                apply_gravity,
+crate::get_mass_from_rapier,
+crate::get_velocity_from_rapier,
                 find_ground,
                 determine_groundedness,
+                apply_gravity,
+                movement_force,
                 jump_force,
-
+                upright_force,
+                float_force,
                 accumulate_forces,
-            ).chain(),
+                crate::apply_forces,
+                crate::apply_ground_forces,
+            )
+                .chain(),
         );
     }
 }

@@ -87,7 +87,7 @@ pub fn apply_ground_forces(
 }
 
 pub fn get_mass_from_rapier(
-    mut query: Query<(&mut ControllerMass, &ReadMassProperties), Changed<ReadMassProperties>>,
+    mut query: Query<(&mut ControllerMass, &ReadMassProperties)>,
 ) {
     for (mut mass, rapier_mass) in &mut query {
         mass.mass = rapier_mass.0.mass;
@@ -97,7 +97,7 @@ pub fn get_mass_from_rapier(
 }
 
 pub fn get_velocity_from_rapier(
-    mut query: Query<(&mut ControllerVelocity, &Velocity), Changed<Velocity>>,
+    mut query: Query<(&mut ControllerVelocity, &Velocity)>,
 ) {
     for (mut vel, rapier_vel) in &mut query {
         vel.linear = rapier_vel.linvel;
@@ -108,14 +108,7 @@ pub fn get_velocity_from_rapier(
 pub struct WanderlustRapierPlugin;
 impl Plugin for WanderlustRapierPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
-            Update,
-            (
-                get_mass_from_rapier,
-                get_velocity_from_rapier,
-                apply_forces,
-                apply_ground_forces,
-            ),
-        );
+        app.add_systems(FixedUpdate, (get_mass_from_rapier, get_velocity_from_rapier));
+        app.add_systems(FixedUpdate, (apply_forces, apply_ground_forces));
     }
 }
