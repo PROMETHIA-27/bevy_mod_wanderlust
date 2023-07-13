@@ -2,8 +2,8 @@ use std::ops::Neg;
 
 use crate::components::{
     ContinuousMovement, ControllerInput, ControllerSettings, ControllerState, CoyoteTime,
-    ExtraJumps, FinalMotion, Float, FloatForce, Gravity, GroundCast, GroundCaster, Grounded, Mass,
-    Velocity,
+    ExtraJumps, FinalMotion, Float, FloatForce, Gravity, GroundCast, GroundCaster, Grounded,
+    Jumping, Mass, UprightForce, UprightSpring, Velocity,
 };
 use crate::WanderlustPhysicsTweaks;
 use bevy::ecs::system::SystemParam;
@@ -56,6 +56,15 @@ fn create_float_force(
 ) {
     for ent in &forceless_floaters {
         c.entity(ent).insert(FloatForce::default());
+    }
+}
+
+fn create_upright_force(
+    mut c: Commands,
+    forceless_uprighters: Query<Entity, (With<UprightSpring>, Without<UprightForce>)>,
+) {
+    for ent in &forceless_uprighters {
+        c.entity(ent).insert(UprightForce::default());
     }
 }
 
@@ -280,6 +289,148 @@ pub fn determine_continuous_movement(
     }
 }
 
+pub fn determine_jump_contribution(
+    query: Query<(
+        &mut Jumping,
+        &mut FloatForce,
+        &mut GroundCaster,
+        &ControllerInput,
+        &Grounded,
+        &Gravity,
+        &Velocity,
+        Option<&mut ExtraJumps>,
+        Option<&CoyoteTime>,
+    )>,
+    ctx: Res<RapierContext>,
+) {
+    let dt = ctx.integration_parameters.dt;
+    for (
+        mut jumping,
+        mut float_force,
+        mut groundcaster,
+        input,
+        grounded,
+        gravity,
+        velocity,
+        mut extra_jumps,
+        coyote,
+    ) in &mut query
+    {
+        let grounded = grounded.grounded;
+        let just_jumped = input.jumping && !jumping.jump_pressed_last_frame;
+        if !grounded {
+            if just_jumped {
+                jumping.jump_buffer_timer = jumping.jump_buffer_duration;
+            } else {
+                jumping.jump_buffer_timer = (jumping.jump_buffer_timer - dt).max(0.0);
+            }
+        }
+
+        // Calculate jump force
+        let mut jump = if jumping.jump_timer > 0.0 && !grounded {
+            if !input.jumping {
+                jumping.jump_timer = 0.0;
+                velocity.lin.project_onto(gravity.up_vector) * -jumping.jump_stop_force
+            } else {
+                jumping.jump_timer = (jumping.jump_timer - dt).max(0.0);
+
+                // Float force can lead to inconsistent jump power
+                float_force.force = Vec3::ZERO;
+
+                jumping.jump_force
+                    * gravity.up_vector
+                    * jumping
+                        .jump_decay_function
+                        .map(|f| (f)((jumping.jump_time - jumping.jump_timer) / jumping.jump_time))
+                        .unwrap_or(1.0)
+                    * dt
+            }
+        } else {
+            Vec3::ZERO
+        };
+
+        // Trigger a jump
+        let coyote_timer = coyote.map(|cy| cy.timer).unwrap_or(0.0);
+        let remaining_jumps = extra_jumps.map(|ej| ej.remaining).unwrap_or(0);
+        if (just_jumped || jumping.jump_buffer_timer > 0.0)
+            && (grounded || coyote_timer > 0.0 || remaining_jumps > 0)
+        {
+            if !grounded && coyote_timer == 0.0 {
+                if let Some(ej) = extra_jumps {
+                    ej.remaining -= 1;
+                }
+            }
+
+            jumping.jump_buffer_timer = 0.0;
+            jumping.jump_timer = jumping.jump_time;
+            groundcaster.skip_ground_check_timer = jumping.jump_skip_ground_check_duration;
+            // Negating the current velocity increases consistency for falling jumps,
+            // and prevents stacking jumps to reach high upwards velocities
+            jump = velocity.lin * gravity.up_vector * -1.0;
+            jump += jumping.jump_initial_force * gravity.up_vector;
+            // Float force can lead to inconsistent jump power
+            float_force.force = Vec3::ZERO;
+        }
+    }
+}
+
+pub fn determine_upright_force(
+    query: Query<(
+        &mut UprightForce,
+        &UprightSpring,
+        &GlobalTransform,
+        &Gravity,
+        &Mass,
+        &Velocity,
+    )>,
+) {
+    for (force, upright, tf, gravity, mass, velocity) in &query {
+        force.force = {
+            let desired_axis = if let Some(forward) = upright.forward_vector {
+                let right = gravity.up_vector.cross(forward).normalize();
+                let up = forward.cross(right);
+                let target_rot = Quat::from_mat3(&Mat3::from_cols(right, up, forward));
+                let current = tf.to_scale_rotation_translation().1;
+                let rot = target_rot * current.inverse();
+                let (axis, mut angle) = rot.to_axis_angle();
+                if angle > std::f32::consts::PI {
+                    angle -= 2.0 * std::f32::consts::PI;
+                }
+                axis * angle
+            } else {
+                let current = tf.up();
+                current.cross(gravity.up_vector)
+            };
+
+            let damping = Vec3::new(
+                upright.upright_spring.damp_coefficient(mass.inertia.x),
+                upright.upright_spring.damp_coefficient(mass.inertia.y),
+                upright.upright_spring.damp_coefficient(mass.inertia.z),
+            );
+
+            let spring =
+                (desired_axis * upright.upright_spring.strength) - (velocity.ang * damping);
+            spring.clamp_length_max(upright.upright_spring.strength)
+        };
+    }
+}
+
+pub fn apply_forces(query: Query<()>) {
+    for () in &query {
+        let pushing_impulse = jump + float_spring + gravity;
+        let total_impulse = movement + pushing_impulse;
+        let opposing_impulse = -(movement * settings.opposing_movement_impulse_scale
+            + pushing_impulse * settings.opposing_impulse_scale);
+
+        if let Ok(mut body_impulse) = impulses.get_mut(entity) {
+            // Apply positional force to the rigidbody
+            body_impulse.impulse += total_impulse;
+            // Apply rotational force to the rigidbody
+            body_impulse.torque_impulse += upright * dt;
+        }
+    }
+}
+
 /// *Note: Most users will not need to use this directly. Use [`WanderlustPlugin`](crate::plugins::WanderlustPlugin) instead.
 /// This system is useful for cases such as running on a fixed timestep.*
 ///
@@ -309,105 +460,11 @@ pub fn movement(
         // - get velocity
         // - determine float_spring force
         // - calculate continuous movement input contribution
-        // ----- Finished line
         // - determine jump contribution
         // - calculate upright force
+        // ----- Finished line
         // - apply forces
         // - apply opposite forces to things being stood on
-
-        let just_jumped = input.jumping && !controller.jump_pressed_last_frame;
-        if !grounded {
-            if just_jumped {
-                controller.jump_buffer_timer = settings.jump_buffer_duration;
-            } else {
-                controller.jump_buffer_timer = (controller.jump_buffer_timer - dt).max(0.0);
-            }
-        }
-
-        // Calculate jump force
-        let mut jump = if controller.jump_timer > 0.0 && !grounded {
-            if !input.jumping {
-                controller.jump_timer = 0.0;
-                velocity.linvel.project_onto(settings.up_vector) * -settings.jump_stop_force
-            } else {
-                controller.jump_timer = (controller.jump_timer - dt).max(0.0);
-
-                // Float force can lead to inconsistent jump power
-                float_spring = Vec3::ZERO;
-
-                settings.jump_force
-                    * settings.up_vector
-                    * settings
-                        .jump_decay_function
-                        .map(|f| {
-                            (f)((settings.jump_time - controller.jump_timer) / settings.jump_time)
-                        })
-                        .unwrap_or(1.0)
-                    * dt
-            }
-        } else {
-            Vec3::ZERO
-        };
-
-        // Trigger a jump
-        if (just_jumped || controller.jump_buffer_timer > 0.0)
-            && (grounded || controller.coyote_timer > 0.0 || controller.remaining_jumps > 0)
-        {
-            if !grounded && controller.coyote_timer == 0.0 {
-                controller.remaining_jumps -= 1;
-            }
-
-            controller.jump_buffer_timer = 0.0;
-            controller.jump_timer = settings.jump_time;
-            controller.skip_ground_check_timer = settings.jump_skip_ground_check_duration;
-            // Negating the current velocity increases consistency for falling jumps,
-            // and prevents stacking jumps to reach high upwards velocities
-            jump = velocity.linvel * settings.up_vector * -1.0;
-            jump += settings.jump_initial_force * settings.up_vector;
-            // Float force can lead to inconsistent jump power
-            float_spring = Vec3::ZERO;
-        }
-
-        // Calculate force to stay upright
-        let upright = {
-            let desired_axis = if let Some(forward) = settings.forward_vector {
-                let right = settings.up_vector.cross(forward).normalize();
-                let up = forward.cross(right);
-                let target_rot = Quat::from_mat3(&Mat3::from_cols(right, up, forward));
-                let current = tf.to_scale_rotation_translation().1;
-                let rot = target_rot * current.inverse();
-                let (axis, mut angle) = rot.to_axis_angle();
-                if angle > std::f32::consts::PI {
-                    angle -= 2.0 * std::f32::consts::PI;
-                }
-                axis * angle
-            } else {
-                let current = tf.up();
-                current.cross(settings.up_vector)
-            };
-
-            let damping = Vec3::new(
-                settings.upright_spring.damp_coefficient(inertia.x),
-                settings.upright_spring.damp_coefficient(inertia.y),
-                settings.upright_spring.damp_coefficient(inertia.z),
-            );
-
-            let spring =
-                (desired_axis * settings.upright_spring.strength) - (velocity.angvel * damping);
-            spring.clamp_length_max(settings.upright_spring.strength)
-        };
-
-        let pushing_impulse = jump + float_spring + gravity;
-        let total_impulse = movement + pushing_impulse;
-        let opposing_impulse = -(movement * settings.opposing_movement_impulse_scale
-            + pushing_impulse * settings.opposing_impulse_scale);
-
-        if let Ok(mut body_impulse) = impulses.get_mut(entity) {
-            // Apply positional force to the rigidbody
-            body_impulse.impulse += total_impulse;
-            // Apply rotational force to the rigidbody
-            body_impulse.torque_impulse += upright * dt;
-        }
 
         // Opposite force to whatever we were touching
         if let Some((ground_entity, toi)) = ground_cast {

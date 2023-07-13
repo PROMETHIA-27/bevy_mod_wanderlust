@@ -26,33 +26,10 @@ pub struct ControllerSettings {
     pub max_acceleration_force: f32,
     /// The direction to jump, which is also the direction that gravity is opposite to.
     pub up_vector: Vec3,
-    /// The direction to face towards, or `None` to not rotate to face any direction. Must be perpendicular to the up vector and normalized.
-    pub forward_vector: Option<Vec3>,
     /// The strength of gravity.
     pub gravity: f32,
-    /// The amount of force to apply on the first frame when a jump begins.
-    pub jump_initial_force: f32,
-    /// The amount of force to continuously apply every second during a jump.
-    pub jump_force: f32,
-    /// The amount of force to apply downwards when the jump control is released prior to a jump expiring.
-    /// This allows analog jumping by cutting the jump short when the control is released.
-    pub jump_stop_force: f32,
-    /// How long a jump can last.
-    pub jump_time: f32,
-    /// A function taking the current progress of a jump, from 0.0 to 1.0, with 0.0 indicating a jump has just begun and 1.0 indicating the jump has ended,
-    /// which returns a modifier (usually from 0.0 to 1.0, but not necessarily) to multiply [`jump_force`](ControllerSettings::jump_force) by.
-    #[reflect(ignore)]
-    pub jump_decay_function: Option<fn(f32) -> f32>,
-    /// How long to skip ground checks after jumping. Usually this should be set just high enough that the character is out of range of the ground
-    /// just before the timer elapses.
-    pub jump_skip_ground_check_duration: f32,
-    /// If the jump input is pressed before landing, how long will the jump be buffered for?
-    /// In other words, if this is 0.5, the character can input jump up to 0.5 seconds before landing and the jump will occur when they land.
-    pub jump_buffer_duration: f32,
     /// Scales movement force. This is useful to ensure movement does not affect vertical velocity (by setting it to e.g. `Vec3(1.0, 0.0, 1.0)`).
     pub force_scale: Vec3,
-    /// How strongly to force the character upright/avoid overshooting. Alternatively, see [`LockedAxes`] to lock rotation entirely.
-    pub upright_spring: Spring,
     /// Scaling factor for the impulse applied to the ground to keep the character moving/off the ground.
     pub opposing_impulse_scale: f32,
     /// Scaling factor for the movement impulse applied to the ground.

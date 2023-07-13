@@ -12,10 +12,4 @@ pub struct ControllerState {
     /// The goal velocity represents the input after being directly translated to a desired final motion.
     /// This field represents the goal velocity that was calculated last frame.
     pub last_goal_velocity: Vec3,
-    /// A timer to track how long to jump for.
-    pub jump_timer: f32,
-    /// Was [`ControllerInput::jumping`] pressed last frame.
-    pub jump_pressed_last_frame: bool,
-    /// A timer to track jump buffering. See [`jump_buffer_duration`](ControllerSettings::jump_buffer_duration)
-    pub jump_buffer_timer: f32,
 }
