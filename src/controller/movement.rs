@@ -51,22 +51,23 @@ pub fn movement_force(
     )>,
     ctx: Res<RapierContext>,
 ) {
+    let dt = ctx.integration_parameters.dt;
     for (mut force, mut movement, input, ground, velocity) in &mut query {
         /*
-        force.linear = {
-            let ground_velocity = ground
-                .cast
-                .map(|(_, _, vel)| vel.linvel)
-                .unwrap_or_default();
+               force.linear = {
+                   let ground_velocity = ground
+                       .cast
+                       .map(|(_, _, vel)| vel.linvel)
+                       .unwrap_or_default();
 
-            let dir = input.movement.clamp_length_max(1.0);
-            let goal = dir * movement.max_speed;
+                   let dir = input.movement.clamp_length_max(1.0);
+                   let goal = dir * movement.max_speed;
 
-            let relative_velocity = velocity.linear - ground_velocity;
-            let velocity_displacement = goal - relative_velocity;
-            velocity_displacement.clamp_length_max(movement.acceleration)
-        };
- */
+                   let relative_velocity = velocity.linear - ground_velocity;
+                   let velocity_displacement = goal - relative_velocity;
+                   velocity_displacement.clamp_length_max(movement.acceleration)
+               };
+        */
 
         force.linear = {
             let dir = input.movement.clamp_length_max(1.0);
@@ -82,7 +83,7 @@ pub fn movement_force(
             let goal_vel = Vec3::lerp(
                 movement.last_goal_velocity,
                 input_goal_vel + ground.cast.map(|(_, _, v)| v.linvel).unwrap_or(Vec3::ZERO),
-                accel.min(1.0),
+                (accel * dt).min(1.0),
             );
 
             let needed_accel = goal_vel - velocity.linear;
@@ -93,7 +94,7 @@ pub fn movement_force(
 
             movement.last_goal_velocity = goal_vel;
 
-            needed_accel * movement.force_scale
+            (needed_accel * movement.force_scale) / dt
         };
     }
 }

@@ -68,6 +68,8 @@ pub fn find_ground(
     velocities: Query<&Velocity>,
     ctx: Res<RapierContext>,
     mut ground_casts: Local<Vec<(Entity, Toi, Velocity)>>,
+
+    mut gizmos: Gizmos,
 ) {
     let dt = ctx.integration_parameters.dt;
     for (entity, tf, gravity, mut caster, mut cast) in &mut casters {

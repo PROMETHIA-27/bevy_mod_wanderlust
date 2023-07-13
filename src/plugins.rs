@@ -33,14 +33,14 @@ impl Plugin for WanderlustPlugin {
         app.add_plugins(crate::WanderlustRapierPlugin);
 
         if self.tweaks {
-            //app.add_systems(Startup, setup_physics_context);
+            app.add_systems(Startup, setup_physics_context);
         }
 
         app.add_systems(
-            FixedUpdate,
+            Update,
             (
-crate::get_mass_from_rapier,
-crate::get_velocity_from_rapier,
+                crate::get_mass_from_rapier,
+                crate::get_velocity_from_rapier,
                 find_ground,
                 determine_groundedness,
                 apply_gravity,
@@ -52,8 +52,18 @@ crate::get_velocity_from_rapier,
                 crate::apply_forces,
                 crate::apply_ground_forces,
             )
-                .chain(),
+                .chain()
+                .before(PhysicsSet::SyncBackend),
         );
+
+        #[cfg(feature = "debug-lines")]
+        app.add_systems(Update, |casts: Query<&GroundCast>, mut gizmos: Gizmos| {
+            for cast in &casts {
+                if let Some((entity, toi, velocity)) = cast.cast {
+                    gizmos.sphere(toi.witness1, Quat::IDENTITY, 0.3, Color::LIME_GREEN);
+                }
+            }
+        });
     }
 }
 
