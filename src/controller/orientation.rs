@@ -59,7 +59,7 @@ pub fn float_force(
 
             let point_velocity = velocity.linear + velocity.angular.cross(Vec3::ZERO - mass.com);
             let vel_align = up_vector.dot(point_velocity);
-            let ground_vel_align = up_vector.dot(ground_vel.linvel);
+            let ground_vel_align = up_vector.dot(ground_vel);
 
             let relative_velocity = vel_align - ground_vel_align;
 

@@ -50,7 +50,7 @@ pub struct GroundCast {
     /// The cached ground cast. Contains the entity hit, the hit info, and velocity of the entity
     /// hit.
     #[reflect(ignore)]
-    pub cast: Option<(Entity, CastResult, Velocity)>,
+    pub cast: Option<(Entity, CastResult, Vec3)>,
 }
 
 /// Is the character grounded?
@@ -77,7 +77,11 @@ pub fn find_ground(
         &mut GroundCaster,
         &mut GroundCast,
     )>,
+
     velocities: Query<&Velocity>,
+    masses: Query<&ReadMassProperties>,
+    globals: Query<&GlobalTransform>,
+
     ctx: Res<RapierContext>,
 
     mut ground_shape_casts: Local<Vec<(Entity, Toi)>>,
@@ -156,9 +160,21 @@ pub fn find_ground(
         };
 
         cast.cast = casted.map(|(entity, result)| {
-            let target = ctx.collider_parent(entity).unwrap_or(entity);
-            let velocity = velocities.get(target).copied().unwrap_or_default();
-            (target, result, velocity)
+            let ground_entity = ctx.collider_parent(entity).unwrap_or(entity);
+
+            let local_com = if let Ok(mass) = masses.get(ground_entity) {
+                mass.0.local_center_of_mass
+            } else {
+                Vec3::ZERO
+            };
+
+            let ground_velocity = velocities.get(ground_entity).copied().unwrap_or(Velocity::default());
+
+            let global = globals.get(ground_entity).unwrap_or(&GlobalTransform::IDENTITY);
+            let com = global.transform_point(local_com);
+            let velocity = ground_velocity.linvel + ground_velocity.angvel.cross(result.witness - com);
+
+            (ground_entity, result, velocity)
         });
 
         // If we hit something, just get back up instead of waiting.

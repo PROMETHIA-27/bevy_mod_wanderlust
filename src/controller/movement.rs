@@ -16,8 +16,13 @@ pub struct Movement {
     /// Scales movement force. This is useful to ensure movement does not
     /// affect vertical velocity (by setting it to e.g. `Vec3(1.0, 0.0, 1.0)`).
     pub force_scale: Vec3,
+    /// Stick to the same position on the ground.
+    //pub stick_to_ground: Vec3,
 
-    pub last_goal_velocity: Vec3,
+    /// Last ground velocity we were touching so we can keep momentum.
+    pub last_ground_velocity: Vec3,
+
+    pub last_witness_point: Option<Vec3>,
 }
 
 impl Default for Movement {
@@ -26,8 +31,11 @@ impl Default for Movement {
             acceleration: 50.0,
             max_speed: 10.0,
             force_scale: Vec3::ONE,
-            last_goal_velocity: Vec3::ZERO,
             max_acceleration_force: 10.0,
+            //stick_to_ground: true,
+
+            last_ground_velocity: Vec3::ZERO,
+            last_witness_point: None,
         }
     }
 }
@@ -38,6 +46,8 @@ impl Default for Movement {
 pub struct MovementForce {
     /// Linear impulse to apply to move the character.
     pub linear: Vec3,
+    /// Angular impulse to apply to move the character.
+    pub angular: Vec3,
 }
 
 pub fn movement_force(
@@ -47,53 +57,39 @@ pub fn movement_force(
         &ControllerInput,
         &GroundCast,
         &ControllerVelocity,
+        &ControllerMass,
     )>,
-    ctx: Res<RapierContext>,
+    globals: Query<&GlobalTransform>,
+    masses: Query<&ReadMassProperties>,
+    velocities: Query<&Velocity>,
 ) {
-    let dt = ctx.integration_parameters.dt;
-    for (mut force, mut movement, input, ground, velocity) in &mut query {
-        /*
-               force.linear = {
-                   let ground_velocity = ground
-                       .cast
-                       .map(|(_, _, vel)| vel.linvel)
-                       .unwrap_or_default();
-
-                   let dir = input.movement.clamp_length_max(1.0);
-                   let goal = dir * movement.max_speed;
-
-                   let relative_velocity = velocity.linear - ground_velocity;
-                   let velocity_displacement = goal - relative_velocity;
-                   velocity_displacement.clamp_length_max(movement.acceleration)
-               };
-        */
-
+    for (mut force, mut movement, input, ground, velocity, mass) in &mut query {
         force.linear = {
-            let dir = input.movement.clamp_length_max(1.0);
+            let ground_vel = if let Some((ground_entity, toi, ground_velocity)) = ground.cast {
+                let ground_angvel = velocities.get(ground_entity).map(|vel| vel.angvel).unwrap_or(Vec3::ZERO);
+                force.angular = ground_angvel;
+                ground_velocity
+            } else {
+                movement.last_ground_velocity
+            };
 
-            // let unit_vel = controller.last_goal_velocity.normalized();
+            movement.last_ground_velocity = ground_vel;
 
-            // let vel_dot = unit_dir.dot(unit_vel);
+            let input_dir = input.movement.clamp_length_max(1.0);
+            let input_goal_vel = input_dir * movement.max_speed;
+            let goal_vel = input_goal_vel;
+            let current_vel = velocity.linear - ground_vel;
 
-            let accel = movement.acceleration;
+            let spring = Spring {
+                strength: movement.acceleration,
+                damping: 1.0,
+            };
 
-            let input_goal_vel = dir * movement.max_speed;
+            let displacement = (goal_vel - current_vel) * movement.force_scale;
 
-            let goal_vel = Vec3::lerp(
-                movement.last_goal_velocity,
-                input_goal_vel + ground.cast.map(|(_, _, v)| v.linvel).unwrap_or(Vec3::ZERO),
-                (accel * dt).min(1.0),
-            );
-
-            let needed_accel = goal_vel - velocity.linear;
-
-            let max_accel_force = movement.max_acceleration_force;
-
-            let needed_accel = needed_accel.clamp_length_max(max_accel_force);
-
-            movement.last_goal_velocity = goal_vel;
-
-            (needed_accel * movement.force_scale) / dt
+            let k = displacement * spring.strength;
+            let c = (current_vel * movement.force_scale) * spring.damp_coefficient(mass.mass);
+            (k - c).clamp_length_max(movement.max_acceleration_force)
         };
     }
 }

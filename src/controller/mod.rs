@@ -122,7 +122,7 @@ pub fn accumulate_forces(
     ) in &mut forces
     {
         force.linear = movement.linear + jump.linear + float.linear + gravity.linear;
-        force.angular = upright.angular;
+        force.angular = movement.angular + upright.angular;
 
         let opposing_force = -(movement.linear * settings.opposing_movement_force_scale
             + (jump.linear + float.linear) * settings.opposing_force_scale);
