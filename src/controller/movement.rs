@@ -52,6 +52,7 @@ pub struct MovementForce {
 
 pub fn movement_force(
     mut query: Query<(
+        Entity,
         &mut MovementForce,
         &mut Movement,
         &ControllerInput,
@@ -61,55 +62,56 @@ pub fn movement_force(
     )>,
     globals: Query<&GlobalTransform>,
     masses: Query<&ReadMassProperties>,
-    velocities: Query<&Velocity>,
+    mut velocities: Query<&mut Velocity>,
+
+    ctx: Res<RapierContext>,
 ) {
-    for (mut force, mut movement, input, ground, velocity, mass) in &mut query {
-        force.linear = {
-            let ground_vel = if let Some((ground_entity, toi, ground_velocity)) = ground.cast {
-                let ground_angvel = velocities.get(ground_entity).map(|vel| vel.angvel).unwrap_or(Vec3::ZERO);
-                force.angular = ground_angvel;
-                ground_velocity
+    let dt = ctx.integration_parameters.dt;
+
+    for (control_entity, mut force, mut movement, input, ground, velocity, mass) in &mut query {
+            let (ground_vel, ground_rot) = if let Some(ground) = ground.last() {
+                (ground.linear_velocity, ground.angular_velocity)
             } else {
-                movement.last_ground_velocity
+                (Vec3::ZERO, Vec3::ZERO)
             };
-
-            movement.last_ground_velocity = ground_vel;
-
-            let input_dir = input.movement.clamp_length_max(1.0);
-            let input_goal_vel = input_dir * movement.max_speed;
-            let goal_vel = input_goal_vel;
-            let current_vel = velocity.linear - ground_vel;
 
             let spring = Spring {
                 strength: movement.acceleration,
                 damping: 1.0,
             };
 
-            let displacement = (goal_vel - current_vel) * movement.force_scale;
+            let input_dir = input.movement.clamp_length_max(1.0);
+            let input_goal_vel = input_dir * movement.max_speed;
+            let goal_vel = input_goal_vel;
+            let current_vel = velocity.linear - ground_vel;
 
+            let displacement = (goal_vel - current_vel) * movement.force_scale;
             let k = displacement * spring.strength;
             let c = (current_vel * movement.force_scale) * spring.damp_coefficient(mass.mass);
-            (k - c).clamp_length_max(movement.max_acceleration_force)
-        };
-    }
-}
+            force.linear = (k - c).clamp_length_max(movement.max_acceleration_force);
 
-/// How many times should the controller be able to jump even after leaving the ground.
-#[derive(Reflect, Debug, Clone)]
-#[reflect(Default)]
-pub struct ExtraJumps {
-    /// How many extra times the character can jump after leaving the ground. 0 is normal, 1 corresponds to double jump, etc.
-    pub extra: u32,
-    /// How many extra jumps are remaining
-    pub remaining: u32,
-}
+            let goal_rot = ground_rot;
+            let current_rot = velocity.angular;
+            let displacement = goal_rot - current_rot;
 
-impl Default for ExtraJumps {
-    fn default() -> Self {
-        Self {
-            extra: 0,
-            remaining: 0,
-        }
+            let spring = Spring {
+                strength: 0.5,
+                damping: 0.0,
+            };
+
+            info!("{goal_rot:.4?}");
+            info!("{current_rot:.4?}");
+            let k = displacement * spring.strength;
+            let damping = Vec3::new(
+                spring.damp_coefficient(mass.inertia.x),
+                spring.damp_coefficient(mass.inertia.y),
+                spring.damp_coefficient(mass.inertia.z),
+            );
+            let c = current_rot * damping;
+            //force.angular = (k - c).clamp_length_max(movement.max_acceleration_force);
+            if let Ok(mut rapivel) = velocities.get_mut(control_entity) {
+                //rapivel.angvel = goal_rot;
+            }
     }
 }
 
@@ -137,14 +139,23 @@ impl Default for CoyoteTime {
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Default)]
 pub struct Jump {
+    /// The amount of force to apply on the first frame when a jump begins.
+    pub initial_force: f32,
+    /// How long to wait before we can jump again.
+    pub cooldown_duration: f32,
+    /// Timer for tracking `cooldown_duration`.
+    pub cooldown_timer: f32,
+
+    pub jumps: u32,
+    pub remaining_jumps: u32,
+
     /// Was [`ControllerInput::jumping`] true last frame.
     pub pressed_last_frame: bool,
+/*
     /// A timer to track how long to jump for.
     pub timer: f32,
     /// A timer to track jump buffering. See [`jump_buffer_duration`](ControllerSettings::jump_buffer_duration)
     pub buffer_timer: f32,
-    /// The amount of force to apply on the first frame when a jump begins.
-    pub initial_force: f32,
     /// The amount of force to continuously apply every second during a jump.
     pub force: f32,
     /// The amount of force to apply downwards when the jump control is released prior to a jump expiring.
@@ -164,26 +175,31 @@ pub struct Jump {
     pub skip_ground_check_duration: f32,
     /// How long should the character be considered grounded even after leaving the ground.
     pub coyote_time: CoyoteTime,
-    /// How many times should the controller be able to jump even after leaving the ground.
-    pub extra_jumps: ExtraJumps,
+    */
 }
 
 impl Default for Jump {
     fn default() -> Self {
         Self {
+            initial_force: 100.0,
+            cooldown_duration: 0.5,
+            cooldown_timer: 0.0,
+            jumps: 1,
+            remaining_jumps: 1,
             pressed_last_frame: false,
-            timer: 0.0,
-            buffer_timer: default(),
 
+/*
+            buffer_timer: default(),
+            timer: 0.0,
             force: 500.0,
             time: 0.5,
-            initial_force: 1000.0,
             stop_force: 0.3,
             skip_ground_check_duration: 0.5,
             decay_function: Some(|x| (1.0 - x).sqrt()),
             buffer_duration: 0.16,
             coyote_time: default(),
             extra_jumps: default(),
+ */
         }
     }
 }
@@ -200,6 +216,8 @@ pub struct JumpForce {
 pub fn jump_force(
     mut query: Query<(
         &mut JumpForce,
+        &mut FloatForce,
+        &mut GravityForce,
         &mut Jump,
         &mut GroundCaster,
         &ControllerInput,
@@ -211,12 +229,40 @@ pub fn jump_force(
 ) {
     let dt = ctx.integration_parameters.dt;
 
-    for (mut force, mut jumping, mut groundcaster, input, grounded, gravity, velocity) in &mut query
+    for (mut force, mut float_force, mut gravity_force, mut jumping, mut groundcaster, input, grounded, gravity, velocity) in &mut query
     {
         force.linear = Vec3::ZERO;
 
         let grounded = **grounded;
         let just_jumped = input.jumping && !jumping.pressed_last_frame;
+
+        if jumping.cooldown_timer > 0.0 {
+            jumping.cooldown_timer -= dt;
+        } else {
+            if grounded {
+                jumping.remaining_jumps = jumping.jumps;
+            }
+        }
+
+        let can_jump = just_jumped && jumping.cooldown_timer <= 0.0 && jumping.remaining_jumps > 0;
+        if can_jump {
+            // Negating the current velocity increases consistency for falling jumps,
+            // and prevents stacking jumps to reach high upwards velocities
+            let initial_jump_force = jumping.initial_force * gravity.up_vector;
+            let negate_velocity = (-1.0 * gravity.up_vector * velocity.linear.dot(gravity.up_vector)) / dt;
+            force.linear = negate_velocity + initial_jump_force;
+
+            gravity_force.linear = Vec3::ZERO;
+            float_force.linear = Vec3::ZERO;
+
+            info!("jumping: {:?} {:?}", negate_velocity, initial_jump_force);
+
+            jumping.remaining_jumps.saturating_sub(1);
+            jumping.cooldown_timer = jumping.cooldown_duration;
+        }
+
+        jumping.pressed_last_frame = input.jumping;
+        /*
         if grounded {
             jumping.extra_jumps.remaining = jumping.extra_jumps.extra;
             jumping.coyote_time.timer = jumping.coyote_time.duration;
@@ -260,12 +306,11 @@ pub fn jump_force(
             jumping.buffer_timer = 0.0;
             jumping.timer = jumping.time;
             groundcaster.skip_ground_check_timer = jumping.skip_ground_check_duration;
-            // Negating the current velocity increases consistency for falling jumps,
-            // and prevents stacking jumps to reach high upwards velocities
             force.linear = velocity.linear * gravity.up_vector * -1.0;
             force.linear += jumping.initial_force * gravity.up_vector;
         }
 
-        jumping.pressed_last_frame = input.jumping;
+ */
+
     }
 }

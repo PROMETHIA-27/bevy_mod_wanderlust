@@ -123,17 +123,18 @@ pub fn accumulate_forces(
     {
         force.linear = movement.linear + jump.linear + float.linear + gravity.linear;
         force.angular = movement.angular + upright.angular;
+        //force.angular = movement.angular;
 
         let opposing_force = -(movement.linear * settings.opposing_movement_force_scale
             + (jump.linear + float.linear) * settings.opposing_force_scale);
 
-        if let Some((ground_entity, toi, _)) = ground_cast.cast {
-            let ground_transform = match globals.get(ground_entity) {
+        if let GroundCast::Touching(ground) = ground_cast {
+            let ground_transform = match globals.get(ground.entity) {
                 Ok(global) => global.compute_transform().compute_affine(),
                 _ => Transform::default().compute_affine(),
             };
 
-            let point = ground_transform.inverse().transform_point3(toi.witness);
+            let point = ground_transform.inverse().transform_point3(ground.cast.witness);
             ground_force.linear = opposing_force;
             ground_force.angular = (point - mass.com).cross(opposing_force);
 
@@ -144,7 +145,7 @@ pub fn accumulate_forces(
                 } else {
                     Color::BLUE
                 };
-                gizmos.line(toi.witness, toi.witness + opposing_impulse, color);
+                gizmos.line(ground.cast.witness, ground.cast.witness + opposing_impulse, color);
             }
         } else {
             ground_force.linear = opposing_force;

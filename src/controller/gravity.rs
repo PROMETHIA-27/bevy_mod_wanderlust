@@ -32,7 +32,7 @@ pub fn gravity_force(
     mut query: Query<(&mut GravityForce, &Gravity, &GroundCast, &ControllerMass)>,
 ) {
     for (mut force, gravity, ground, mass) in &mut query {
-        force.linear = if ground.cast.is_none() {
+        force.linear = if !ground.grounded() {
             gravity.up_vector * mass.mass * gravity.acceleration
         } else {
             Vec3::ZERO

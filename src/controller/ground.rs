@@ -44,13 +44,47 @@ impl Default for GroundCaster {
     }
 }
 
-#[derive(Component, Default, Reflect)]
-#[reflect(Component, Default)]
-pub struct GroundCast {
-    /// The cached ground cast. Contains the entity hit, the hit info, and velocity of the entity
-    /// hit.
-    #[reflect(ignore)]
-    pub cast: Option<(Entity, CastResult, Vec3)>,
+#[derive(Copy, Clone)]
+pub struct Ground {
+    pub entity: Entity,
+    pub cast: CastResult,
+    pub linear_velocity: Vec3,
+    pub angular_velocity: Vec3,
+}
+
+/// The cached ground cast. Contains the entity hit, the hit info, and velocity of the entity
+/// hit.
+#[derive(Component, Default)]
+pub enum GroundCast {
+    Touching(Ground),
+    Last(Ground),
+    #[default]
+    None,
+}
+
+impl GroundCast {
+    pub fn last(&self) -> Option<&Ground> {
+        match self {
+            Self::Touching(ground) | Self::Last(ground) => Some(ground),
+            Self::None => None,
+        }
+    }
+
+    pub fn grounded(&self) -> bool {
+        match self {
+            Self::Touching(_) => true,
+            Self::Last(_) | Self::None => false,
+        }
+    }
+
+    pub fn into_last(&mut self) {
+        match self {
+            GroundCast::Touching(ground) => {
+                *self = GroundCast::Last(ground.clone());
+            }
+            _ => {}
+        }
+    }
 }
 
 /// Is the character grounded?
@@ -159,23 +193,35 @@ pub fn find_ground(
             None
         };
 
-        cast.cast = casted.map(|(entity, result)| {
-            let ground_entity = ctx.collider_parent(entity).unwrap_or(entity);
+        match casted {
+            Some((entity, result)) => {
+                let ground_entity = ctx.collider_parent(entity).unwrap_or(entity);
 
-            let local_com = if let Ok(mass) = masses.get(ground_entity) {
-                mass.0.local_center_of_mass
-            } else {
-                Vec3::ZERO
-            };
+                let mass = if let Ok(mass) = masses.get(ground_entity) {
+                    mass.0.clone()
+                } else {
+                    MassProperties::default()
+                };
 
-            let ground_velocity = velocities.get(ground_entity).copied().unwrap_or(Velocity::default());
+                let local_com = mass.local_center_of_mass;
 
-            let global = globals.get(ground_entity).unwrap_or(&GlobalTransform::IDENTITY);
-            let com = global.transform_point(local_com);
-            let velocity = ground_velocity.linvel + ground_velocity.angvel.cross(result.witness - com);
+                let ground_velocity = velocities.get(ground_entity).copied().unwrap_or(Velocity::default());
 
-            (ground_entity, result, velocity)
-        });
+                let global = globals.get(ground_entity).unwrap_or(&GlobalTransform::IDENTITY);
+                let com = global.transform_point(local_com);
+                let velocity = ground_velocity.linvel + ground_velocity.angvel.cross(result.witness - com);
+
+                *cast = GroundCast::Touching(Ground {
+                    entity: ground_entity,
+                    cast: result,
+                    linear_velocity: velocity,
+                    angular_velocity: ground_velocity.angvel,
+                });
+            }
+            None => {
+                cast.into_last();
+            }
+        };
 
         // If we hit something, just get back up instead of waiting.
         if ctx.contacts_with(entity).next().is_some() {
@@ -186,8 +232,8 @@ pub fn find_ground(
 
 pub fn determine_groundedness(mut query: Query<(&Float, &GroundCast, &mut Grounded)>) {
     for (float, cast, mut grounded) in &mut query {
-        let float_offset = if let Some((_, toi, _)) = cast.cast {
-            Some(toi.toi - float.distance)
+        let float_offset = if let GroundCast::Touching(ground) = cast {
+            Some(ground.cast.toi - float.distance)
         } else {
             None
         };
@@ -205,7 +251,7 @@ struct ShapeDesc<'c> {
     shape: &'c Collider,
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Default, Debug, Copy, Clone, Reflect)]
 pub struct CastResult {
     pub toi: f32,
     pub normal: Vec3,
