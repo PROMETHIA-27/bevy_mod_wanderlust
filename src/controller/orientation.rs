@@ -48,33 +48,41 @@ pub fn float_force(
         &mut FloatForce,
         &Float,
         &GroundCast,
+        &GroundCaster,
         &ControllerVelocity,
         &ControllerMass,
         &Gravity,
     )>,
 ) {
-    for (mut force, float, cast, velocity, mass, gravity) in &mut query {
-        force.linear = if let GroundCast::Touching(ground) = cast {
-            let up_vector = gravity.up_vector;
+    for (mut force, float, cast, ground_caster, velocity, mass, gravity) in &mut query {
+        force.linear = Vec3::ZERO;
 
-            let point_velocity = velocity.linear + velocity.angular.cross(Vec3::ZERO - mass.com);
-            let vel_align = up_vector.dot(point_velocity);
-            let ground_vel_align = up_vector.dot(ground.linear_velocity);
+        let GroundCast::Touching(ground) = cast else { continue };
+        let ground_angle = ground.cast.normal.angle_between(gravity.up_vector);
+        let slipping = (ground.cast.normal.length() > 0.0 && ground_angle > ground_caster.max_ground_angle) || ground.cast.normal.length() == 0.0;
+        if slipping {
+            let mut slip_vector =  ground.cast.normal.reject_from_normalized(gravity.up_vector);
+            slip_vector = slip_vector.normalize_or_zero();
+            info!("slip_vector: {:?}", slip_vector);
+            force.linear += slip_vector * 35.0 * mass.mass;
+        }
 
-            let relative_velocity = vel_align - ground_vel_align;
+        let up_vector = gravity.up_vector;
 
-            let displacement = float.distance - ground.cast.toi;
+        let controller_point_velocity =
+            velocity.linear + velocity.angular.cross(Vec3::ZERO - mass.com);
+        let vel_align = up_vector.dot(controller_point_velocity);
+        let ground_vel_align = up_vector.dot(ground.point_velocity.linvel);
 
-            if displacement > 0.0 {
-                let strength = displacement * float.spring.strength;
-                let damping = relative_velocity * float.spring.damp_coefficient(mass.mass);
-                up_vector * (strength - damping)
-            } else {
-                Vec3::ZERO
-            }
-        } else {
-            Vec3::ZERO
-        };
+        let relative_velocity = vel_align - ground_vel_align;
+
+        let displacement = float.distance - ground.cast.toi;
+
+        if displacement > 0.0 {
+            let strength = displacement * float.spring.strength;
+            let damping = relative_velocity * float.spring.damp_coefficient(mass.mass);
+            force.linear += up_vector * (strength - damping);
+        }
     }
 }
 

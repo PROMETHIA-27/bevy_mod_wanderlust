@@ -1,6 +1,6 @@
 use crate::controller::*;
 use bevy::utils::HashSet;
-use bevy_rapier3d::prelude::*;
+use bevy_rapier3d::{na::Isometry3, prelude::*};
 
 /// How to detect if something below the controller is suitable
 /// for standing on.
@@ -46,10 +46,12 @@ impl Default for GroundCaster {
 
 #[derive(Copy, Clone)]
 pub struct Ground {
+    /// Entity found in ground cast.
     pub entity: Entity,
+    /// Specifics of the ground contact.
     pub cast: CastResult,
-    pub linear_velocity: Vec3,
-    pub angular_velocity: Vec3,
+    /// Velocity at the point of contact.
+    pub point_velocity: Velocity,
 }
 
 /// The cached ground cast. Contains the entity hit, the hit info, and velocity of the entity
@@ -115,6 +117,7 @@ pub fn find_ground(
     velocities: Query<&Velocity>,
     masses: Query<&ReadMassProperties>,
     globals: Query<&GlobalTransform>,
+    colliders: Query<&Collider>,
 
     ctx: Res<RapierContext>,
 
@@ -125,69 +128,25 @@ pub fn find_ground(
     for (entity, tf, gravity, mut caster, mut cast) in &mut casters {
         let casted = if caster.skip_ground_check_timer == 0.0 && !caster.skip_ground_check_override
         {
-            let shape_desc = ShapeDesc {
-                shape_pos: tf.transform_point(caster.cast_origin),
-                shape_rot: tf.to_scale_rotation_translation().1,
-                shape_vel: -gravity.up_vector,
-                shape: &caster.cast_collider,
-            };
+            let cast_position = tf.transform_point(caster.cast_origin);
+            let cast_rotation = tf.to_scale_rotation_translation().1;
+            let cast_direction = -gravity.up_vector;
+            let shape = &caster.cast_collider;
+            let predicate =
+                |collider| collider != entity && !caster.exclude_from_ground.contains(&collider);
+            let filter = QueryFilter::new().exclude_sensors().predicate(&predicate);
 
-            intersections_with_shape_cast(
-                &ctx,
-                &shape_desc,
+            ground_cast(
+                &*ctx,
+                &colliders,
+                &globals,
+                cast_position,
+                cast_rotation,
+                cast_direction,
+                shape,
                 caster.cast_length,
-                QueryFilter::new().exclude_sensors().predicate(&|collider| {
-                    collider != entity && !caster.exclude_from_ground.contains(&collider)
-                }),
-                &mut ground_shape_casts,
-            );
-
-            if let Some((entity, toi)) = ground_shape_casts
-                .iter()
-                .find(|(_, i)| {
-                    i.status != TOIStatus::Penetrating
-                        && i.normal1.angle_between(gravity.up_vector) <= caster.max_ground_angle
-                })
-                .cloned()
-            {
-                Some((
-                    entity,
-                    CastResult {
-                        toi: toi.toi,
-                        witness: toi.witness1,
-                        normal: toi.normal1,
-                    },
-                ))
-            } else {
-                intersections_with_ray_cast(
-                    &ctx,
-                    &shape_desc,
-                    caster.cast_length,
-                    QueryFilter::new().exclude_sensors().predicate(&|collider| {
-                        collider != entity && !caster.exclude_from_ground.contains(&collider)
-                    }),
-                    &mut ground_ray_casts,
-                );
-
-                if let Some((entity, inter)) = ground_ray_casts
-                    .iter()
-                    .find(|(_, i)| {
-                        i.normal.angle_between(gravity.up_vector) <= caster.max_ground_angle
-                    })
-                    .cloned()
-                {
-                    Some((
-                        entity,
-                        CastResult {
-                            toi: inter.toi,
-                            witness: inter.point,
-                            normal: inter.normal,
-                        },
-                    ))
-                } else {
-                    None
-                }
-            }
+                filter,
+            )
         } else {
             caster.skip_ground_check_timer = (caster.skip_ground_check_timer - dt).max(0.0);
             None
@@ -205,17 +164,25 @@ pub fn find_ground(
 
                 let local_com = mass.local_center_of_mass;
 
-                let ground_velocity = velocities.get(ground_entity).copied().unwrap_or(Velocity::default());
+                let ground_velocity = velocities
+                    .get(ground_entity)
+                    .copied()
+                    .unwrap_or(Velocity::default());
 
-                let global = globals.get(ground_entity).unwrap_or(&GlobalTransform::IDENTITY);
+                let global = globals
+                    .get(ground_entity)
+                    .unwrap_or(&GlobalTransform::IDENTITY);
                 let com = global.transform_point(local_com);
-                let velocity = ground_velocity.linvel + ground_velocity.angvel.cross(result.witness - com);
+                let velocity =
+                    ground_velocity.linvel + ground_velocity.angvel.cross(result.witness - com);
 
                 *cast = GroundCast::Touching(Ground {
                     entity: ground_entity,
                     cast: result,
-                    linear_velocity: velocity,
-                    angular_velocity: ground_velocity.angvel,
+                    point_velocity: Velocity {
+                        linvel: velocity,
+                        angvel: ground_velocity.angvel,
+                    },
                 });
             }
             None => {
@@ -244,13 +211,6 @@ pub fn determine_groundedness(mut query: Query<(&Float, &GroundCast, &mut Ground
     }
 }
 
-struct ShapeDesc<'c> {
-    shape_pos: Vec3,
-    shape_rot: Quat,
-    shape_vel: Vec3,
-    shape: &'c Collider,
-}
-
 #[derive(Default, Debug, Copy, Clone, Reflect)]
 pub struct CastResult {
     pub toi: f32,
@@ -258,76 +218,103 @@ pub struct CastResult {
     pub witness: Vec3,
 }
 
-fn intersections_with_shape_cast(
-    ctx: &RapierContext,
-    shape: &ShapeDesc,
-    mut max_toi: f32,
-    filter: QueryFilter,
-    collisions: &mut Vec<(Entity, Toi)>,
-) {
-    collisions.clear();
-
-    let ShapeDesc {
-        shape_pos,
-        shape_rot,
-        shape_vel,
-        shape,
-    } = *shape;
-    let offset = 0.1;
-    let shape_pos = shape_pos - shape_vel * offset;
-    max_toi += offset;
-
-    let orig_predicate = filter.predicate;
-
-    loop {
-        let predicate = |entity| {
-            !collisions.iter().any(|coll| coll.0 == entity)
-                && orig_predicate.map(|pred| pred(entity)).unwrap_or(true)
-        };
-        let filter = filter.predicate(&predicate);
-
-        if let Some((entity, mut toi)) =
-            ctx.cast_shape(shape_pos, shape_rot, shape_vel, shape, max_toi, filter)
-        {
-            toi.toi -= offset;
-            collisions.push((entity, toi));
-        } else {
-            break;
+impl From<Toi> for CastResult {
+    fn from(toi: Toi) -> Self {
+        Self {
+            toi: toi.toi,
+            normal: toi.normal1,
+            witness: toi.witness1,
         }
     }
 }
 
-fn intersections_with_ray_cast(
+impl From<RayIntersection> for CastResult {
+    fn from(intersection: RayIntersection) -> Self {
+        Self {
+            toi: intersection.toi,
+            normal: intersection.normal,
+            witness: intersection.point,
+        }
+    }
+}
+
+fn ground_cast(
     ctx: &RapierContext,
-    shape: &ShapeDesc,
+    colliders: &Query<&Collider>,
+    globals: &Query<&GlobalTransform>,
+    mut shape_pos: Vec3,
+    shape_rot: Quat,
+    shape_vel: Vec3,
+    shape: &Collider,
     max_toi: f32,
     filter: QueryFilter,
-    collisions: &mut Vec<(Entity, RayIntersection)>,
-) {
-    collisions.clear();
+) -> Option<(Entity, CastResult)> {
+    for _ in 0..12 {
+        if let Some((entity, toi)) =
+            ctx.cast_shape(shape_pos, shape_rot, shape_vel, shape, max_toi, filter)
+        {
+            if toi.status != TOIStatus::Penetrating {
+                return Some((entity, toi.into()));
+            }
 
-    let orig_predicate = filter.predicate;
+            match (globals.get(entity), colliders.get(entity)) {
+                (Ok(ground_global), Ok(ground_collider)) => {
+                    let cast_iso = Isometry3 {
+                        translation: shape_pos.into(),
+                        rotation: shape_rot.into(),
+                    };
 
-    let ShapeDesc {
-        shape_pos,
-        shape_vel,
-        shape,
-        ..
-    } = *shape;
+                    let (_, ground_rotation, ground_translation) =
+                        ground_global.to_scale_rotation_translation();
+                    let ground_iso = Isometry3 {
+                        translation: ground_translation.into(),
+                        rotation: ground_rotation.into(),
+                    };
+
+                    if let Ok(Some(contact)) = bevy_rapier3d::parry::query::contact(
+                        &cast_iso,
+                        &*shape.raw,
+                        &ground_iso,
+                        &*ground_collider.raw,
+                        0.0,
+                    ) {
+                        let normal: Vec3 = contact.normal2.into();
+                        // This prevents some issues where we get a near 0.0 time-of-impact due to floating point imprecision.
+                        const EXTRA_CORRECTION: f32 = 1.5;
+                        let correction = normal * (-contact.dist).max(0.05) * EXTRA_CORRECTION;
+                        shape_pos += correction;
+                    }
+                }
+                _ => {}
+            };
+        } else {
+            return None;
+        }
+    }
 
     // We need to offset it so the point of contact is identical to the shape cast.
+    let offset = shape
+        .cast_local_ray(Vec3::ZERO, shape_vel, 10.0, false)
+        .unwrap_or(0.);
+    shape_pos = shape_pos + shape_vel * offset;
+
+    /*ctx.cast_ray_and_get_normal(shape_pos, shape_vel, max_toi, true, filter)
+        .map(|(entity, inter)| (entity, inter.into()))*/
+        None
+}
+
+/*
+fn intersections_with_ray_cast(
+    ctx: &RapierContext,
+    max_toi: f32,
+    filter: QueryFilter,
+) {
     let offset = shape
         .cast_local_ray(Vec3::ZERO, shape_vel, 10.0, false)
         .unwrap_or(0.);
     let shape_pos = shape_pos + shape_vel * offset;
 
     loop {
-        let predicate = |entity| {
-            !collisions.iter().any(|coll| coll.0 == entity)
-                && orig_predicate.map(|pred| pred(entity)).unwrap_or(true)
-        };
-        let filter = filter.predicate(&predicate);
-
         if let Some((entity, inter)) =
             ctx.cast_ray_and_get_normal(shape_pos, shape_vel, max_toi, true, filter)
         {
@@ -337,3 +324,4 @@ fn intersections_with_ray_cast(
         }
     }
 }
+*/

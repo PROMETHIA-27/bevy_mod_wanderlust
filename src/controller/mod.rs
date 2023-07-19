@@ -134,7 +134,9 @@ pub fn accumulate_forces(
                 _ => Transform::default().compute_affine(),
             };
 
-            let point = ground_transform.inverse().transform_point3(ground.cast.witness);
+            let point = ground_transform
+                .inverse()
+                .transform_point3(ground.cast.witness);
             ground_force.linear = opposing_force;
             ground_force.angular = (point - mass.com).cross(opposing_force);
 
@@ -145,7 +147,11 @@ pub fn accumulate_forces(
                 } else {
                     Color::BLUE
                 };
-                gizmos.line(ground.cast.witness, ground.cast.witness + opposing_impulse, color);
+                gizmos.line(
+                    ground.cast.witness,
+                    ground.cast.witness + opposing_impulse,
+                    color,
+                );
             }
         } else {
             ground_force.linear = opposing_force;

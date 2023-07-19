@@ -16,13 +16,8 @@ pub struct Movement {
     /// Scales movement force. This is useful to ensure movement does not
     /// affect vertical velocity (by setting it to e.g. `Vec3(1.0, 0.0, 1.0)`).
     pub force_scale: Vec3,
-    /// Stick to the same position on the ground.
-    //pub stick_to_ground: Vec3,
-
-    /// Last ground velocity we were touching so we can keep momentum.
-    pub last_ground_velocity: Vec3,
-
-    pub last_witness_point: Option<Vec3>,
+    // /// Stick to the same position on the ground.
+    // pub stick_to_ground: Vec3,
 }
 
 impl Default for Movement {
@@ -33,9 +28,6 @@ impl Default for Movement {
             force_scale: Vec3::ONE,
             max_acceleration_force: 10.0,
             //stick_to_ground: true,
-
-            last_ground_velocity: Vec3::ZERO,
-            last_witness_point: None,
         }
     }
 }
@@ -50,9 +42,9 @@ pub struct MovementForce {
     pub angular: Vec3,
 }
 
+/// Calculates the movement forces for this controller.
 pub fn movement_force(
     mut query: Query<(
-        Entity,
         &mut MovementForce,
         &mut Movement,
         &ControllerInput,
@@ -60,58 +52,20 @@ pub fn movement_force(
         &ControllerVelocity,
         &ControllerMass,
     )>,
-    globals: Query<&GlobalTransform>,
-    masses: Query<&ReadMassProperties>,
-    mut velocities: Query<&mut Velocity>,
-
-    ctx: Res<RapierContext>,
 ) {
-    let dt = ctx.integration_parameters.dt;
+    for (mut force, movement, input, ground, velocity, mass) in &mut query {
+        force.linear = Vec3::ZERO;
 
-    for (control_entity, mut force, mut movement, input, ground, velocity, mass) in &mut query {
-            let (ground_vel, ground_rot) = if let Some(ground) = ground.last() {
-                (ground.linear_velocity, ground.angular_velocity)
-            } else {
-                (Vec3::ZERO, Vec3::ZERO)
-            };
+        let Some(ground) = ground.last() else { continue };
 
-            let spring = Spring {
-                strength: movement.acceleration,
-                damping: 1.0,
-            };
+        let input_dir = input.movement.clamp_length_max(1.0);
+        let input_goal_vel = input_dir * movement.max_speed;
+        let goal_vel = input_goal_vel;
+        let current_vel = velocity.linear - ground.point_velocity.linvel;
 
-            let input_dir = input.movement.clamp_length_max(1.0);
-            let input_goal_vel = input_dir * movement.max_speed;
-            let goal_vel = input_goal_vel;
-            let current_vel = velocity.linear - ground_vel;
-
-            let displacement = (goal_vel - current_vel) * movement.force_scale;
-            let k = displacement * spring.strength;
-            let c = (current_vel * movement.force_scale) * spring.damp_coefficient(mass.mass);
-            force.linear = (k - c).clamp_length_max(movement.max_acceleration_force);
-
-            let goal_rot = ground_rot;
-            let current_rot = velocity.angular;
-            let displacement = goal_rot - current_rot;
-
-            let spring = Spring {
-                strength: 0.5,
-                damping: 0.0,
-            };
-
-            info!("{goal_rot:.4?}");
-            info!("{current_rot:.4?}");
-            let k = displacement * spring.strength;
-            let damping = Vec3::new(
-                spring.damp_coefficient(mass.inertia.x),
-                spring.damp_coefficient(mass.inertia.y),
-                spring.damp_coefficient(mass.inertia.z),
-            );
-            let c = current_rot * damping;
-            //force.angular = (k - c).clamp_length_max(movement.max_acceleration_force);
-            if let Ok(mut rapivel) = velocities.get_mut(control_entity) {
-                //rapivel.angvel = goal_rot;
-            }
+        let displacement = (goal_vel - current_vel) * movement.force_scale;
+        force.linear = (displacement * movement.acceleration)
+            .clamp_length_max(movement.max_acceleration_force);
     }
 }
 
@@ -151,7 +105,7 @@ pub struct Jump {
 
     /// Was [`ControllerInput::jumping`] true last frame.
     pub pressed_last_frame: bool,
-/*
+    /*
     /// A timer to track how long to jump for.
     pub timer: f32,
     /// A timer to track jump buffering. See [`jump_buffer_duration`](ControllerSettings::jump_buffer_duration)
@@ -187,19 +141,18 @@ impl Default for Jump {
             jumps: 1,
             remaining_jumps: 1,
             pressed_last_frame: false,
-
-/*
-            buffer_timer: default(),
-            timer: 0.0,
-            force: 500.0,
-            time: 0.5,
-            stop_force: 0.3,
-            skip_ground_check_duration: 0.5,
-            decay_function: Some(|x| (1.0 - x).sqrt()),
-            buffer_duration: 0.16,
-            coyote_time: default(),
-            extra_jumps: default(),
- */
+            /*
+                       buffer_timer: default(),
+                       timer: 0.0,
+                       force: 500.0,
+                       time: 0.5,
+                       stop_force: 0.3,
+                       skip_ground_check_duration: 0.5,
+                       decay_function: Some(|x| (1.0 - x).sqrt()),
+                       buffer_duration: 0.16,
+                       coyote_time: default(),
+                       extra_jumps: default(),
+            */
         }
     }
 }
@@ -229,7 +182,17 @@ pub fn jump_force(
 ) {
     let dt = ctx.integration_parameters.dt;
 
-    for (mut force, mut float_force, mut gravity_force, mut jumping, mut groundcaster, input, grounded, gravity, velocity) in &mut query
+    for (
+        mut force,
+        mut float_force,
+        mut gravity_force,
+        mut jumping,
+        mut ground_caster,
+        input,
+        grounded,
+        gravity,
+        velocity,
+    ) in &mut query
     {
         force.linear = Vec3::ZERO;
 
@@ -249,7 +212,8 @@ pub fn jump_force(
             // Negating the current velocity increases consistency for falling jumps,
             // and prevents stacking jumps to reach high upwards velocities
             let initial_jump_force = jumping.initial_force * gravity.up_vector;
-            let negate_velocity = (-1.0 * gravity.up_vector * velocity.linear.dot(gravity.up_vector)) / dt;
+            let negate_velocity =
+                (-1.0 * gravity.up_vector * velocity.linear.dot(gravity.up_vector)) / dt;
             force.linear = negate_velocity + initial_jump_force;
 
             gravity_force.linear = Vec3::ZERO;
@@ -257,60 +221,59 @@ pub fn jump_force(
 
             info!("jumping: {:?} {:?}", negate_velocity, initial_jump_force);
 
-            jumping.remaining_jumps.saturating_sub(1);
+            jumping.remaining_jumps = jumping.remaining_jumps.saturating_sub(1);
             jumping.cooldown_timer = jumping.cooldown_duration;
         }
 
         jumping.pressed_last_frame = input.jumping;
         /*
-        if grounded {
-            jumping.extra_jumps.remaining = jumping.extra_jumps.extra;
-            jumping.coyote_time.timer = jumping.coyote_time.duration;
-        } else {
-            jumping.coyote_time.timer = (jumping.coyote_time.timer - dt).max(0.0);
+               if grounded {
+                   jumping.extra_jumps.remaining = jumping.extra_jumps.extra;
+                   jumping.coyote_time.timer = jumping.coyote_time.duration;
+               } else {
+                   jumping.coyote_time.timer = (jumping.coyote_time.timer - dt).max(0.0);
 
-            if just_jumped {
-                jumping.buffer_timer = jumping.buffer_duration;
-            } else {
-                jumping.buffer_timer = (jumping.buffer_timer - dt).max(0.0);
-            }
-        }
+                   if just_jumped {
+                       jumping.buffer_timer = jumping.buffer_duration;
+                   } else {
+                       jumping.buffer_timer = (jumping.buffer_timer - dt).max(0.0);
+                   }
+               }
 
-        // Calculate jump force
-        if jumping.timer > 0.0 && !grounded {
-            force.linear = if !input.jumping {
-                jumping.timer = 0.0;
-                velocity.linear.project_onto(gravity.up_vector) * -jumping.stop_force
-            } else {
-                jumping.timer = (jumping.timer - dt).max(0.0);
+               // Calculate jump force
+               if jumping.timer > 0.0 && !grounded {
+                   force.linear = if !input.jumping {
+                       jumping.timer = 0.0;
+                       velocity.linear.project_onto(gravity.up_vector) * -jumping.stop_force
+                   } else {
+                       jumping.timer = (jumping.timer - dt).max(0.0);
 
-                jumping.force
-                    * gravity.up_vector
-                    * jumping
-                        .decay_function
-                        .map(|f| (f)((jumping.time - jumping.timer) / jumping.time))
-                        .unwrap_or(1.0)
-            };
-        };
+                       jumping.force
+                           * gravity.up_vector
+                           * jumping
+                               .decay_function
+                               .map(|f| (f)((jumping.time - jumping.timer) / jumping.time))
+                               .unwrap_or(1.0)
+                   };
+               };
 
-        // Trigger a jump
-        let coyote_timer = jumping.coyote_time.timer;
-        let remaining_jumps = jumping.extra_jumps.remaining;
-        if (just_jumped || jumping.buffer_timer > 0.0)
-            && (grounded || coyote_timer > 0.0 || remaining_jumps > 0)
-        {
-            if !grounded && coyote_timer == 0.0 {
-                jumping.extra_jumps.remaining -= 1;
-            }
+               // Trigger a jump
+               let coyote_timer = jumping.coyote_time.timer;
+               let remaining_jumps = jumping.extra_jumps.remaining;
+               if (just_jumped || jumping.buffer_timer > 0.0)
+                   && (grounded || coyote_timer > 0.0 || remaining_jumps > 0)
+               {
+                   if !grounded && coyote_timer == 0.0 {
+                       jumping.extra_jumps.remaining -= 1;
+                   }
 
-            jumping.buffer_timer = 0.0;
-            jumping.timer = jumping.time;
-            groundcaster.skip_ground_check_timer = jumping.skip_ground_check_duration;
-            force.linear = velocity.linear * gravity.up_vector * -1.0;
-            force.linear += jumping.initial_force * gravity.up_vector;
-        }
+                   jumping.buffer_timer = 0.0;
+                   jumping.timer = jumping.time;
+                   groundcaster.skip_ground_check_timer = jumping.skip_ground_check_duration;
+                   force.linear = velocity.linear * gravity.up_vector * -1.0;
+                   force.linear += jumping.initial_force * gravity.up_vector;
+               }
 
- */
-
+        */
     }
 }
