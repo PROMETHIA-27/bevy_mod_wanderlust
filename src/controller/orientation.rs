@@ -58,14 +58,6 @@ pub fn float_force(
         force.linear = Vec3::ZERO;
 
         let GroundCast::Touching(ground) = cast else { continue };
-        let ground_angle = ground.cast.normal.angle_between(gravity.up_vector);
-        let slipping = (ground.cast.normal.length() > 0.0 && ground_angle > ground_caster.max_ground_angle) || ground.cast.normal.length() == 0.0;
-        if slipping {
-            let mut slip_vector =  ground.cast.normal.reject_from_normalized(gravity.up_vector);
-            slip_vector = slip_vector.normalize_or_zero();
-            info!("slip_vector: {:?}", slip_vector);
-            force.linear += slip_vector * 35.0 * mass.mass;
-        }
 
         let up_vector = gravity.up_vector;
 
@@ -155,8 +147,8 @@ pub fn upright_force(
             );
 
             let ground_rot = if let Some(ground) = ground_cast.last() {
-                //ground.angular_velocity
-                Vec3::ZERO
+                ground.point_velocity.angvel
+                //Vec3::ZERO
             } else {
                 Vec3::ZERO
             };

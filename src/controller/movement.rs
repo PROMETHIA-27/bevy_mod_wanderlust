@@ -47,25 +47,39 @@ pub fn movement_force(
     mut query: Query<(
         &mut MovementForce,
         &mut Movement,
+        &Gravity,
         &ControllerInput,
         &GroundCast,
+        &GroundCaster,
         &ControllerVelocity,
         &ControllerMass,
     )>,
 ) {
-    for (mut force, movement, input, ground, velocity, mass) in &mut query {
+    for (mut force, movement, gravity, input, cast, ground_caster, velocity, mass) in &mut query {
         force.linear = Vec3::ZERO;
 
-        let Some(ground) = ground.last() else { continue };
+        let Some(ground) = cast.last() else { continue };
+        let ground_angle = ground.cast.normal.angle_between(gravity.up_vector);
+        //let slipping = (ground.cast.normal.length() > 0.0 && ground_angle > ground_caster.max_ground_angle) || ground.cast.normal.length() == 0.0;
+        let slipping = false;
+        if slipping {
+            if let GroundCast::Touching(ground) = cast {
+                let mut slip_vector = ground.cast.normal.reject_from_normalized(gravity.up_vector);
+                slip_vector = slip_vector.normalize_or_zero();
+                info!("slip_vector: {:?}", slip_vector);
+                force.linear += slip_vector * -gravity.acceleration;
+                force.linear += gravity.up_vector * gravity.acceleration * 5.0;
+            }
+        } else {
+            let input_dir = input.movement.clamp_length_max(1.0);
+            let input_goal_vel = input_dir * movement.max_speed;
+            let goal_vel = input_goal_vel;
+            let current_vel = velocity.linear - ground.point_velocity.linvel;
 
-        let input_dir = input.movement.clamp_length_max(1.0);
-        let input_goal_vel = input_dir * movement.max_speed;
-        let goal_vel = input_goal_vel;
-        let current_vel = velocity.linear - ground.point_velocity.linvel;
-
-        let displacement = (goal_vel - current_vel) * movement.force_scale;
-        force.linear = (displacement * movement.acceleration)
-            .clamp_length_max(movement.max_acceleration_force);
+            let displacement = (goal_vel - current_vel) * movement.force_scale;
+            force.linear = (displacement * movement.acceleration)
+                .clamp_length_max(movement.max_acceleration_force);
+        }
     }
 }
 
