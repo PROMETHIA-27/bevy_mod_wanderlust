@@ -10,6 +10,7 @@ use bevy_rapier3d::prelude::*;
 pub struct Movement {
     /// How fast to get to the max speed.
     pub acceleration: f32,
+    /// Caps acceleration so we don't overshoot too hard.
     pub max_acceleration_force: f32,
     /// How fast our controller will move.
     pub max_speed: f32,
@@ -52,10 +53,9 @@ pub fn movement_force(
         &GroundCast,
         &GroundCaster,
         &ControllerVelocity,
-        &ControllerMass,
     )>,
 ) {
-    for (mut force, movement, gravity, input, cast, ground_caster, velocity, mass) in &mut query {
+    for (mut force, movement, gravity, input, cast, ground_caster, velocity) in &mut query {
         force.linear = Vec3::ZERO;
 
         let Some(ground) = cast.last() else { continue };
@@ -112,7 +112,10 @@ pub struct Jump {
     /// Timer for tracking `cooldown_duration`.
     pub cooldown_timer: f32,
 
+    /// Number of times we can jump before we have to touch the ground again.
     pub jumps: u32,
+
+    /// Remaining before we have to touch the ground again.
     pub remaining_jumps: u32,
 
     /// Was [`ControllerInput::jumping`] true last frame.
@@ -184,7 +187,6 @@ pub fn jump_force(
         &mut FloatForce,
         &mut GravityForce,
         &mut Jump,
-        &mut GroundCaster,
         &ControllerInput,
         &Grounded,
         &Gravity,
@@ -199,7 +201,6 @@ pub fn jump_force(
         mut float_force,
         mut gravity_force,
         mut jumping,
-        mut ground_caster,
         input,
         grounded,
         gravity,

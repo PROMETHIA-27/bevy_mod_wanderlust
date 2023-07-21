@@ -136,7 +136,7 @@ pub fn accumulate_forces(
 
             let point = ground_transform
                 .inverse()
-                .transform_point3(ground.cast.witness);
+                .transform_point3(ground.cast.point);
             ground_force.linear = opposing_force;
             ground_force.angular = (point - mass.com).cross(opposing_force);
 

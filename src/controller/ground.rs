@@ -39,11 +39,12 @@ impl Default for GroundCaster {
             cast_length: 1.0,
             cast_collider: Collider::ball(0.45),
             exclude_from_ground: default(),
-            max_ground_angle: 75.0 * (std::f32::consts::PI / 180.0),
+            max_ground_angle: 45.0 * (std::f32::consts::PI / 180.0),
         }
     }
 }
 
+/// Information about the ground entity/where we are touching it.
 #[derive(Copy, Clone)]
 pub struct Ground {
     /// Entity found in ground cast.
@@ -58,13 +59,17 @@ pub struct Ground {
 /// hit.
 #[derive(Component, Default)]
 pub enum GroundCast {
+    /// Currently touching ground.
     Touching(Ground),
+    /// Previously touched ground.
     Last(Ground),
     #[default]
+    /// We have not touched any ground yet.
     None,
 }
 
 impl GroundCast {
+    /// Last ground we touched, this includes the ground we are currently touching.
     pub fn last(&self) -> Option<&Ground> {
         match self {
             Self::Touching(ground) | Self::Last(ground) => Some(ground),
@@ -72,6 +77,7 @@ impl GroundCast {
         }
     }
 
+    /// Are we currently touching the ground?
     pub fn grounded(&self) -> bool {
         match self {
             Self::Touching(_) => true,
@@ -79,6 +85,7 @@ impl GroundCast {
         }
     }
 
+    /// Archive this ground cast.
     pub fn into_last(&mut self) {
         match self {
             GroundCast::Touching(ground) => {
@@ -120,9 +127,6 @@ pub fn find_ground(
     colliders: Query<&Collider>,
 
     ctx: Res<RapierContext>,
-
-    mut ground_shape_casts: Local<Vec<(Entity, Toi)>>,
-    mut ground_ray_casts: Local<Vec<(Entity, RayIntersection)>>,
 ) {
     let dt = ctx.integration_parameters.dt;
     for (entity, tf, gravity, mut caster, mut cast) in &mut casters {
@@ -174,7 +178,7 @@ pub fn find_ground(
                     .unwrap_or(&GlobalTransform::IDENTITY);
                 let com = global.transform_point(local_com);
                 let velocity =
-                    ground_velocity.linvel + ground_velocity.angvel.cross(result.witness - com);
+                    ground_velocity.linvel + ground_velocity.angvel.cross(result.point - com);
 
                 *cast = GroundCast::Touching(Ground {
                     entity: ground_entity,
@@ -197,6 +201,7 @@ pub fn find_ground(
     }
 }
 
+/// Are we currently touching the ground with a fudge factor included.
 pub fn determine_groundedness(mut query: Query<(&Float, &GroundCast, &mut Grounded)>) {
     for (float, cast, mut grounded) in &mut query {
         let float_offset = if let GroundCast::Touching(ground) = cast {
@@ -211,19 +216,33 @@ pub fn determine_groundedness(mut query: Query<(&Float, &GroundCast, &mut Ground
     }
 }
 
+/// Details about a shape/ray-cast.
 #[derive(Default, Debug, Copy, Clone, Reflect)]
 pub struct CastResult {
+    /// Time-of-impact to the other shape.
     pub toi: f32,
+    /// Normal of the other shape.
     pub normal: Vec3,
-    pub witness: Vec3,
+    /// Witness point for the shape/ray cast.
+    pub point: Vec3,
 }
 
-impl From<Toi> for CastResult {
-    fn from(toi: Toi) -> Self {
+impl CastResult {
+    /// Use the first shape in the shape-cast as the cast result.
+    pub fn from_toi1(toi: Toi) -> Self {
         Self {
             toi: toi.toi,
             normal: toi.normal1,
-            witness: toi.witness1,
+            point: toi.witness1,
+        }
+    }
+
+    /// Use the second shape in the shape-cast as the cast result.
+    pub fn from_toi2(toi: Toi) -> Self {
+        Self {
+            toi: toi.toi,
+            normal: toi.normal2,
+            point: toi.witness2,
         }
     }
 }
@@ -233,12 +252,15 @@ impl From<RayIntersection> for CastResult {
         Self {
             toi: intersection.toi,
             normal: intersection.normal,
-            witness: intersection.point,
+            point: intersection.point,
         }
     }
 }
 
-fn ground_cast(
+/// Robust casting to find the ground beneath the controller.
+/// 
+/// This has fallbacks to make sure we catch non-convex colliders.
+pub fn ground_cast(
     ctx: &RapierContext,
     colliders: &Query<&Collider>,
     globals: &Query<&GlobalTransform>,
@@ -254,7 +276,7 @@ fn ground_cast(
             ctx.cast_shape(shape_pos, shape_rot, shape_vel, shape, max_toi, filter)
         {
             if toi.status != TOIStatus::Penetrating {
-                return Some((entity, toi.into()));
+                return Some((entity, CastResult::from_toi1(toi)));
             }
 
             match (globals.get(entity), colliders.get(entity)) {
@@ -292,36 +314,16 @@ fn ground_cast(
         }
     }
 
+    // Final attempt to check the ground by just raycasting downwards.
+    // This should only occur if the controller fails to correct penetration
+    // of colliders.
+
     // We need to offset it so the point of contact is identical to the shape cast.
     let offset = shape
         .cast_local_ray(Vec3::ZERO, shape_vel, 10.0, false)
         .unwrap_or(0.);
     shape_pos = shape_pos + shape_vel * offset;
 
-    /*ctx.cast_ray_and_get_normal(shape_pos, shape_vel, max_toi, true, filter)
-        .map(|(entity, inter)| (entity, inter.into()))*/
-        None
+    ctx.cast_ray_and_get_normal(shape_pos, shape_vel, max_toi, true, filter)
+        .map(|(entity, inter)| (entity, inter.into()))
 }
-
-/*
-fn intersections_with_ray_cast(
-    ctx: &RapierContext,
-    max_toi: f32,
-    filter: QueryFilter,
-) {
-    let offset = shape
-        .cast_local_ray(Vec3::ZERO, shape_vel, 10.0, false)
-        .unwrap_or(0.);
-    let shape_pos = shape_pos + shape_vel * offset;
-
-    loop {
-        if let Some((entity, inter)) =
-            ctx.cast_ray_and_get_normal(shape_pos, shape_vel, max_toi, true, filter)
-        {
-            collisions.push((entity, inter));
-        } else {
-            break;
-        }
-    }
-}
-*/
