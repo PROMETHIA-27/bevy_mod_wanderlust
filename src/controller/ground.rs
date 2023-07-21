@@ -154,7 +154,6 @@ pub fn find_ground(
 
         match casted {
             Some((entity, result)) => {
-                info!("result: {result:.2?}");
                 let ground_entity = ctx.collider_parent(entity).unwrap_or(entity);
 
                 let mass = if let Ok(mass) = masses.get(ground_entity) {
