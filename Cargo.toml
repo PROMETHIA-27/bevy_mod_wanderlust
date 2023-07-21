@@ -15,7 +15,10 @@ version = "0.4.0"
 [features]
 default = ["rapier"]
 debug_lines = []
-rapier = ["bevy_rapier3d"]
+rapier3d = ["bevy_rapier3d"]
+rapier2d = ["bevy_rapier2d"]
+bevy_xpbd_3d = ["bevy_xpbd_3d"]
+bevy_xpbd_2d = ["bevy_xpbd_2d"]
 
 [dependencies]
 bevy = { version = "0.11", default-features = false, features = [
@@ -26,6 +29,12 @@ bevy_rapier3d = { version = "0.22", default-features = false, features = [
     "async-collider",
     "dim3",
 ], optional = true }
+bevy_rapier2d = { version = "0.22", default-features = false, features = [
+    "async-collider",
+    "dim3",
+], optional = true }
+bevy_xpbd_3d = { version = "0.2", optional = true }
+bevy_xpbd_2d = { version = "0.2", optional = true }
 
 [dev-dependencies]
 bevy = "0.11"
