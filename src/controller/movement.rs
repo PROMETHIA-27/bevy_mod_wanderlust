@@ -200,7 +200,7 @@ impl Jump {
 
     /// 0..1 progress of the current jump.
     pub fn jump_progress(&self) -> f32 {
-        (jumping.jump_duration - jumping.jump_timer) / jumping.jump_duration
+        (self.jump_duration - self.jump_timer) / self.jump_duration
     }
 
     /// Jump force decay multiplier.
