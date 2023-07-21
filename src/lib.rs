@@ -1,10 +1,8 @@
-/*
-#![deny(
+#![warn(
     missing_docs,
     rustdoc::broken_intra_doc_links,
     rustdoc::private_intra_doc_links
 )]
- */
 #![doc = include_str!("../README.md")]
 
 mod bundles;
@@ -17,6 +15,6 @@ mod spring;
 mod rapier;
 
 pub use {
-    bundles::ControllerBundle, controller::*, physics::ControllerPhysicsBundle,
-    plugins::WanderlustPlugin, rapier::*, spring::Spring,
+    bundles::ControllerBundle, controller::*, physics::*, plugins::WanderlustPlugin, rapier::*,
+    spring::Spring,
 };

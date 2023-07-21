@@ -9,12 +9,9 @@ pub struct WanderlustPlugin {
 }
 
 impl WanderlustPlugin {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn do_tweaks() -> Self {
-        Self { tweaks: true }
+    /// Apply tweaks to rapier to try to avoid some jitters/issues.
+    pub fn do_tweaks(tweaks: bool) -> Self {
+        Self { tweaks }
     }
 }
 
@@ -29,9 +26,6 @@ impl Plugin for WanderlustPlugin {
         app.register_type::<ControllerInput>()
             .register_type::<Option<Vec3>>();
 
-        #[cfg(feature = "rapier")]
-        app.add_plugins(crate::WanderlustRapierPlugin);
-
         if self.tweaks {
             app.add_systems(Startup, setup_physics_context);
         }
@@ -43,11 +37,11 @@ impl Plugin for WanderlustPlugin {
                 crate::get_velocity_from_rapier,
                 find_ground,
                 determine_groundedness,
-                apply_gravity,
+                gravity_force,
                 movement_force,
-                jump_force,
-                upright_force,
                 float_force,
+                upright_force,
+                jump_force,
                 accumulate_forces,
                 crate::apply_forces,
                 crate::apply_ground_forces,

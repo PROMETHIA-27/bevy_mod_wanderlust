@@ -1,6 +1,6 @@
 use crate::{Controller, ControllerInput, ControllerPhysicsBundle, RapierPhysicsBundle};
 
-use bevy::{math::*, prelude::*};
+use bevy::prelude::*;
 
 /// The recommended bundle for creating a character controller. Includes the necessary components for a character controller
 /// as well as many physics-related components that can be used to tweak the behavior of the controller. Try using the
