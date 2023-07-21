@@ -11,10 +11,8 @@ pub struct Parts {
 }
 
 impl Parts {
-    pub fn parts(&self, controller: Entity) -> Vec<Entity> {
-        let mut parts = self.parts.clone();
-        parts.push(controller);
-        parts
+    pub fn parts(&self, controller: Entity) -> impl Iterator<Item = Entity> + '_ {
+        self.parts.iter().copied().chain(std::iter::once(controller))
     }
 }
 
