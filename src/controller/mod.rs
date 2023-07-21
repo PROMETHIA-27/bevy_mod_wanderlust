@@ -14,6 +14,9 @@ pub use {gravity::*, ground::*, input::*, movement::*, orientation::*};
 /// Components required for calculating controller forces.
 #[derive(Bundle)]
 pub struct Controller {
+    /// Entities that should be considered a part of this controller.
+    pub parts: Parts,
+
     /// How strong the controller should be pulled down if the ground
     /// isn't there.
     pub gravity: Gravity,
