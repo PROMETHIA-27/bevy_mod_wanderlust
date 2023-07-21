@@ -1,35 +1,42 @@
 use crate::controller::*;
+use crate::physics::*;
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
 
 /// The [character controller](CharacterController) plugin. Necessary to have the character controller
 /// work.
 pub struct WanderlustPlugin {
-    tweaks: bool,
-}
-
-impl WanderlustPlugin {
-    /// Apply tweaks to rapier to try to avoid some jitters/issues.
-    pub fn do_tweaks(tweaks: bool) -> Self {
-        Self { tweaks }
-    }
+    pub tweaks: bool,
+    pub default_systems: bool,
 }
 
 impl Default for WanderlustPlugin {
     fn default() -> Self {
-        Self { tweaks: true }
+        Self { tweaks: true, default_systems: true }
     }
 }
 
 impl Plugin for WanderlustPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<ControllerInput>()
-            .register_type::<Option<Vec3>>();
+            .register_type::<Option<Vec3>>()
+            .register_type::<GravityForce>()
+            .register_type::<Gravity>()
+            .register_type::<JumpForce>()
+            .register_type::<Jump>()
+            .register_type::<FloatForce>()
+            .register_type::<Float>()
+            .register_type::<ControllerForce>()
+            .register_type::<ControllerMass>()
+            .register_type::<ControllerVelocity>()
+            .register_type::<Parts>()
+            .register_type::<Vec<Entity>>();
 
         if self.tweaks {
             app.add_systems(Startup, setup_physics_context);
         }
 
+        if self.default_systems {
         app.add_systems(
             Update,
             (
@@ -58,6 +65,7 @@ impl Plugin for WanderlustPlugin {
                 }
             }
         });
+        }
     }
 }
 

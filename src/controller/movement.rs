@@ -179,37 +179,36 @@ pub struct JumpForce {
 
 /// Calculate the jump force for the controller.
 pub fn jump_force(
-    mut query: Query<(
-        &mut JumpForce,
-        &mut FloatForce,
-        &mut GravityForce,
+    mut controllers: Query<(
+        Entity,
         &mut Jump,
         &mut GroundCaster,
         &ControllerInput,
         &Grounded,
-        &Gravity,
-        &ControllerVelocity,
+        &Parts,
     )>,
+    mut parts: Query<(&mut JumpForce, &mut FloatForce, &mut GravityForce,  &ControllerVelocity, &Gravity)>,
     ctx: Res<RapierContext>,
 ) {
     let dt = ctx.integration_parameters.dt;
 
     for (
-        mut force,
-        mut float_force,
-        mut gravity_force,
+        controller_entity,
         mut jumping,
         mut ground_caster,
         input,
         grounded,
-        gravity,
-        velocity,
-    ) in &mut query
+        controller_parts,
+    ) in &mut controllers
     {
-        force.linear = Vec3::ZERO;
+        for part in controller_parts.parts(controller_entity) {
+            let Ok((mut force, ..)) = parts.get_mut(part) else { continue };
+            force.linear = Vec3::ZERO;
+        }
 
         let grounded = **grounded;
         let just_jumped = input.jumping && !jumping.pressed_last_frame;
+
 
         if jumping.cooldown_timer > 0.0 {
             jumping.cooldown_timer -= dt;
@@ -221,17 +220,19 @@ pub fn jump_force(
 
         let can_jump = just_jumped && jumping.cooldown_timer <= 0.0 && jumping.remaining_jumps > 0;
         if can_jump {
-            // Negating the current velocity increases consistency for falling jumps,
-            // and prevents stacking jumps to reach high upwards velocities
-            let initial_jump_force = jumping.initial_force * gravity.up_vector;
-            let negate_velocity =
-                (-1.0 * gravity.up_vector * velocity.linear.dot(gravity.up_vector)) / dt;
-            force.linear = negate_velocity + initial_jump_force;
+            for part in controller_parts.parts(controller_entity) {
+                let Ok((mut force, mut float_force, mut gravity_force, velocity, gravity)) = parts.get_mut(part) else { continue };
+                let initial_jump_force = jumping.initial_force * gravity.up_vector;
 
-            gravity_force.linear = Vec3::ZERO;
-            float_force.linear = Vec3::ZERO;
+                gravity_force.linear = Vec3::ZERO;
+                float_force.linear = Vec3::ZERO;
 
-            info!("jumping: {:?} {:?}", negate_velocity, initial_jump_force);
+                // Negating the current velocity increases consistency for falling jumps,
+                // and prevents stacking jumps to reach high upwards velocities
+                let negate_velocity =
+                    (-1.0 * gravity.up_vector * velocity.linear.dot(gravity.up_vector)) / dt;
+                force.linear = negate_velocity + initial_jump_force;
+            }
 
             jumping.remaining_jumps = jumping.remaining_jumps.saturating_sub(1);
             jumping.cooldown_timer = jumping.cooldown_duration;
@@ -239,7 +240,6 @@ pub fn jump_force(
 
         jumping.pressed_last_frame = input.jumping;
         /*
-               if grounded {
                    jumping.extra_jumps.remaining = jumping.extra_jumps.extra;
                    jumping.coyote_time.timer = jumping.coyote_time.duration;
                } else {

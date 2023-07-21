@@ -4,12 +4,13 @@ mod gravity;
 mod ground;
 mod input;
 mod movement;
+mod parts;
 mod orientation;
 
 use crate::physics::*;
 use crate::Spring;
 
-pub use {gravity::*, ground::*, input::*, movement::*, orientation::*};
+pub use {gravity::*, ground::*, input::*, movement::*, orientation::*, parts::*};
 
 /// Components required for calculating controller forces.
 #[derive(Bundle)]
@@ -61,6 +62,8 @@ pub struct Controller {
 impl Default for Controller {
     fn default() -> Self {
         Self {
+            parts: default(),
+
             gravity: default(),
             gravity_force: default(),
 
@@ -126,7 +129,6 @@ pub fn accumulate_forces(
     {
         force.linear = movement.linear + jump.linear + float.linear + gravity.linear;
         force.angular = movement.angular + upright.angular;
-        //force.angular = movement.angular;
 
         let opposing_force = -(movement.linear * settings.opposing_movement_force_scale
             + (jump.linear + float.linear) * settings.opposing_force_scale);

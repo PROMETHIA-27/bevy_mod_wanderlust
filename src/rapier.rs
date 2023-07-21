@@ -80,9 +80,11 @@ pub fn apply_ground_forces(
     let dt = ctx.integration_parameters.dt;
     for (force, cast) in &ground_forces {
         if let GroundCast::Touching(ground) = cast {
-            if let Ok(mut impulse) = impulses.get_mut(ground.entity) {
-                impulse.impulse += force.linear * dt;
-                impulse.torque_impulse += force.angular * dt;
+            if let Some(ground_body) = ctx.collider_parent(ground.entity) {
+                if let Ok(mut impulse) = impulses.get_mut(ground_body) {
+                    impulse.impulse += force.linear * dt;
+                    impulse.torque_impulse += force.angular * dt;
+                }
             }
         }
     }
