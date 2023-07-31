@@ -238,7 +238,10 @@ impl From<RayIntersection> for CastResult {
     }
 }
 
-fn ground_cast(
+/// Robust casting to find the ground beneath the controller.
+///
+/// This has fallbacks to make sure we catch non-convex colliders.
+pub fn ground_cast(
     ctx: &RapierContext,
     colliders: &Query<&Collider>,
     globals: &Query<&GlobalTransform>,
