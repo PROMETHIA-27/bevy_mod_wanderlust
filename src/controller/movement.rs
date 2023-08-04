@@ -60,7 +60,9 @@ pub fn movement_force(
 
         let Some(ground) = cast.last() else { continue };
         let ground_angle = ground.cast.normal.angle_between(gravity.up_vector);
-        let slipping = (ground.cast.normal.length() > 0.0 && ground_angle > ground_caster.max_ground_angle) || ground.cast.normal.length() == 0.0;
+        let slipping = (ground.cast.normal.length() > 0.0
+            && ground_angle > ground_caster.max_ground_angle)
+            || ground.cast.normal.length() == 0.0;
         if slipping {
             if let GroundCast::Touching(ground) = cast {
                 let mut slip_vector = ground.cast.normal.reject_from_normalized(gravity.up_vector);
@@ -81,93 +83,133 @@ pub fn movement_force(
     }
 }
 
-/// How long should the character be considered grounded even after leaving the ground.
-#[derive(Reflect, Debug, Clone)]
-#[reflect(Default)]
-pub struct CoyoteTime {
-    /// How long should the character still be able to jump after leaving the ground, in seconds.
-    /// For example, if this is set to 0.5, the player can fall off a ledge and then jump if they do so within 0.5 seconds of leaving the ledge.
-    pub duration: f32,
-    /// A timer to track coyote time. See [`coyote_time_duration`](Self::coyote_time_duration)
-    pub timer: f32,
-}
-
-impl Default for CoyoteTime {
-    fn default() -> Self {
-        Self {
-            duration: 0.16,
-            timer: 0.0,
-        }
-    }
-}
-
 /// How the controller's jumping should behave.
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Default)]
 pub struct Jump {
     /// The amount of force to apply on the first frame when a jump begins.
     pub initial_force: f32,
+    /// The amount of force to continuously apply every second during a jump.
+    pub force: f32,
     /// How long to wait before we can jump again.
     pub cooldown_duration: f32,
     /// Timer for tracking `cooldown_duration`.
     pub cooldown_timer: f32,
-
-    /// Number of times we can jump before we have to touch the ground again.
-    pub jumps: u32,
-
-    /// Remaining before we have to touch the ground again.
-    pub remaining_jumps: u32,
-
-    /// Was [`ControllerInput::jumping`] true last frame.
-    pub pressed_last_frame: bool,
-    /*
-    /// A timer to track how long to jump for.
-    pub timer: f32,
-    /// A timer to track jump buffering. See [`jump_buffer_duration`](ControllerSettings::jump_buffer_duration)
-    pub buffer_timer: f32,
-    /// The amount of force to continuously apply every second during a jump.
-    pub force: f32,
-    /// The amount of force to apply downwards when the jump control is released prior to a jump expiring.
-    /// This allows analog jumping by cutting the jump short when the control is released.
-    pub stop_force: f32,
     /// How long a jump can last.
-    pub time: f32,
-    /// If the jump input is pressed before landing, how long will the jump be buffered for?
-    /// In other words, if this is 0.5, the character can input jump up to 0.5 seconds before landing and the jump will occur when they land.
-    pub buffer_duration: f32,
+    pub jump_duration: f32,
+    /// Timer for tracking `jump_duration`.
+    pub jump_timer: f32,
     /// A function taking the current progress of a jump, from 0.0 to 1.0, with 0.0 indicating a jump has just begun and 1.0 indicating the jump has ended,
     /// which returns a modifier (usually from 0.0 to 1.0, but not necessarily) to multiply [`jump_force`](ControllerSettings::jump_force) by.
     #[reflect(ignore)]
     pub decay_function: Option<fn(f32) -> f32>,
+
+    /// Number of times we can jump before we have to touch the ground again.
+    pub jumps: u32,
+    /// Remaining before we have to touch the ground again.
+    pub remaining_jumps: u32,
+    /// Was [`ControllerInput::jumping`] true last frame.
+    pub pressed_last_frame: bool,
+    /// The amount of force to apply downwards when the jump control is released prior to a jump expiring.
+    /// This allows analog jumping by cutting the jump short when the control is released.
+    pub stop_force: f32,
+
+    /// A timer to track jump buffering. See [`jump_buffer_duration`](ControllerSettings::jump_buffer_duration)
+    pub buffer_timer: f32,
+    /// If the jump input is pressed before landing, how long will the jump be buffered for?
+    /// In other words, if this is 0.5, the character can input jump up to 0.5 seconds
+    /// before landing and the jump will occur when they land.
+    pub buffer_duration: f32,
+
+    /// Do we have to be grounded to jump for the first time?
+    pub first_jump_grounded: bool,
+    /// How long should the character still be able to jump after leaving the ground, in seconds.
+    /// For example, if this is set to 0.5, the player can fall off a ledge and then jump if they do so within 0.5 seconds of leaving the ledge.
+    pub coyote_duration: f32,
+    /// A timer to track coyote time. See [`coyote_duration`](Self::coyote_duration)
+    pub coyote_timer: f32,
+
     /// How long to skip ground checks after jumping. Usually this should be set just high enough that the character is out of range of the ground
     /// just before the timer elapses.
     pub skip_ground_check_duration: f32,
-    /// How long should the character be considered grounded even after leaving the ground.
-    pub coyote_time: CoyoteTime,
-    */
 }
 
 impl Default for Jump {
     fn default() -> Self {
         Self {
-            initial_force: 100.0,
-            cooldown_duration: 0.5,
+            initial_force: 300.0,
+            force: 50.0,
+            cooldown_duration: 0.25,
             cooldown_timer: 0.0,
+            jump_duration: 0.1,
+            jump_timer: 0.0,
+            decay_function: Some(|x| (1.0 - x).sqrt()),
+            stop_force: 0.3,
+
+            buffer_duration: 0.3,
+            buffer_timer: 0.0,
+
+            first_jump_grounded: true,
+            coyote_duration: 0.2,
+            coyote_timer: 0.0,
+
             jumps: 1,
             remaining_jumps: 1,
             pressed_last_frame: false,
-            /*
-                       buffer_timer: default(),
-                       timer: 0.0,
-                       force: 500.0,
-                       time: 0.5,
-                       stop_force: 0.3,
-                       skip_ground_check_duration: 0.5,
-                       decay_function: Some(|x| (1.0 - x).sqrt()),
-                       buffer_duration: 0.16,
-                       coyote_time: default(),
-                       extra_jumps: default(),
-            */
+
+            skip_ground_check_duration: 0.3,
+        }
+    }
+}
+
+impl Jump {
+    /// Tick down timers by `dt`/delta time.
+    pub fn tick_timers(&mut self, dt: f32) {
+        let tick = |timer: &mut f32| {
+            if *timer > 0.0 {
+                *timer = (*timer - dt).max(0.0);
+            }
+        };
+
+        tick(&mut self.cooldown_timer);
+        tick(&mut self.jump_timer);
+        tick(&mut self.buffer_timer);
+        tick(&mut self.coyote_duration);
+    }
+
+    /// Are we currently jumping?
+    pub fn jumping(&self) -> bool {
+        self.jump_timer > 0.0
+    }
+
+    /// Can we jump right now?
+    pub fn can_jump(&self, grounded: bool) -> bool {
+        let first_jump = self.remaining_jumps == self.jumps;
+        let grounded = grounded || self.coyote_timer > 0.0;
+        if first_jump && !grounded {
+            return false;
+        }
+
+        self.cooldown_timer <= 0.0 && self.remaining_jumps > 0
+    }
+
+    /// Reset the jumping state.
+    pub fn reset_jump(&mut self) {
+        self.remaining_jumps = self.jumps;
+        self.jump_timer = 0.0;
+    }
+
+    /// 0..1 progress of the current jump.
+    pub fn jump_progress(&self) -> f32 {
+        (self.jump_duration - self.jump_timer) / self.jump_duration
+    }
+
+    /// Jump force decay multiplier.
+    pub fn decay_multiplier(&self) -> f32 {
+        if let Some(decay_function) = self.decay_function {
+            (decay_function)(self.jump_progress())
+        } else {
+            1.0
         }
     }
 }
@@ -188,6 +230,8 @@ pub fn jump_force(
         &mut GravityForce,
         &mut Jump,
         &ControllerInput,
+        &mut GroundCaster,
+        &GroundCast,
         &Grounded,
         &Gravity,
         &ControllerVelocity,
@@ -202,6 +246,8 @@ pub fn jump_force(
         mut gravity_force,
         mut jumping,
         input,
+        mut ground_caster,
+        ground_cast,
         grounded,
         gravity,
         velocity,
@@ -210,83 +256,63 @@ pub fn jump_force(
         force.linear = Vec3::ZERO;
 
         let grounded = **grounded;
-        let just_jumped = input.jumping && !jumping.pressed_last_frame;
+        jumping.tick_timers(dt);
 
-        if jumping.cooldown_timer > 0.0 {
-            jumping.cooldown_timer -= dt;
-        } else {
-            if grounded {
-                jumping.remaining_jumps = jumping.jumps;
-            }
+        if grounded {
+            jumping.coyote_timer = jumping.coyote_duration;
         }
 
-        let can_jump = just_jumped && jumping.cooldown_timer <= 0.0 && jumping.remaining_jumps > 0;
-        if can_jump {
+        if jumping.cooldown_timer <= 0.0 && grounded {
+            jumping.reset_jump();
+        }
+
+        let velocity = if let Some(ground) = ground_cast.last() {
+            velocity.linear - ground.point_velocity.linvel
+        } else {
+            velocity.linear
+        };
+
+        let jump_inputted = input.jumping && !jumping.pressed_last_frame;
+
+        let just_jumped = jump_inputted || jumping.buffer_timer > 0.0;
+
+        if jump_inputted && !grounded {
+            jumping.buffer_timer = jumping.buffer_duration;
+        }
+
+        if jumping.can_jump(grounded) && just_jumped {
             // Negating the current velocity increases consistency for falling jumps,
             // and prevents stacking jumps to reach high upwards velocities
             let initial_jump_force = jumping.initial_force * gravity.up_vector;
-            let negate_velocity =
-                (-1.0 * gravity.up_vector * velocity.linear.dot(gravity.up_vector)) / dt;
-            force.linear = negate_velocity + initial_jump_force;
+            let negate_up_velocity =
+                (-1.0 * gravity.up_vector * velocity.dot(gravity.up_vector)) / dt;
+            force.linear += negate_up_velocity + initial_jump_force;
 
             gravity_force.linear = Vec3::ZERO;
             float_force.linear = Vec3::ZERO;
 
-            info!("jumping: {:?} {:?}", negate_velocity, initial_jump_force);
-
             jumping.remaining_jumps = jumping.remaining_jumps.saturating_sub(1);
             jumping.cooldown_timer = jumping.cooldown_duration;
+
+            jumping.jump_timer = jumping.jump_duration;
+        // don't double up on initial force and jumping forces.
+        } else if jumping.jumping() {
+            if !input.jumping {
+                // Cut the jump short if we aren't holding the jump down.
+                jumping.reset_jump();
+                let stop_force = 
+                    velocity.project_onto(gravity.up_vector) * -jumping.stop_force;
+                force.linear +=stop_force;
+            } else {
+                ground_caster.skip_ground_check_timer = jumping.skip_ground_check_duration;
+
+                let jump = gravity.up_vector
+                    * jumping.force
+                    * jumping.decay_multiplier();
+                force.linear += jump;
+            }
         }
 
         jumping.pressed_last_frame = input.jumping;
-        /*
-               if grounded {
-                   jumping.extra_jumps.remaining = jumping.extra_jumps.extra;
-                   jumping.coyote_time.timer = jumping.coyote_time.duration;
-               } else {
-                   jumping.coyote_time.timer = (jumping.coyote_time.timer - dt).max(0.0);
-
-                   if just_jumped {
-                       jumping.buffer_timer = jumping.buffer_duration;
-                   } else {
-                       jumping.buffer_timer = (jumping.buffer_timer - dt).max(0.0);
-                   }
-               }
-
-               // Calculate jump force
-               if jumping.timer > 0.0 && !grounded {
-                   force.linear = if !input.jumping {
-                       jumping.timer = 0.0;
-                       velocity.linear.project_onto(gravity.up_vector) * -jumping.stop_force
-                   } else {
-                       jumping.timer = (jumping.timer - dt).max(0.0);
-
-                       jumping.force
-                           * gravity.up_vector
-                           * jumping
-                               .decay_function
-                               .map(|f| (f)((jumping.time - jumping.timer) / jumping.time))
-                               .unwrap_or(1.0)
-                   };
-               };
-
-               // Trigger a jump
-               let coyote_timer = jumping.coyote_time.timer;
-               let remaining_jumps = jumping.extra_jumps.remaining;
-               if (just_jumped || jumping.buffer_timer > 0.0)
-                   && (grounded || coyote_timer > 0.0 || remaining_jumps > 0)
-               {
-                   if !grounded && coyote_timer == 0.0 {
-                       jumping.extra_jumps.remaining -= 1;
-                   }
-
-                   jumping.buffer_timer = 0.0;
-                   jumping.timer = jumping.time;
-                   groundcaster.skip_ground_check_timer = jumping.skip_ground_check_duration;
-                   force.linear = velocity.linear * gravity.up_vector * -1.0;
-                   force.linear += jumping.initial_force * gravity.up_vector;
-               }
-
-        */
     }
 }

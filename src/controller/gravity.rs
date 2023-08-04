@@ -5,13 +5,13 @@ use crate::controller::*;
 #[reflect(Component, Default)]
 pub struct Gravity {
     /// Acceleration in the `up_vector` direction due to gravity.
-    /// 
+    ///
     /// The default is `-9.817`, but for most games it is recommended to
-    /// use a higher acceleration. The reasoning being that normal/reality-based 
+    /// use a higher acceleration. The reasoning being that normal/reality-based
     /// gravity tends to feel floaty.
     pub acceleration: f32,
     /// Direction we should float up from.
-    /// 
+    ///
     /// The default is `Vec3::Y`.
     pub up_vector: Vec3,
 }
