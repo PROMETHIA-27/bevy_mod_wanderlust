@@ -8,8 +8,8 @@ use bevy::{
     window::{Cursor, PrimaryWindow},
 };
 use bevy_mod_wanderlust::{
-    ControllerBundle, ControllerInput, ControllerPhysicsBundle, RapierPhysicsBundle, Upright,
-    WanderlustPlugin, Strength, Movement, Controller,
+    Controller, ControllerBundle, ControllerInput, ControllerPhysicsBundle, Movement,
+    RapierPhysicsBundle, Strength, Upright, WanderlustPlugin,
 };
 use bevy_rapier3d::prelude::*;
 use std::f32::consts::{FRAC_2_PI, PI};

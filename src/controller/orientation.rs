@@ -58,6 +58,7 @@ pub fn float_force(
         force.linear = Vec3::ZERO;
 
         let GroundCast::Touching(ground) = cast else { continue };
+        if !ground.viable { continue };
 
         let up_vector = gravity.up_vector;
 

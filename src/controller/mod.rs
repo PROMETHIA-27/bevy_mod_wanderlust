@@ -166,7 +166,9 @@ pub fn accumulate_forces(
     }
 }
 
-pub fn update_prev_velocity(mut velocities: Query<(&mut PreviousControllerVelocity, &ControllerVelocity)>) {
+pub fn update_prev_velocity(
+    mut velocities: Query<(&mut PreviousControllerVelocity, &ControllerVelocity)>,
+) {
     for (mut prev, current) in &mut velocities {
         prev.0 = current.clone();
     }

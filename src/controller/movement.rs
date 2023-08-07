@@ -122,11 +122,7 @@ pub fn movement_force(
         let force_scale = movement.force_scale(&gravity);
 
         let Some(ground) = cast.last() else { continue };
-        let ground_angle = ground.cast.normal.angle_between(gravity.up_vector);
-        let slipping = (ground.cast.normal.length() > 0.0
-            && ground_angle > ground_caster.max_ground_angle)
-            || ground.cast.normal.length() == 0.0;
-
+        let slipping = !ground.stable;
         let slipping = true;
 
         let input_dir = input.movement.clamp_length_max(1.0);
@@ -163,7 +159,6 @@ pub fn movement_force(
         } else {
             None
         };
-
 
         let current_vel = velocity.linear - ground.point_velocity.linvel;
 
@@ -360,7 +355,7 @@ pub fn jump_force(
     {
         force.linear = Vec3::ZERO;
 
-        let grounded = **grounded;
+        let grounded = ground_cast.grounded();
         jumping.tick_timers(dt);
 
         if grounded {

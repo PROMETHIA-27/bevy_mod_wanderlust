@@ -23,12 +23,15 @@ pub struct GroundCaster {
     pub cast_collider: Option<Collider>,
     /// Set of entities that should be ignored when ground casting.
     pub exclude_from_ground: HashSet<Entity>,
+
+    /// Threshold, in radians, of when a controller will start to slip on a surface.
+    ///
+    /// The controller will still be able to jump and overall be considered grounded.
+    pub unstable_ground_angle: f32,
     /// The maximum angle that the ground can be, in radians, before it is no longer considered suitable for being "grounded" on.
     ///
-    /// For example, if this is set to `π/4` (45 degrees), then a player standing on a slope steeper than 45 degrees will slip and fall, and will not have
+    /// For example, if this is set to `π/4` (45 degrees), then a controller standing on a slope steeper than 45 degrees will slip and fall, and will not have
     /// their jump refreshed by landing on that surface.
-    ///
-    /// This is done by ignoring the ground during ground casting.
     pub max_ground_angle: f32,
 }
 
@@ -41,7 +44,8 @@ impl Default for GroundCaster {
             cast_length: 1.0,
             cast_collider: None,
             exclude_from_ground: default(),
-            max_ground_angle: 45.0 * (std::f32::consts::PI / 180.0),
+            unstable_ground_angle: 45.0 * (std::f32::consts::PI / 180.0),
+            max_ground_angle: 70.0 * (std::f32::consts::PI / 180.0),
         }
     }
 }
@@ -52,6 +56,10 @@ pub struct Ground {
     pub entity: Entity,
     /// Specifics of the ground contact.
     pub cast: CastResult,
+    /// Is this ground stable for the collider.
+    pub stable: bool,
+    /// Is this ground viable for the collider.
+    pub viable: bool,
     /// Velocity at the point of contact.
     pub point_velocity: Velocity,
 }
@@ -142,6 +150,7 @@ pub fn find_ground(
 
             ground_cast(
                 &*ctx,
+                caster.max_ground_angle,
                 &colliders,
                 &globals,
                 cast_position,
@@ -180,9 +189,21 @@ pub fn find_ground(
                 let velocity =
                     ground_velocity.linvel + ground_velocity.angvel.cross(result.witness - com);
 
+                let (stable, viable) = if result.normal.length() > 0.0 {
+                    let ground_angle = result.normal.angle_between(gravity.up_vector);
+                    info!("ground_angle: {:?}", ground_angle * 180.0 / std::f32::consts::PI);
+                    let viable = ground_angle <= caster.max_ground_angle;
+                    let stable = ground_angle <= caster.unstable_ground_angle && viable;
+                    (stable, viable)
+                } else {
+                    (false, false)
+                };
+
                 *cast = GroundCast::Touching(Ground {
                     entity: ground_entity,
                     cast: result,
+                    stable: stable,
+                    viable: viable,
                     point_velocity: Velocity {
                         linvel: velocity,
                         angvel: ground_velocity.angvel,
@@ -203,15 +224,12 @@ pub fn find_ground(
 
 pub fn determine_groundedness(mut query: Query<(&Float, &GroundCast, &mut Grounded)>) {
     for (float, cast, mut grounded) in &mut query {
-        let float_offset = if let GroundCast::Touching(ground) = cast {
-            Some(ground.cast.toi - float.distance)
+        if let GroundCast::Touching(ground) = cast {
+            let offset = ground.cast.toi - float.distance;
+            grounded.0 = offset <= float.max_offset && offset >= float.min_offset;
         } else {
-            None
+            grounded.0 = false;
         };
-
-        grounded.0 = float_offset
-            .map(|offset| offset <= float.max_offset && offset >= float.min_offset)
-            .unwrap_or(false);
     }
 }
 
@@ -247,6 +265,7 @@ impl From<RayIntersection> for CastResult {
 /// This has fallbacks to make sure we catch non-convex colliders.
 pub fn ground_cast(
     ctx: &RapierContext,
+    max_angle: f32,
     colliders: &Query<&Collider>,
     globals: &Query<&GlobalTransform>,
     mut shape_pos: Vec3,
@@ -256,11 +275,24 @@ pub fn ground_cast(
     max_toi: f32,
     filter: QueryFilter,
 ) -> Option<(Entity, CastResult)> {
+    let raycast_filter = filter.clone();
+    let mut shapecast_filter = filter.clone();
     for _ in 0..12 {
         if let Some((entity, toi)) =
             ctx.cast_shape(shape_pos, shape_rot, shape_vel, shape, max_toi, filter)
         {
             if toi.status != TOIStatus::Penetrating {
+                let ground_angle = toi.normal1.angle_between(shape_vel);
+                if ground_angle >= max_angle {
+                    if let Some(old_predicate) = shapecast_filter.predicate.take() {
+                        let entity = entity.clone();
+                        let new_predicate =
+                            |collider| collider != entity && (old_predicate)(collider);
+                        shapecast_filter = shapecast_filter.predicate(&new_predicate);
+                    }
+
+                    continue;
+                }
                 return Some((entity, toi.into()));
             }
 
@@ -305,8 +337,8 @@ pub fn ground_cast(
         .unwrap_or(0.);
     shape_pos = shape_pos + shape_vel * offset;
 
-    /*ctx.cast_ray_and_get_normal(shape_pos, shape_vel, max_toi, true, filter)
-    .map(|(entity, inter)| (entity, inter.into()))*/
+    //ctx.cast_ray_and_get_normal(shape_pos, shape_vel, max_toi, true, filter)
+    //.map(|(entity, inter)| (entity, inter.into()))
     None
 }
 
