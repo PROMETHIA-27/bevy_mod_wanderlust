@@ -45,6 +45,7 @@ impl Plugin for WanderlustPlugin {
                 accumulate_forces,
                 crate::apply_forces,
                 crate::apply_ground_forces,
+                update_prev_velocity,
             )
                 .chain()
                 .before(PhysicsSet::SyncBackend),

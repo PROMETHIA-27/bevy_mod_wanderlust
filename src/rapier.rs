@@ -35,7 +35,7 @@ impl Default for RapierPhysicsBundle {
     fn default() -> Self {
         Self {
             rigidbody: default(),
-            collider: Collider::capsule(Vec3::new(0.0, 0.0, 0.0), Vec3::new(0.0, 0.5, 0.0), 0.5),
+            collider: Collider::capsule(Vec3::new(0.0, 0.0, 0.0), Vec3::new(0.0, 0.5, 0.0), 0.3),
             velocity: default(),
             gravity: GravityScale(0.0),
             sleeping: default(),

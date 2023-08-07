@@ -17,8 +17,10 @@ pub struct GroundCaster {
     /// and too low will allow the player to slip and become disconnected from the ground easily.
     pub cast_length: f32,
     /// What shape of ray to cast. See [`Collider`] and [`RapierContext::cast_shape`](bevy_rapier::prelude::RapierContext).
+    ///
+    /// The default is the controller's base collider.
     #[reflect(ignore)]
-    pub cast_collider: Collider,
+    pub cast_collider: Option<Collider>,
     /// Set of entities that should be ignored when ground casting.
     pub exclude_from_ground: HashSet<Entity>,
     /// The maximum angle that the ground can be, in radians, before it is no longer considered suitable for being "grounded" on.
@@ -37,9 +39,9 @@ impl Default for GroundCaster {
             skip_ground_check_override: false,
             cast_origin: Vec3::ZERO,
             cast_length: 1.0,
-            cast_collider: Collider::ball(0.45),
+            cast_collider: None,
             exclude_from_ground: default(),
-            max_ground_angle: 75.0 * (std::f32::consts::PI / 180.0),
+            max_ground_angle: 45.0 * (std::f32::consts::PI / 180.0),
         }
     }
 }
@@ -131,7 +133,9 @@ pub fn find_ground(
             let cast_position = tf.transform_point(caster.cast_origin);
             let cast_rotation = tf.to_scale_rotation_translation().1;
             let cast_direction = -gravity.up_vector;
-            let shape = &caster.cast_collider;
+            let Ok(caster_collider) = colliders.get(entity) else { continue };
+            let shape = caster.cast_collider.as_ref().unwrap_or(caster_collider);
+
             let predicate =
                 |collider| collider != entity && !caster.exclude_from_ground.contains(&collider);
             let filter = QueryFilter::new().exclude_sensors().predicate(&predicate);
@@ -143,7 +147,7 @@ pub fn find_ground(
                 cast_position,
                 cast_rotation,
                 cast_direction,
-                shape,
+                &shape,
                 caster.cast_length,
                 filter,
             )
@@ -302,8 +306,8 @@ pub fn ground_cast(
     shape_pos = shape_pos + shape_vel * offset;
 
     /*ctx.cast_ray_and_get_normal(shape_pos, shape_vel, max_toi, true, filter)
-        .map(|(entity, inter)| (entity, inter.into()))*/
-        None
+    .map(|(entity, inter)| (entity, inter.into()))*/
+    None
 }
 
 /*

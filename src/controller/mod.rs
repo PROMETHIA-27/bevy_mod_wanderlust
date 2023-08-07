@@ -121,6 +121,12 @@ pub fn accumulate_forces(
         mass,
     ) in &mut forces
     {
+        /*
+        info!(
+            "movement: {:.2?}, jump: {:.2?}, float: {:.2?}, gravity: {:.2?}",
+            movement.linear, jump.linear, float.linear, gravity.linear
+        );
+        */
         force.linear = movement.linear + jump.linear + float.linear + gravity.linear;
         force.angular = movement.angular + upright.angular;
         //force.angular = movement.angular;
@@ -157,5 +163,11 @@ pub fn accumulate_forces(
             ground_force.linear = opposing_force;
             ground_force.angular = Vec3::ZERO;
         }
+    }
+}
+
+pub fn update_prev_velocity(mut velocities: Query<(&mut PreviousControllerVelocity, &ControllerVelocity)>) {
+    for (mut prev, current) in &mut velocities {
+        prev.0 = current.clone();
     }
 }

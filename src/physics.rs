@@ -22,6 +22,11 @@ pub struct ControllerVelocity {
     pub angular: Vec3,
 }
 
+/// Previous velocity of the controller.
+#[derive(Copy, Clone, Component, Default, Reflect)]
+#[reflect(Component, Default)]
+pub struct PreviousControllerVelocity(pub ControllerVelocity);
+
 /// Force applied to the controller.
 #[derive(Copy, Clone, Component, Default, Reflect)]
 #[reflect(Component, Default)]
@@ -39,6 +44,8 @@ pub struct ControllerPhysicsBundle {
     pub mass: ControllerMass,
     /// Current velocity of the controller.
     pub velocity: ControllerVelocity,
+    /// Previous velocity of the controller.
+    pub previous_velocity: PreviousControllerVelocity,
     /// Accumulated force of various controller constraints.
     pub force: ControllerForce,
 }
@@ -48,6 +55,7 @@ impl Default for ControllerPhysicsBundle {
         Self {
             mass: default(),
             velocity: default(),
+            previous_velocity: default(),
             force: default(),
         }
     }
