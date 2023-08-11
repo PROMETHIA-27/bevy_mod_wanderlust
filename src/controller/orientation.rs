@@ -48,13 +48,12 @@ pub fn float_force(
         &mut FloatForce,
         &Float,
         &GroundCast,
-        &GroundCaster,
         &ControllerVelocity,
         &ControllerMass,
         &Gravity,
     )>,
 ) {
-    for (mut force, float, cast, ground_caster, velocity, mass, gravity) in &mut query {
+    for (mut force, float, cast, velocity, mass, gravity) in &mut query {
         force.linear = Vec3::ZERO;
 
         let GroundCast::Touching(ground) = cast else { continue };
@@ -112,6 +111,7 @@ pub struct UprightForce {
     pub angular: Vec3,
 }
 
+/// Make sure the controller stays upright/does not tilt or fall over on its side.
 pub fn upright_force(
     mut query: Query<(
         &mut UprightForce,

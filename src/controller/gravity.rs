@@ -34,7 +34,9 @@ pub struct GravityForce {
 }
 
 /// Calculate gravity force.
-pub fn gravity_force(mut query: Query<(&mut GravityForce, &Gravity, &ControllerMass)>) {
+pub fn gravity_force(
+    mut query: Query<(&mut GravityForce, &Gravity, &ControllerMass)>,
+) {
     for (mut force, gravity, mass) in &mut query {
         force.linear = gravity.up_vector * mass.mass * gravity.acceleration;
     }

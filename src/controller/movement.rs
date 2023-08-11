@@ -210,6 +210,7 @@ pub struct Jump {
     #[reflect(ignore)]
     pub decay_function: Option<fn(f32) -> f32>,
 
+    /// Number of times we can jump before we have to touch the ground again.
     pub jumps: u32,
     /// Remaining before we have to touch the ground again.
     pub remaining_jumps: u32,
