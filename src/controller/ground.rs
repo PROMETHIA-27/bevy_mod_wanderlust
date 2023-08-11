@@ -68,40 +68,72 @@ pub struct Ground {
 /// The cached ground cast. Contains the entity hit, the hit info, and velocity of the entity
 /// hit.
 #[derive(Component, Default)]
-pub enum GroundCast {
-    /// Currently touching ground.
-    Touching(Ground),
-    /// Previously touched ground.
+pub struct GroundCast {
+    /// Ground that was found this frame,
+    /// this might not be viable for standing on.
+    pub current: Option<Ground>,
+    /// Cached *stable* ground that was found in the past.
+    pub viable: ViableGround,
+}
+
+/// Current/last viable ground.
+#[derive(Default)]
+pub enum ViableGround {
+    /// This will stay the viable ground until we leave the ground entirely.
+    Ground(Ground),
+    /// Cached viable ground.
     Last(Ground),
+    /// No stable ground.
     #[default]
-    /// We have not touched any ground yet.
     None,
 }
 
-impl GroundCast {
-    /// Last ground we touched, this includes the ground we are currently touching.
-    pub fn last(&self) -> Option<&Ground> {
-        match self {
-            Self::Touching(ground) | Self::Last(ground) => Some(ground),
-            Self::None => None,
-        }
-    }
-
-    /// Are we currently touching the ground?
-    pub fn grounded(&self) -> bool {
-        match self {
-            Self::Touching(_) => true,
-            Self::Last(_) | Self::None => false,
+impl ViableGround {
+    /// Update the viable ground depending on the current ground cast.
+    pub fn update(&mut self, ground: Option<Ground>) {
+        match ground {
+            Some(ground) => {
+                if ground.viable {
+                    *self = ViableGround::Ground(ground);
+                }
+            }
+            None => {
+                self.into_last();
+            }
         }
     }
 
     /// Archive this ground cast.
     pub fn into_last(&mut self) {
         match self {
-            GroundCast::Touching(ground) => {
-                *self = GroundCast::Last(ground.clone());
+            ViableGround::Ground(ground) => {
+                *self = ViableGround::Last(ground.clone());
             }
             _ => {}
+        }
+    }
+
+    /// Last ground we touched, this includes the ground we are currently touching.
+    pub fn last(&self) -> Option<&Ground> {
+        match self {
+            Self::Ground(ground) | Self::Last(ground) => Some(ground),
+            Self::None => None,
+        }
+    }
+}
+
+impl GroundCast {
+    /// Given new information on a ground cast, update what we know.
+    pub fn update(&mut self, ground: Option<Ground>) {
+        self.current = ground.clone();
+        self.viable.update( ground);
+    }
+
+    /// Are we currently touching the ground?
+    pub fn grounded(&self) -> bool {
+        match self.viable {
+            ViableGround::Ground(_) => true,
+            _ => false,
         }
     }
 }
@@ -137,6 +169,8 @@ pub fn find_ground(
     colliders: Query<&Collider>,
 
     ctx: Res<RapierContext>,
+
+    mut gizmos: Gizmos,
 ) {
     let dt = ctx.integration_parameters.dt;
     for (entity, tf, gravity, mut caster, mut cast) in &mut casters {
@@ -163,13 +197,15 @@ pub fn find_ground(
                 &shape,
                 caster.cast_length,
                 filter,
+
+                &mut gizmos,
             )
         } else {
             caster.skip_ground_check_timer = (caster.skip_ground_check_timer - dt).max(0.0);
             None
         };
 
-        match casted {
+        let next_ground = match casted {
             Some((entity, result)) => {
                 let ground_entity = ctx.collider_parent(entity).unwrap_or(entity);
 
@@ -202,7 +238,7 @@ pub fn find_ground(
                     (false, false)
                 };
 
-                *cast = GroundCast::Touching(Ground {
+               Some(Ground {
                     entity: ground_entity,
                     cast: result,
                     stable: stable,
@@ -211,12 +247,12 @@ pub fn find_ground(
                         linvel: velocity,
                         angvel: ground_velocity.angvel,
                     },
-                });
+                })
             }
-            None => {
-                cast.into_last();
-            }
+            None => None,
         };
+
+        cast.update(next_ground);
 
         // If we hit something, just get back up instead of waiting.
         if ctx.contacts_with(entity).next().is_some() {
@@ -226,13 +262,18 @@ pub fn find_ground(
 }
 
 /// Are we currently touching the ground with a fudge factor included.
-pub fn determine_groundedness(mut query: Query<(&Float, &GroundCast, &mut Grounded)>) {
-    for (float, cast, mut grounded) in &mut query {
-        if let GroundCast::Touching(ground) = cast {
-            let offset = ground.cast.toi - float.distance;
-            grounded.0 = offset <= float.max_offset && offset >= float.min_offset;
-        } else {
-            grounded.0 = false;
+pub fn determine_groundedness(mut query: Query<(&GlobalTransform, &Gravity, &Float, &GroundCast, &mut Grounded)>, mut gizmos: Gizmos) {
+    for (global, gravity, float, cast, mut grounded) in &mut query {
+        grounded.0 = false;
+        if let Some(ground) = cast.current {
+            if ground.viable {
+                let translation = global.translation();
+                let updated_toi = translation.dot(gravity.up_vector) - ground.cast.point.dot(gravity.up_vector);
+                //gizmos.sphere(ground.cast.point, Quat::IDENTITY, 0.3, Color::RED);
+                //gizmos.sphere(translation, Quat::IDENTITY, 0.3, Color::GREEN);
+                let offset = float.distance - updated_toi;
+                grounded.0 = offset <= float.max_offset && offset >= float.min_offset;
+            }
         };
     }
 }
@@ -292,16 +333,19 @@ pub fn ground_cast(
     shape: &Collider,
     max_toi: f32,
     filter: QueryFilter,
+
+    gizmos: &mut Gizmos,
 ) -> Option<(Entity, CastResult)> {
     let raycast_filter = filter.clone();
     let mut shapecast_filter = filter.clone();
     for _ in 0..12 {
+            gizmos.sphere(shape_pos, Quat::IDENTITY, 0.3, Color::CYAN);
         if let Some((entity, toi)) =
             ctx.cast_shape(shape_pos, shape_rot, shape_vel, shape, max_toi, filter)
         {
-            let ground_angle = (-shape_vel).angle_between(toi.normal1);
-            if toi.status != TOIStatus::Penetrating {//&& ground_angle < max_angle {
-                return Some((entity, toi.into()));
+            if toi.status != TOIStatus::Penetrating {
+                gizmos.sphere(toi.witness1, Quat::IDENTITY, 0.3, Color::BLUE);
+                return Some((entity, CastResult::from_toi1(toi)));
             }
 
             match (globals.get(entity), colliders.get(entity)) {

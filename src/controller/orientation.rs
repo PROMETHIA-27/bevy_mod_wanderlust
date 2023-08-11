@@ -45,6 +45,7 @@ pub struct FloatForce {
 /// Calculate "floating" force, as seen [here](https://www.youtube.com/watch?v=qdskE8PJy6Q)
 pub fn float_force(
     mut query: Query<(
+        &GlobalTransform,
         &mut FloatForce,
         &Float,
         &GroundCast,
@@ -53,13 +54,12 @@ pub fn float_force(
         &Gravity,
     )>,
 ) {
-    for (mut force, float, cast, velocity, mass, gravity) in &mut query {
+    for (global, mut force, float, cast, velocity, mass, gravity) in &mut query {
         force.linear = Vec3::ZERO;
 
-        let GroundCast::Touching(ground) = cast else { continue };
-        if !ground.viable {
-            continue;
-        };
+        //let ViableGround::Ground(ground) = cast.viable else { continue };
+        let Some(ground) = cast.current else { continue };
+        if !ground.viable { continue }
 
         let up_vector = gravity.up_vector;
 
@@ -70,7 +70,8 @@ pub fn float_force(
 
         let relative_velocity = vel_align - ground_vel_align;
 
-        let displacement = float.distance - ground.cast.toi;
+        let worldspace_diff = global.translation().dot(gravity.up_vector) - ground.cast.point.dot(gravity.up_vector);
+        let displacement = float.distance - worldspace_diff;
 
         if displacement > 0.0 {
             let strength = displacement * float.spring.strength;
@@ -149,7 +150,7 @@ pub fn upright_force(
                 upright.spring.damp_coefficient(mass.inertia.z),
             );
 
-            let ground_rot = if let Some(ground) = ground_cast.last() {
+            let ground_rot = if let Some(ground) = ground_cast.viable.last() {
                 ground.point_velocity.angvel
                 //Vec3::ZERO
             } else {

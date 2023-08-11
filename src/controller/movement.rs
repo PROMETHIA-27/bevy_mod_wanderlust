@@ -108,14 +108,11 @@ pub fn movement_force(
         &GroundCast,
         &GroundCaster,
         &ControllerVelocity,
-        &PreviousControllerVelocity,
         &ControllerMass,
     )>,
     mut gizmos: Gizmos,
-    mut gizmo_config: ResMut<GizmoConfig>,
 ) {
     let dt = ctx.integration_parameters.dt;
-    gizmo_config.depth_bias = -0.1;
     for (
         global,
         mut force,
@@ -125,7 +122,6 @@ pub fn movement_force(
         cast,
         ground_caster,
         velocity,
-        prev_velocity,
         mass,
     ) in &mut query
     {
@@ -137,15 +133,15 @@ pub fn movement_force(
         let input_goal_vel = input_dir * movement.max_speed;
         let mut goal_vel = input_goal_vel;
 
-        let slip_force = match cast {
-            GroundCast::Touching(ground) if !ground.stable => {
+        let slip_force = match cast.current {
+            Some(ground) if !ground.stable => {
                 let (x, z) = ground.cast.normal.any_orthonormal_pair();
-                gizmos.ray(ground.cast.witness, ground.cast.normal, Color::BLUE);
+                gizmos.ray(ground.cast.point, ground.cast.normal, Color::BLUE);
 
                 let projected_x = gravity.up_vector.project_onto(x);
                 let projected_z = gravity.up_vector.project_onto(z);
                 let slip_vector = (projected_x + projected_z) * force_scale;
-                gizmos.ray(ground.cast.witness, slip_vector, Color::LIME_GREEN);
+                gizmos.ray(ground.cast.point, slip_vector, Color::LIME_GREEN);
 
                 // arbitrary value to ignore flat surfaces.
                 if slip_vector.length() > 0.01 {
@@ -165,7 +161,7 @@ pub fn movement_force(
             _ => None,
         };
 
-        let ground_vel = if let Some(ground) = cast.last() {
+        let ground_vel = if let Some(ground) = cast.viable.last() {
             ground.point_velocity
         } else {
             Velocity::default()
@@ -291,7 +287,9 @@ impl Jump {
     /// Can we jump right now?
     pub fn can_jump(&self, grounded: bool) -> bool {
         let first_jump = self.remaining_jumps == self.jumps;
+        //info!("first_jump: {:?}", first_jump);
         let grounded = grounded || self.coyote_timer > 0.0;
+        //info!("grounded: {:?}", grounded);
         if first_jump && !grounded {
             return false;
         }
@@ -341,11 +339,11 @@ pub fn jump_force(
         &Grounded,
         &Gravity,
         &ControllerVelocity,
+        &ControllerMass,
     )>,
     ctx: Res<RapierContext>,
 ) {
     let dt = ctx.integration_parameters.dt;
-
     for (
         mut force,
         mut float_force,
@@ -357,6 +355,7 @@ pub fn jump_force(
         grounded,
         gravity,
         velocity,
+        mass,
     ) in &mut query
     {
         force.linear = Vec3::ZERO;
@@ -372,7 +371,7 @@ pub fn jump_force(
             jumping.reset_jump();
         }
 
-        let velocity = if let Some(ground) = ground_cast.last() {
+        let velocity = if let Some(ground) = ground_cast.viable.last() {
             velocity.linear - ground.point_velocity.linvel
         } else {
             velocity.linear
@@ -391,7 +390,7 @@ pub fn jump_force(
             // and prevents stacking jumps to reach high upwards velocities
             let initial_jump_force = jumping.initial_force * gravity.up_vector;
             let negate_up_velocity =
-                (-1.0 * gravity.up_vector * velocity.dot(gravity.up_vector)) / dt;
+                (-1.0 * gravity.up_vector * velocity.dot(gravity.up_vector)) * mass.mass / dt;
             force.linear += negate_up_velocity + initial_jump_force;
 
             gravity_force.linear = Vec3::ZERO;
@@ -405,7 +404,7 @@ pub fn jump_force(
         } else if jumping.jumping() {
             if !input.jumping {
                 // Cut the jump short if we aren't holding the jump down.
-                jumping.reset_jump();
+                //jumping.reset_jump();
                 let stop_force = velocity.project_onto(gravity.up_vector) * -jumping.stop_force;
                 force.linear += stop_force;
             } else {

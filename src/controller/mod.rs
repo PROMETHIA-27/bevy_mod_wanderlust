@@ -25,7 +25,7 @@ pub struct Controller {
     pub ground_caster: GroundCaster,
     /// Ground entity found that is considered ground.
     pub ground_cast: GroundCast,
-    /// Is the controller currently considered stable on the ground.
+    /// Is the controller currently considered on viable ground.
     pub grounded: Grounded,
     /// Force applied to the ground the controller is on.
     pub ground_force: GroundForce,
@@ -134,7 +134,7 @@ pub fn accumulate_forces(
         let opposing_force = -(movement.linear * settings.opposing_movement_force_scale
             + (jump.linear + float.linear) * settings.opposing_force_scale);
 
-        if let GroundCast::Touching(ground) = ground_cast {
+        if let ViableGround::Ground(ground) = ground_cast.viable {
             let ground_transform = match globals.get(ground.entity) {
                 Ok(global) => global.compute_transform().compute_affine(),
                 _ => Transform::default().compute_affine(),
@@ -163,13 +163,5 @@ pub fn accumulate_forces(
             ground_force.linear = opposing_force;
             ground_force.angular = Vec3::ZERO;
         }
-    }
-}
-
-pub fn update_prev_velocity(
-    mut velocities: Query<(&mut PreviousControllerVelocity, &ControllerVelocity)>,
-) {
-    for (mut prev, current) in &mut velocities {
-        prev.0 = current.clone();
     }
 }

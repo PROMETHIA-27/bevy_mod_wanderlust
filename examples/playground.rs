@@ -10,7 +10,7 @@ use bevy::{
 use bevy_framepace::*;
 use bevy_mod_wanderlust::{
     Controller, ControllerBundle, ControllerInput, ControllerPhysicsBundle, GroundCaster, Movement,
-    RapierPhysicsBundle, Strength, Upright, WanderlustPlugin,
+    RapierPhysicsBundle, Strength, Upright, WanderlustPlugin, Jump,
 };
 use bevy_rapier3d::prelude::*;
 use std::f32::consts::{FRAC_2_PI, PI};
@@ -32,10 +32,10 @@ fn main() {
                 ..default()
             }),
             RapierPhysicsPlugin::<NoUserData>::default(),
-            //RapierDebugRenderPlugin::default(),
+            RapierDebugRenderPlugin::default(),
             WanderlustPlugin::default(),
             bevy_inspector_egui::quick::WorldInspectorPlugin::default(),
-            //FramepacePlugin,
+            FramepacePlugin,
         ))
         .insert_resource(FramepaceSettings {
             //limiter: Limiter::Manual(std::time::Duration::from_secs_f64(0.1))
@@ -104,6 +104,11 @@ pub fn player(
                     movement: Movement {
                         acceleration_force: Strength::Scaled(5.0),
                         //slip_force_scale: Vec3::splat(0.95),
+                        ..default()
+                    },
+                    jump: Jump {
+                        initial_force: 30.0,
+                        force: 10.0,
                         ..default()
                     },
                     ground_caster: GroundCaster {
@@ -295,7 +300,7 @@ pub fn walls(
                     material: material,
                     transform: Transform {
                         translation: Vec3::new(0.0, 0.0, part as f32 * width),
-                        scale: Vec3::new(1.0, 5.0, width),
+                        scale: Vec3::new(1.0, 40.0, width),
                         ..default()
                     },
                     ..default()
@@ -312,8 +317,8 @@ pub fn walls(
                 mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
                 material: materials[0].clone(),
                 transform: Transform {
-                    translation: Vec3::new(0.0, 0.0, ((parts + 1) as f32 * width) * 2.0),
-                    scale: Vec3::new(1.0, 5.0, width * parts as f32),
+                    translation: Vec3::new(0.0, 0.0, ((parts + 1) as f32 * width) * 1.5),
+                    scale: Vec3::new(1.0, 40.0, width * parts as f32),
                     ..default()
                 },
                 ..default()
@@ -335,18 +340,6 @@ pub fn slopes(
         reflectance: 0.05,
         ..default()
     });
-    let (hw, hh, hl) = (0.25, 3.0, 5.0);
-    let mesh = meshes.add(
-        shape::Box {
-            min_x: -hw,
-            max_x: hw,
-            min_y: -hh,
-            max_y: hh,
-            min_z: -hl,
-            max_z: hl,
-        }
-        .into(),
-    );
 
     let angles = 18;
     let max_angle = PI / 2.0;
@@ -361,7 +354,7 @@ pub fn slopes(
                 transform: Transform {
                     translation: Vec3::new(0.0, 0.0, angle as f32 * width),
                     rotation: Quat::from_rotation_z(radians),
-                    scale: Vec3::new(6.0, 1.0, width),
+                    scale: Vec3::new(12.0, 1.0, width),
                 },
                 ..default()
             },
@@ -391,7 +384,7 @@ pub fn moving_objects(
             mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
             material: material.clone(),
             transform: Transform {
-                translation: Vec3::new(5.0, 0.3, 5.0),
+                translation: Vec3::new(-5.0, 0.3, 10.0),
                 scale: Vec3::new(simple_width, 0.1, simple_width),
                 ..default()
             },

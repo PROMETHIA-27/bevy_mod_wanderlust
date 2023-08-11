@@ -33,6 +33,7 @@ impl Plugin for WanderlustPlugin {
         app.add_systems(
             Update,
             (
+                crate::update_integration_dt,
                 crate::get_mass_from_rapier,
                 crate::get_velocity_from_rapier,
                 find_ground,
@@ -45,7 +46,6 @@ impl Plugin for WanderlustPlugin {
                 accumulate_forces,
                 crate::apply_forces,
                 crate::apply_ground_forces,
-                update_prev_velocity,
             )
                 .chain()
                 .before(PhysicsSet::SyncBackend),
