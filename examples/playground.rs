@@ -7,13 +7,13 @@ use bevy::{
     prelude::*,
     window::{Cursor, PrimaryWindow},
 };
+use bevy_framepace::*;
 use bevy_mod_wanderlust::{
     Controller, ControllerBundle, ControllerInput, ControllerPhysicsBundle, GroundCaster, Movement,
     RapierPhysicsBundle, Strength, Upright, WanderlustPlugin,
 };
 use bevy_rapier3d::prelude::*;
 use std::f32::consts::{FRAC_2_PI, PI};
-use bevy_framepace::*;
 
 fn main() {
     App::new()
@@ -103,6 +103,7 @@ pub fn player(
                 controller: Controller {
                     movement: Movement {
                         acceleration_force: Strength::Scaled(5.0),
+                        //slip_force_scale: Vec3::splat(0.95),
                         ..default()
                     },
                     ground_caster: GroundCaster {
@@ -287,23 +288,26 @@ pub fn walls(
     let width = 0.25;
     for part in 0..=parts {
         let material = materials[part % materials.len()].clone();
-        commands.spawn((
-            PbrBundle {
-                mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-                material: material,
-                transform: Transform {
-                    translation: Vec3::new(0.0, 0.0, part as f32 * width),
-                    scale: Vec3::new(1.0, 5.0, width),
+        commands
+            .spawn((
+                PbrBundle {
+                    mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+                    material: material,
+                    transform: Transform {
+                        translation: Vec3::new(0.0, 0.0, part as f32 * width),
+                        scale: Vec3::new(1.0, 5.0, width),
+                        ..default()
+                    },
                     ..default()
                 },
-                ..default()
-            },
-            Name::from("Wall segment"),
-            Collider::cuboid(0.5, 0.5, 0.5),
-        )).set_parent(wall);
+                Name::from("Wall segment"),
+                Collider::cuboid(0.5, 0.5, 0.5),
+            ))
+            .set_parent(wall);
     }
 
-        commands.spawn((
+    commands
+        .spawn((
             PbrBundle {
                 mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
                 material: materials[0].clone(),
@@ -316,7 +320,8 @@ pub fn walls(
             },
             Name::from("Full wall segment"),
             Collider::cuboid(0.5, 0.5, 0.5),
-        )).set_parent(wall);
+        ))
+        .set_parent(wall);
 }
 
 pub fn slopes(

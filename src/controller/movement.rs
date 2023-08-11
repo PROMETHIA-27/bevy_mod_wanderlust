@@ -39,6 +39,10 @@ pub struct Movement {
     /// Scales movement force. This is useful to ensure movement does not
     /// affect vertical velocity (by setting it to e.g. `Vec3(1.0, 0.0, 1.0)`).
     pub force_scale: ForceScale,
+    /// Scales movement force when we are slipping.
+    /// If this is not `Vec3(1.0, 1.0, 1.0)` then the character can try to
+    /// move up the slope.
+    pub slip_force_scale: Vec3,
 }
 
 #[derive(Debug, Default, Clone, Reflect)]
@@ -59,6 +63,7 @@ impl Default for Movement {
             stopping_force: Strength::Scaled(10.0),
             max_speed: 10.0,
             force_scale: default(),
+            slip_force_scale: Vec3::splat(1.0),
         }
     }
 }
@@ -73,7 +78,7 @@ impl Movement {
                     let (x, z) = up.any_orthonormal_pair();
                     x.abs() + z.abs()
                 } else {
-                    Vec3::ONE,
+                    Vec3::ONE
                 }
             }
             ForceScale::None => Vec3::ONE,
@@ -128,16 +133,12 @@ pub fn movement_force(
 
         let force_scale = movement.force_scale(&gravity);
 
-        let Some(ground) = cast.last() else { continue };
-        let slipping = !ground.stable;
-        //let slipping = true;
-
         let input_dir = input.movement.clamp_length_max(1.0);
         let input_goal_vel = input_dir * movement.max_speed;
         let mut goal_vel = input_goal_vel;
 
-        let slip_force = if slipping {
-            if let GroundCast::Touching(ground) = cast {
+        let slip_force = match cast {
+            GroundCast::Touching(ground) if !ground.stable => {
                 let (x, z) = ground.cast.normal.any_orthonormal_pair();
                 gizmos.ray(ground.cast.witness, ground.cast.normal, Color::BLUE);
 
@@ -152,7 +153,7 @@ pub fn movement_force(
                     let slip_goal = goal_vel
                         .project_onto(slip_vector.normalize())
                         .max(Vec3::ZERO);
-                    goal_vel -= slip_goal;
+                    goal_vel -= slip_goal * movement.slip_force_scale;
 
                     // Pushing to force the controller down the slope
                     let slide = (slip_vector * force_scale).normalize();
@@ -160,18 +161,23 @@ pub fn movement_force(
                 } else {
                     None
                 }
-            } else {
-                None
             }
-        } else {
-            None
+            _ => None,
         };
 
-        let current_vel = velocity.linear - ground.point_velocity.linvel;
+        let ground_vel = if let Some(ground) = cast.last() {
+            ground.point_velocity
+        } else {
+            Velocity::default()
+        };
+
+        let current_vel = velocity.linear - ground_vel.linvel;
 
         let displacement = (goal_vel - current_vel) * force_scale;
         let instant_force = displacement.abs() * mass.mass / dt;
-        assert!(-instant_force < instant_force);
+
+        // Debug check to make sure we can clamp by the instant force
+        assert!((-instant_force).cmple(instant_force).all());
 
         let strength = movement.acceleration_force.get(mass.mass, dt);
 

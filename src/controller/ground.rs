@@ -45,7 +45,7 @@ impl Default for GroundCaster {
             cast_collider: None,
             exclude_from_ground: default(),
             unstable_ground_angle: 45.0 * (std::f32::consts::PI / 180.0),
-            max_ground_angle: 70.0 * (std::f32::consts::PI / 180.0),
+            max_ground_angle: 60.0 * (std::f32::consts::PI / 180.0),
         }
     }
 }
@@ -281,7 +281,7 @@ pub fn ground_cast(
             ctx.cast_shape(shape_pos, shape_rot, shape_vel, shape, max_toi, filter)
         {
             let ground_angle = (-shape_vel).angle_between(toi.normal1);
-            if toi.status != TOIStatus::Penetrating && ground_angle < max_angle {
+            if toi.status != TOIStatus::Penetrating {//&& ground_angle < max_angle {
                 return Some((entity, toi.into()));
             }
 
