@@ -191,7 +191,6 @@ pub fn find_ground(
 
                 let (stable, viable) = if result.normal.length() > 0.0 {
                     let ground_angle = result.normal.angle_between(gravity.up_vector);
-                    info!("ground_angle: {:?}", ground_angle * 180.0 / std::f32::consts::PI);
                     let viable = ground_angle <= caster.max_ground_angle;
                     let stable = ground_angle <= caster.unstable_ground_angle && viable;
                     (stable, viable)
@@ -281,18 +280,8 @@ pub fn ground_cast(
         if let Some((entity, toi)) =
             ctx.cast_shape(shape_pos, shape_rot, shape_vel, shape, max_toi, filter)
         {
-            if toi.status != TOIStatus::Penetrating {
-                let ground_angle = toi.normal1.angle_between(shape_vel);
-                if ground_angle >= max_angle {
-                    if let Some(old_predicate) = shapecast_filter.predicate.take() {
-                        let entity = entity.clone();
-                        let new_predicate =
-                            |collider| collider != entity && (old_predicate)(collider);
-                        shapecast_filter = shapecast_filter.predicate(&new_predicate);
-                    }
-
-                    continue;
-                }
+            let ground_angle = (-shape_vel).angle_between(toi.normal1);
+            if toi.status != TOIStatus::Penetrating && ground_angle < max_angle {
                 return Some((entity, toi.into()));
             }
 

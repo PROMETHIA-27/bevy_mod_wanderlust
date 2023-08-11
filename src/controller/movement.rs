@@ -43,11 +43,13 @@ pub struct Movement {
 
 #[derive(Debug, Default, Clone, Reflect)]
 pub enum ForceScale {
-    /// Specific force scale.
-    Vec3(Vec3),
     /// Use the inverse of `Gravity::up_vector` for a force scale.
     #[default]
     Up,
+    /// Don't scale at all.
+    None,
+    /// Specific force scale.
+    Vec3(Vec3),
 }
 
 impl Default for Movement {
@@ -66,10 +68,15 @@ impl Movement {
         match self.force_scale {
             ForceScale::Vec3(v) => v,
             ForceScale::Up => {
-                let up = gravity.up_vector.normalize();
-                let (x, z) = up.any_orthonormal_pair();
-                x.abs() + z.abs()
+                if gravity.up_vector.length() > 0.0 {
+                    let up = gravity.up_vector.normalize();
+                    let (x, z) = up.any_orthonormal_pair();
+                    x.abs() + z.abs()
+                } else {
+                    Vec3::ONE,
+                }
             }
+            ForceScale::None => Vec3::ONE,
         }
     }
 }
@@ -123,7 +130,7 @@ pub fn movement_force(
 
         let Some(ground) = cast.last() else { continue };
         let slipping = !ground.stable;
-        let slipping = true;
+        //let slipping = true;
 
         let input_dir = input.movement.clamp_length_max(1.0);
         let input_goal_vel = input_dir * movement.max_speed;
@@ -163,22 +170,14 @@ pub fn movement_force(
         let current_vel = velocity.linear - ground.point_velocity.linvel;
 
         let displacement = (goal_vel - current_vel) * force_scale;
-        if displacement.length() > 0.1 {
-            info!("displa: {:.2?}", displacement);
-        }
         let instant_force = displacement.abs() * mass.mass / dt;
-        if instant_force.length() > 0.1 {
-            info!("instan: {:.2?}", instant_force);
-        }
+        assert!(-instant_force < instant_force);
 
         let strength = movement.acceleration_force.get(mass.mass, dt);
 
         // This is effectively an implicit spring-damper function since the displacement is the velocity.
         // We could try to add a damping factor here based off acceleration, but I'm not sure it matters.
         let movement_force = (displacement * strength).clamp(-instant_force, instant_force);
-        if movement_force.length() > 0.1 {
-            info!("moveme: {:.2?}", movement_force);
-        }
 
         force.linear = movement_force - slip_force.unwrap_or(Vec3::ZERO);
     }

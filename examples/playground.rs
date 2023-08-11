@@ -8,17 +8,20 @@ use bevy::{
     window::{Cursor, PrimaryWindow},
 };
 use bevy_mod_wanderlust::{
-    Controller, ControllerBundle, ControllerInput, ControllerPhysicsBundle, Movement,
+    Controller, ControllerBundle, ControllerInput, ControllerPhysicsBundle, GroundCaster, Movement,
     RapierPhysicsBundle, Strength, Upright, WanderlustPlugin,
 };
 use bevy_rapier3d::prelude::*;
 use std::f32::consts::{FRAC_2_PI, PI};
+use bevy_framepace::*;
 
 fn main() {
     App::new()
         .add_plugins((
             DefaultPlugins.set(WindowPlugin {
                 primary_window: Some(Window {
+                    position: WindowPosition::At(IVec2::new(0, 0)),
+                    resolution: (1000.0, 1080.0).into(),
                     cursor: Cursor {
                         visible: false,
                         grab_mode: CursorGrabMode::Locked,
@@ -29,18 +32,27 @@ fn main() {
                 ..default()
             }),
             RapierPhysicsPlugin::<NoUserData>::default(),
-            RapierDebugRenderPlugin::default(),
+            //RapierDebugRenderPlugin::default(),
             WanderlustPlugin::default(),
-            aether_spyglass::SpyglassPlugin,
+            bevy_inspector_egui::quick::WorldInspectorPlugin::default(),
+            //FramepacePlugin,
         ))
+        .insert_resource(FramepaceSettings {
+            //limiter: Limiter::Manual(std::time::Duration::from_secs_f64(0.1))
+            limiter: Limiter::Auto,
+        })
         .insert_resource(Sensitivity(1.0))
-        .add_systems(Startup, (player, ground, lights, slopes))
+        .add_systems(
+            Startup,
+            (player, ground, lights, slopes, moving_objects, steps, walls),
+        )
         // Add to PreUpdate to ensure updated before movement is calculated
         .add_systems(
             Update,
             (
                 movement_input.before(bevy_mod_wanderlust::movement_force),
                 toggle_cursor_lock,
+                oscillating,
             ),
         )
         .add_systems(
@@ -91,6 +103,10 @@ pub fn player(
                 controller: Controller {
                     movement: Movement {
                         acceleration_force: Strength::Scaled(5.0),
+                        ..default()
+                    },
+                    ground_caster: GroundCaster {
+                        cast_collider: Some(Collider::cylinder(0.3, 0.3)),
                         ..default()
                     },
                     ..default()
@@ -188,12 +204,132 @@ fn lights(
     });
 }
 
+pub fn steps(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut mats: ResMut<Assets<StandardMaterial>>,
+) {
+    let material = mats.add(StandardMaterial {
+        base_color: Color::PINK,
+        perceptual_roughness: 0.5,
+        reflectance: 0.05,
+        ..default()
+    });
+
+    let step_increment = 0.2;
+    let width = 0.3;
+    let steps = 12;
+    let stairs = commands
+        .spawn(SpatialBundle {
+            transform: Transform {
+                translation: Vec3::new(5.0, 0.0, -5.0),
+                rotation: Quat::from_rotation_y(PI / 4.0),
+                ..default()
+            },
+            ..default()
+        })
+        .id();
+
+    for step in 1..=steps {
+        commands
+            .spawn((
+                PbrBundle {
+                    mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+                    material: material.clone(),
+                    transform: Transform {
+                        translation: Vec3::new(
+                            step as f32 * width,
+                            step as f32 * step_increment / 2.0,
+                            0.0,
+                        ),
+                        scale: Vec3::new(width, step as f32 * step_increment, 5.0),
+                        ..default()
+                    },
+                    ..default()
+                },
+                Name::from("Step"),
+                Collider::cuboid(0.5, 0.5, 0.5),
+            ))
+            .set_parent(stairs);
+    }
+}
+
+pub fn walls(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut mats: ResMut<Assets<StandardMaterial>>,
+) {
+    let materials = [Color::GRAY, Color::WHITE, Color::BLACK];
+    let materials = materials
+        .iter()
+        .map(|color| {
+            mats.add(StandardMaterial {
+                base_color: *color,
+                perceptual_roughness: 0.5,
+                reflectance: 0.05,
+                ..default()
+            })
+        })
+        .collect::<Vec<_>>();
+
+    let wall = commands
+        .spawn(SpatialBundle {
+            transform: Transform {
+                translation: Vec3::new(-5.0, 0.0, -5.0),
+                rotation: Quat::from_rotation_y(-PI / 4.0),
+                ..default()
+            },
+            ..default()
+        })
+        .id();
+
+    let parts = 20;
+    let width = 0.25;
+    for part in 0..=parts {
+        let material = materials[part % materials.len()].clone();
+        commands.spawn((
+            PbrBundle {
+                mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+                material: material,
+                transform: Transform {
+                    translation: Vec3::new(0.0, 0.0, part as f32 * width),
+                    scale: Vec3::new(1.0, 5.0, width),
+                    ..default()
+                },
+                ..default()
+            },
+            Name::from("Wall segment"),
+            Collider::cuboid(0.5, 0.5, 0.5),
+        )).set_parent(wall);
+    }
+
+        commands.spawn((
+            PbrBundle {
+                mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+                material: materials[0].clone(),
+                transform: Transform {
+                    translation: Vec3::new(0.0, 0.0, ((parts + 1) as f32 * width) * 2.0),
+                    scale: Vec3::new(1.0, 5.0, width * parts as f32),
+                    ..default()
+                },
+                ..default()
+            },
+            Name::from("Full wall segment"),
+            Collider::cuboid(0.5, 0.5, 0.5),
+        )).set_parent(wall);
+}
+
 pub fn slopes(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut mats: ResMut<Assets<StandardMaterial>>,
 ) {
-    let material = mats.add(Color::WHITE.into());
+    let material = mats.add(StandardMaterial {
+        base_color: Color::GREEN,
+        perceptual_roughness: 0.5,
+        reflectance: 0.05,
+        ..default()
+    });
     let (hw, hh, hl) = (0.25, 3.0, 5.0);
     let mesh = meshes.add(
         shape::Box {
@@ -210,9 +346,9 @@ pub fn slopes(
     let angles = 18;
     let max_angle = PI / 2.0;
     let angle_increment = max_angle / angles as f32;
-    for angle in 0..angles {
+    for angle in 0..=angles {
         let radians = angle as f32 * angle_increment;
-        let width = 1.5;
+        let width = 2.5;
         commands.spawn((
             PbrBundle {
                 mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
@@ -227,6 +363,67 @@ pub fn slopes(
             Name::from(format!("Slope {:?} radians", radians)),
             Collider::cuboid(0.5, 0.5, 0.5),
         ));
+    }
+}
+
+pub fn moving_objects(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut mats: ResMut<Assets<StandardMaterial>>,
+) {
+    let material = mats.add(StandardMaterial {
+        base_color: Color::YELLOW,
+        perceptual_roughness: 0.5,
+        reflectance: 0.05,
+        ..default()
+    });
+    let mesh = meshes.add(Mesh::from(shape::Cube::default()));
+
+    // simple
+    let simple_width = 5.0;
+    commands.spawn((
+        PbrBundle {
+            mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+            material: material.clone(),
+            transform: Transform {
+                translation: Vec3::new(5.0, 0.3, 5.0),
+                scale: Vec3::new(simple_width, 0.1, simple_width),
+                ..default()
+            },
+            ..default()
+        },
+        Name::from("Simple moving platform"),
+        RigidBody::KinematicVelocityBased,
+        Collider::cuboid(0.5, 0.5, 0.5),
+        Oscillator::default(),
+        Velocity {
+            linvel: Vec3::ZERO,
+            angvel: Vec3::ZERO,
+        },
+    ));
+}
+
+#[derive(Component)]
+pub struct Oscillator {
+    pub strength: Vec3,
+}
+
+impl Default for Oscillator {
+    fn default() -> Self {
+        Self {
+            strength: Vec3::ONE,
+        }
+    }
+}
+
+pub fn oscillating(time: Res<Time>, mut oscillators: Query<(&mut Velocity, &Oscillator)>) {
+    for (mut velocity, oscillator) in &mut oscillators {
+        let elapsed = time.elapsed_seconds();
+        let period = 5.0;
+        let along = elapsed.rem_euclid(period) / period * std::f32::consts::TAU;
+        let x = along.cos();
+        let y = along.sin();
+        velocity.linvel = Vec3::new(x, 0.0, y) * oscillator.strength;
     }
 }
 
