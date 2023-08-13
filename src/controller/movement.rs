@@ -1,38 +1,17 @@
 use crate::controller::*;
+use crate::spring::Strength;
+
 /// Movements applied via inputs.
 ///
 /// This includes directional movement and jumping.
 use bevy_rapier3d::prelude::*;
-
-#[derive(Debug, Clone, Reflect)]
-pub enum Strength {
-    // Scaled by the mass and delta time so that this strength
-    Instant(f32),
-    // Scaled by the mass so this the behavior stays relatively the same
-    // regardless of the controller's mass
-    Scaled(f32),
-    // Unaffected by mass
-    Raw(f32),
-}
-
-impl Strength {
-    pub fn get(&self, mass: f32, dt: f32) -> f32 {
-        match self {
-            Self::Instant(raw) => *raw * mass / dt,
-            Self::Scaled(raw) => *raw * mass,
-            Self::Raw(raw) => *raw,
-        }
-    }
-}
 
 /// Settings used to determine movement impulses on this controller.
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Default)]
 pub struct Movement {
     /// How fast the controller will get to the `max_speed`.
-    pub acceleration_force: Strength,
-    /// How fast the controller will slow down.
-    pub stopping_force: Strength,
+    pub acceleration: Strength,
 
     /// How fast our controller will move.
     pub max_speed: f32,
@@ -59,8 +38,7 @@ pub enum ForceScale {
 impl Default for Movement {
     fn default() -> Self {
         Self {
-            acceleration_force: Strength::Scaled(10.0),
-            stopping_force: Strength::Scaled(10.0),
+            acceleration: Strength::Scaled(10.0),
             max_speed: 10.0,
             force_scale: default(),
             slip_force_scale: Vec3::splat(1.0),
@@ -175,7 +153,7 @@ pub fn movement_force(
         // Debug check to make sure we can clamp by the instant force
         assert!((-instant_force).cmple(instant_force).all());
 
-        let strength = movement.acceleration_force.get(mass.mass, dt);
+        let strength = movement.acceleration.get(mass.mass, dt);
 
         // This is effectively an implicit spring-damper function since the displacement is the velocity.
         // We could try to add a damping factor here based off acceleration, but I'm not sure it matters.

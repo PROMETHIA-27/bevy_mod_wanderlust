@@ -44,7 +44,7 @@ fn main() {
         .insert_resource(Sensitivity(1.0))
         .add_systems(
             Startup,
-            (player, ground, lights, slopes, moving_objects, steps, walls),
+            (player, ground, lights, slopes, moving_objects, steps, walls, free_objects),
         )
         // Add to PreUpdate to ensure updated before movement is calculated
         .add_systems(
@@ -102,17 +102,18 @@ pub fn player(
                 },
                 controller: Controller {
                     movement: Movement {
-                        acceleration_force: Strength::Scaled(5.0),
+                        acceleration: Strength::Scaled(80.0),
+                        max_speed: 5.0,
                         //slip_force_scale: Vec3::splat(0.95),
                         ..default()
                     },
                     jump: Jump {
                         initial_force: 30.0,
-                        force: 10.0,
+                        force: 20.0,
                         ..default()
                     },
                     ground_caster: GroundCaster {
-                        cast_collider: Some(Collider::cylinder(0.3, 0.3)),
+                        //cast_collider: Some(Collider::cylinder(0.3, 0.3)),
                         ..default()
                     },
                     ..default()
@@ -159,6 +160,35 @@ pub fn player(
                     });
                 });
         });
+}
+
+pub fn free_objects(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut mats: ResMut<Assets<StandardMaterial>>,
+) {
+    let material = mats.add(Color::WHITE.into());
+    let mesh = meshes.add(
+        shape::UVSphere {
+            radius: 0.5,
+            ..default()
+        }
+        .into(),
+    );
+    commands.spawn((
+        PbrBundle {
+            mesh,
+            material: material.clone(),
+            transform: Transform::from_xyz(-2.0, 2.0, 0.0),
+            ..default()
+        },
+        RigidBody::Dynamic,
+        Velocity::default(),
+        ExternalImpulse::default(),
+        ReadMassProperties::default(),
+        Collider::ball(0.5),
+        Name::from("Ball"),
+    ));
 }
 
 pub fn ground(

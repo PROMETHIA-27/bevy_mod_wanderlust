@@ -82,7 +82,7 @@ impl Default for Controller {
 }
 
 /// Settings for how the forces applied to the physics engine should be calculated.
-#[derive(Component, Default, Reflect)]
+#[derive(Component, Reflect)]
 #[reflect(Component, Default)]
 pub struct ForceSettings {
     /// Scaling factor for the force applied to the ground to keep the character moving/off the ground.
@@ -90,6 +90,15 @@ pub struct ForceSettings {
     /// Scaling factor for the movement impulse applied to the ground.
     /// Setting this to 0.0 would make it so things don't "slip" out from the characters feet.
     pub opposing_movement_force_scale: f32,
+}
+
+impl Default for ForceSettings {
+    fn default() -> Self {
+        Self {
+            opposing_force_scale: 1.0,
+            opposing_movement_force_scale: 0.0,
+        }
+    }
 }
 
 /// Add all forces together into a single force to be applied to the physics engine.

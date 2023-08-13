@@ -157,9 +157,14 @@ pub fn upright_force(
                 Vec3::ZERO
             };
 
-            let velocity = velocity.angular - ground_rot;
+            let local_velocity = velocity.angular - ground_rot;
+            let projected_vel = if local_velocity.length() > 0.0 && desired_axis.length() > 0.0 {
+                local_velocity.project_onto(desired_axis)
+            } else {
+                Vec3::ZERO
+            };
 
-            let spring = (desired_axis * upright.spring.strength) - (velocity * damping);
+            let spring = (desired_axis * upright.spring.strength) - (velocity.angular * damping);
             spring.clamp_length_max(upright.spring.strength)
         };
     }

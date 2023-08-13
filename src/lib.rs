@@ -16,5 +16,5 @@ mod rapier;
 
 pub use {
     bundles::ControllerBundle, controller::*, physics::*, plugins::WanderlustPlugin, rapier::*,
-    spring::Spring,
+    spring::*,
 };
