@@ -74,10 +74,41 @@ pub struct MovementForce {
     pub angular: Vec3,
 }
 
+pub trait Cap {
+    fn cap(self, cap: Self) -> Self;
+}
+
+impl Cap for Vec3 {
+    fn cap(self, cap: Self) -> Self {
+        let mut out = self;
+        if cap.x == 0.0 ||
+            cap.x < 0.0 && self.x < cap.x
+            || cap.x > 0.0 && self.x > cap.x
+        {
+            out.x = cap.x;
+        }
+        if cap.y == 0.0 ||
+            cap.y < 0.0 && self.y < cap.y
+            || cap.y > 0.0 && self.y > cap.y
+        {
+            out.y = cap.y;
+        }
+        if cap.z == 0.0 ||
+            cap.z < 0.0 && self.z < cap.z
+            || cap.z > 0.0 && self.z > cap.z
+        {
+            out.z = cap.z;
+        }
+
+        out
+    }
+}
+
 /// Calculates the movement forces for this controller.
 pub fn movement_force(
     ctx: Res<RapierContext>,
     mut query: Query<(
+        Entity,
         &GlobalTransform,
         &mut MovementForce,
         &mut Movement,
@@ -88,10 +119,12 @@ pub fn movement_force(
         &ControllerVelocity,
         &ControllerMass,
     )>,
+    frictions: Query<&Friction>,
     mut gizmos: Gizmos,
 ) {
     let dt = ctx.integration_parameters.dt;
     for (
+        controller_entity,
         global,
         mut force,
         movement,
@@ -139,27 +172,55 @@ pub fn movement_force(
             _ => None,
         };
 
-        let ground_vel = if let Some(ground) = cast.viable.last() {
+        let last_ground_vel = if let Some(ground) = cast.viable.last() {
             ground.point_velocity
         } else {
             Velocity::default()
         };
 
-        let current_vel = velocity.linear - ground_vel.linvel;
-
-        let displacement = (goal_vel - current_vel) * force_scale;
-        let instant_force = displacement.abs() * mass.mass / dt;
+        let relative_velocity = (velocity.linear - last_ground_vel.linvel) * force_scale;
+        let friction_force = if let ViableGround::Ground(ground) = cast.viable {
+            let friction = frictions
+                .get(controller_entity)
+                .copied()
+                .unwrap_or(Friction::default());
+            let ground_friction = frictions
+                .get(ground.entity)
+                .copied()
+                .unwrap_or(Friction::default());
+            let friction_coefficient = friction.coefficient.max(ground_friction.coefficient);
+            friction_coefficient * relative_velocity * mass.mass / dt
+        } else {
+            Vec3::ZERO
+        };
+        //info!("friction: {:.2?}", friction_force.length());
+        //info!("relative velocity: {:.2?}", (relative_velocity * force_scale).length());
 
         // Debug check to make sure we can clamp by the instant force
-        assert!((-instant_force).cmple(instant_force).all());
+        //assert!((-instant_force).cmple(instant_force).all());
 
         let strength = movement.acceleration.get(mass.mass, dt);
 
         // This is effectively an implicit spring-damper function since the displacement is the velocity.
         // We could try to add a damping factor here based off acceleration, but I'm not sure it matters.
-        let movement_force = (displacement * strength).clamp(-instant_force, instant_force);
+        let mut movement_force = (input_goal_vel * strength * force_scale);
 
-        force.linear = movement_force - slip_force.unwrap_or(Vec3::ZERO);
+        // get displacement of relative velocity to goal velocity
+        let clamped_velocity = relative_velocity.cap(goal_vel);
+
+        let displacement = goal_vel - clamped_velocity;
+        let max_movement_force = displacement * mass.mass / dt * force_scale + friction_force;
+        let movement_force = movement_force.cap(max_movement_force);
+
+        if movement_force.length() > 0.1 {
+            info!("displacement: {:.1?}", displacement);
+            info!("relative_vel: {:.1?}", relative_velocity);
+            info!("goal_vel: {:.1?}", goal_vel);
+            info!("movement_force: {:.1?}", movement_force);
+            info!("max_movement_force: {:.1?}", max_movement_force);
+        }
+
+        force.linear += movement_force - friction_force - slip_force.unwrap_or(Vec3::ZERO);
     }
 }
 

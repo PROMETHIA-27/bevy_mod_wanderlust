@@ -126,7 +126,7 @@ impl GroundCast {
     /// Given new information on a ground cast, update what we know.
     pub fn update(&mut self, ground: Option<Ground>) {
         self.current = ground.clone();
-        self.viable.update( ground);
+        self.viable.update(ground);
     }
 
     /// Are we currently touching the ground?
@@ -197,7 +197,6 @@ pub fn find_ground(
                 &shape,
                 caster.cast_length,
                 filter,
-
                 &mut gizmos,
             )
         } else {
@@ -238,7 +237,7 @@ pub fn find_ground(
                     (false, false)
                 };
 
-               Some(Ground {
+                Some(Ground {
                     entity: ground_entity,
                     cast: result,
                     stable: stable,
@@ -262,13 +261,23 @@ pub fn find_ground(
 }
 
 /// Are we currently touching the ground with a fudge factor included.
-pub fn determine_groundedness(mut query: Query<(&GlobalTransform, &Gravity, &Float, &GroundCast, &mut Grounded)>, mut gizmos: Gizmos) {
+pub fn determine_groundedness(
+    mut query: Query<(
+        &GlobalTransform,
+        &Gravity,
+        &Float,
+        &GroundCast,
+        &mut Grounded,
+    )>,
+    mut gizmos: Gizmos,
+) {
     for (global, gravity, float, cast, mut grounded) in &mut query {
         grounded.0 = false;
         if let Some(ground) = cast.current {
             if ground.viable {
                 let translation = global.translation();
-                let updated_toi = translation.dot(gravity.up_vector) - ground.cast.point.dot(gravity.up_vector);
+                let updated_toi =
+                    translation.dot(gravity.up_vector) - ground.cast.point.dot(gravity.up_vector);
                 //gizmos.sphere(ground.cast.point, Quat::IDENTITY, 0.3, Color::RED);
                 //gizmos.sphere(translation, Quat::IDENTITY, 0.3, Color::GREEN);
                 let offset = float.distance - updated_toi;
@@ -320,7 +329,7 @@ impl From<RayIntersection> for CastResult {
 }
 
 /// Robust casting to find the ground beneath the controller.
-/// 
+///
 /// This has fallbacks to make sure we catch non-convex colliders.
 pub fn ground_cast(
     ctx: &RapierContext,
@@ -339,7 +348,7 @@ pub fn ground_cast(
     let raycast_filter = filter.clone();
     let mut shapecast_filter = filter.clone();
     for _ in 0..12 {
-            gizmos.sphere(shape_pos, Quat::IDENTITY, 0.3, Color::CYAN);
+        gizmos.sphere(shape_pos, Quat::IDENTITY, 0.3, Color::CYAN);
         if let Some((entity, toi)) =
             ctx.cast_shape(shape_pos, shape_rot, shape_vel, shape, max_toi, filter)
         {

@@ -9,8 +9,8 @@ use bevy::{
 };
 use bevy_framepace::*;
 use bevy_mod_wanderlust::{
-    Controller, ControllerBundle, ControllerInput, ControllerPhysicsBundle, GroundCaster, Movement,
-    RapierPhysicsBundle, Strength, Upright, WanderlustPlugin, Jump,
+    Controller, ControllerBundle, ControllerInput, ControllerPhysicsBundle, GroundCaster, Jump,
+    Movement, RapierPhysicsBundle, Strength, Upright, WanderlustPlugin,
 };
 use bevy_rapier3d::prelude::*;
 use std::f32::consts::{FRAC_2_PI, PI};
@@ -37,14 +37,29 @@ fn main() {
             bevy_inspector_egui::quick::WorldInspectorPlugin::default(),
             FramepacePlugin,
         ))
+        .insert_resource(RapierConfiguration {
+            timestep_mode: TimestepMode::Fixed {
+                dt: 0.016,
+                substeps: 32,
+            },
+            ..default()
+        })
         .insert_resource(FramepaceSettings {
-            //limiter: Limiter::Manual(std::time::Duration::from_secs_f64(0.1))
-            limiter: Limiter::Auto,
+            limiter: Limiter::Manual(std::time::Duration::from_secs_f64(0.016)), //limiter: Limiter::Auto,
         })
         .insert_resource(Sensitivity(1.0))
         .add_systems(
             Startup,
-            (player, ground, lights, slopes, moving_objects, steps, walls, free_objects),
+            (
+                player,
+                ground,
+                lights,
+                slopes,
+                moving_objects,
+                steps,
+                walls,
+                free_objects,
+            ),
         )
         // Add to PreUpdate to ensure updated before movement is calculated
         .add_systems(
@@ -102,7 +117,7 @@ pub fn player(
                 },
                 controller: Controller {
                     movement: Movement {
-                        acceleration: Strength::Scaled(80.0),
+                        acceleration: Strength::Scaled(200.0),
                         max_speed: 5.0,
                         //slip_force_scale: Vec3::splat(0.95),
                         ..default()
@@ -477,6 +492,7 @@ fn movement_input(
     if input.pressed(KeyCode::W) {
         dir += tf.forward();
     }
+    dir.y = 0.0;
     player_input.movement = dir.normalize_or_zero();
 
     player_input.jumping = input.pressed(KeyCode::Space);

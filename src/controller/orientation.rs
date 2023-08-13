@@ -59,7 +59,9 @@ pub fn float_force(
 
         //let ViableGround::Ground(ground) = cast.viable else { continue };
         let Some(ground) = cast.current else { continue };
-        if !ground.viable { continue }
+        if !ground.viable {
+            continue;
+        }
 
         let up_vector = gravity.up_vector;
 
@@ -70,7 +72,8 @@ pub fn float_force(
 
         let relative_velocity = vel_align - ground_vel_align;
 
-        let worldspace_diff = global.translation().dot(gravity.up_vector) - ground.cast.point.dot(gravity.up_vector);
+        let worldspace_diff =
+            global.translation().dot(gravity.up_vector) - ground.cast.point.dot(gravity.up_vector);
         let displacement = float.distance - worldspace_diff;
 
         if displacement > 0.0 {
