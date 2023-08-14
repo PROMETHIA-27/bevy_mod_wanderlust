@@ -358,9 +358,13 @@ pub fn ground_cast(
                 let mut cast_result = CastResult::from_toi1(toi);
 
                 // try to get a better normal rather than an edge interpolated normal.
+
+                // project back onto original shape position
                 let above = toi.witness1 + -shape_vel * toi.toi;
                 let dir = (shape_pos - above).normalize_or_zero();
+                // nudge slightly in the direction of the hit point
                 let nudged = above - dir * 0.05;
+
                 #[cfg(feature = "debug_lines")]
                 {
                     gizmos.sphere(above, Quat::IDENTITY, 0.03, Color::BLUE);
