@@ -355,7 +355,25 @@ pub fn ground_cast(
         {
             if toi.status != TOIStatus::Penetrating {
                 //gizmos.sphere(toi.witness1, Quat::IDENTITY, 0.3, Color::BLUE);
-                return Some((entity, CastResult::from_toi1(toi)));
+                let mut cast_result = CastResult::from_toi1(toi);
+
+                // try to get a better normal rather than an edge interpolated normal.
+                let above = toi.witness1 + -shape_vel * toi.toi;
+                let dir = (shape_pos - above).normalize_or_zero();
+                let nudged = above - dir * 0.05;
+                #[cfg(feature = "debug_lines")]
+                {
+                    gizmos.sphere(above, Quat::IDENTITY, 0.03, Color::BLUE);
+                    gizmos.sphere(nudged, Quat::IDENTITY, 0.03, Color::RED);
+                }
+
+                if let Some((ray_entity, inter)) = ctx.cast_ray_and_get_normal(nudged, shape_vel, toi.toi + 0.05, true, filter) {
+                    if entity == ray_entity {
+                        cast_result.normal = inter.normal;
+                    }
+                }
+
+                return Some((entity, cast_result));
             }
 
             match (globals.get(entity), colliders.get(entity)) {

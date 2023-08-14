@@ -81,22 +81,13 @@ pub trait Cap {
 impl Cap for Vec3 {
     fn cap(self, cap: Self) -> Self {
         let mut out = self;
-        if cap.x == 0.0 ||
-            cap.x < 0.0 && self.x < cap.x
-            || cap.x > 0.0 && self.x > cap.x
-        {
+        if cap.x == 0.0 || cap.x < 0.0 && self.x < cap.x || cap.x > 0.0 && self.x > cap.x {
             out.x = cap.x;
         }
-        if cap.y == 0.0 ||
-            cap.y < 0.0 && self.y < cap.y
-            || cap.y > 0.0 && self.y > cap.y
-        {
+        if cap.y == 0.0 || cap.y < 0.0 && self.y < cap.y || cap.y > 0.0 && self.y > cap.y {
             out.y = cap.y;
         }
-        if cap.z == 0.0 ||
-            cap.z < 0.0 && self.z < cap.z
-            || cap.z > 0.0 && self.z > cap.z
-        {
+        if cap.z == 0.0 || cap.z < 0.0 && self.z < cap.z || cap.z > 0.0 && self.z > cap.z {
             out.z = cap.z;
         }
 
@@ -158,9 +149,7 @@ pub fn movement_force(
                 // arbitrary value to ignore flat surfaces.
                 if slip_vector.length() > 0.01 {
                     // Counteract the movement going up the slope.
-                    let slip_goal = goal_vel
-                        .project_onto(slip_vector)
-                        .max(Vec3::ZERO);
+                    let slip_goal = goal_vel.project_onto(slip_vector).max(Vec3::ZERO);
                     goal_vel -= slip_goal * movement.slip_force_scale;
 
                     // Pushing to force the controller down the slope

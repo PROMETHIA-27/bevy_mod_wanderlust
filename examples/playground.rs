@@ -9,8 +9,8 @@ use bevy::{
 };
 use bevy_framepace::*;
 use bevy_mod_wanderlust::{
-    Controller, ControllerBundle, ControllerInput, ControllerPhysicsBundle, GroundCaster, Jump,
-    Movement, RapierPhysicsBundle, Strength, Upright, WanderlustPlugin, Float,
+    Controller, ControllerBundle, ControllerInput, ControllerPhysicsBundle, Float, GroundCaster,
+    Jump, Movement, RapierPhysicsBundle, Strength, Upright, WanderlustPlugin,
 };
 use bevy_rapier3d::prelude::*;
 use std::f32::consts::{FRAC_2_PI, PI};
@@ -56,7 +56,7 @@ fn main() {
                 lights,
                 slopes,
                 moving_objects,
-                steps,
+                stairs,
                 walls,
                 free_objects,
             ),
@@ -147,7 +147,7 @@ pub fn player(
             PlayerBody,
         ))
         .insert(PbrBundle {
-            mesh,
+            //mesh,
             material: material.clone(),
             ..default()
         })
@@ -238,7 +238,12 @@ pub fn ground(
             ..default()
         },
         Collider::halfspace(Vec3::Y).unwrap(),
-        ColliderDebugColor(Color::Rgba { red: 0.0, green: 0.0, blue: 0.0, alpha: 0.0 }),
+        ColliderDebugColor(Color::Rgba {
+            red: 0.0,
+            green: 0.0,
+            blue: 0.0,
+            alpha: 0.0,
+        }),
         //Collider::cuboid(size / 2.0, 0.1, size / 2.0),
         Name::from("Ground"),
     ));
@@ -264,7 +269,7 @@ fn lights(
     });
 }
 
-pub fn steps(
+pub fn stairs(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut mats: ResMut<Assets<StandardMaterial>>,
@@ -276,16 +281,48 @@ pub fn steps(
         ..default()
     });
 
-    let step_increment = 0.2;
-    let width = 0.3;
-    let steps = 12;
+    let mesh = meshes.add(Mesh::from(shape::Cube { size: 1.0 }));
+    steps(
+        Transform {
+            translation: Vec3::new(5.0, 0.0, -5.0),
+            rotation: Quat::from_rotation_y(PI / 4.0),
+            ..default()
+        },
+        0.2,
+        0.3,
+        12,
+        &mut commands,
+        &material,
+        &mesh,
+    );
+
+    steps(
+        Transform {
+            translation: Vec3::new(5.0, 0.0, -10.0),
+            rotation: Quat::from_rotation_y(-PI / 4.0),
+            ..default()
+        },
+        0.4,
+        0.3,
+        36,
+        &mut commands,
+        &material,
+        &mesh,
+    );
+}
+
+pub fn steps(
+    transform: Transform,
+    step_increment: f32,
+    width: f32,
+    steps: u32,
+    commands: &mut Commands,
+    material: &Handle<StandardMaterial>,
+    mesh: &Handle<Mesh>,
+) {
     let stairs = commands
         .spawn(SpatialBundle {
-            transform: Transform {
-                translation: Vec3::new(5.0, 0.0, -5.0),
-                rotation: Quat::from_rotation_y(PI / 4.0),
-                ..default()
-            },
+            transform: transform,
             ..default()
         })
         .id();
@@ -294,7 +331,7 @@ pub fn steps(
         commands
             .spawn((
                 PbrBundle {
-                    mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+                    mesh: mesh.clone(),
                     material: material.clone(),
                     transform: Transform {
                         translation: Vec3::new(

@@ -1,4 +1,4 @@
-use bevy::{prelude::*, math::Affine3A};
+use bevy::{math::Affine3A, prelude::*};
 use bevy_rapier3d::prelude::*;
 
 mod gravity;
@@ -171,11 +171,7 @@ pub fn accumulate_forces(
                 } else {
                     Color::BLUE
                 };
-                gizmos.line(
-                    ground.cast.point,
-                    ground.cast.point + opposing_force,
-                    color,
-                );
+                gizmos.line(ground.cast.point, ground.cast.point + opposing_force, color);
             }
         } else {
             ground_force.linear = opposing_force;
