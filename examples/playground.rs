@@ -10,7 +10,7 @@ use bevy::{
 use bevy_framepace::*;
 use bevy_mod_wanderlust::{
     Controller, ControllerBundle, ControllerInput, ControllerPhysicsBundle, GroundCaster, Jump,
-    Movement, RapierPhysicsBundle, Strength, Upright, WanderlustPlugin,
+    Movement, RapierPhysicsBundle, Strength, Upright, WanderlustPlugin, Float,
 };
 use bevy_rapier3d::prelude::*;
 use std::f32::consts::{FRAC_2_PI, PI};
@@ -110,6 +110,10 @@ pub fn player(
     let player = commands
         .spawn((
             ControllerBundle {
+                transform: Transform {
+                    translation: Vec3::new(0.0, 3.0, 0.0),
+                    ..default()
+                },
                 rapier_physics: RapierPhysicsBundle {
                     // Lock the axes to prevent camera shake whilst moving up slopes
                     //locked_axes: LockedAxes::ROTATION_LOCKED,
@@ -117,7 +121,7 @@ pub fn player(
                 },
                 controller: Controller {
                     movement: Movement {
-                        acceleration: Strength::Scaled(200.0),
+                        acceleration: Strength::Scaled(50.0),
                         max_speed: 5.0,
                         //slip_force_scale: Vec3::splat(0.95),
                         ..default()
@@ -125,6 +129,10 @@ pub fn player(
                     jump: Jump {
                         initial_force: 30.0,
                         force: 20.0,
+                        ..default()
+                    },
+                    float: Float {
+                        distance: 1.0,
                         ..default()
                     },
                     ground_caster: GroundCaster {
@@ -213,7 +221,7 @@ pub fn ground(
 ) {
     let material = mats.add(Color::WHITE.into());
 
-    let size = 500.0;
+    let size = 1000.0;
     let mesh = meshes.add(
         shape::Plane {
             size: size,
@@ -229,8 +237,9 @@ pub fn ground(
             transform: Transform::from_xyz(0.0, -0.05, 0.0),
             ..default()
         },
-        //Collider::halfspace(Vec3::Y).unwrap(),
-        Collider::cuboid(size / 2.0, 0.1, size / 2.0),
+        Collider::halfspace(Vec3::Y).unwrap(),
+        ColliderDebugColor(Color::Rgba { red: 0.0, green: 0.0, blue: 0.0, alpha: 0.0 }),
+        //Collider::cuboid(size / 2.0, 0.1, size / 2.0),
         Name::from("Ground"),
     ));
 }
@@ -423,7 +432,7 @@ pub fn moving_objects(
     let mesh = meshes.add(Mesh::from(shape::Cube::default()));
 
     // simple
-    let simple_width = 5.0;
+    let simple_width = 3.0;
     commands.spawn((
         PbrBundle {
             mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
@@ -442,6 +451,29 @@ pub fn moving_objects(
         Velocity {
             linvel: Vec3::ZERO,
             angvel: Vec3::ZERO,
+        },
+    ));
+
+    // rotating
+    let simple_width = 3.0;
+    commands.spawn((
+        PbrBundle {
+            mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+            material: material.clone(),
+            transform: Transform {
+                translation: Vec3::new(-10.0, 0.3, 10.0),
+                scale: Vec3::new(simple_width, 0.1, simple_width),
+                ..default()
+            },
+            ..default()
+        },
+        Name::from("Simple moving platform"),
+        RigidBody::KinematicVelocityBased,
+        Collider::cuboid(0.5, 0.5, 0.5),
+        Oscillator::default(),
+        Velocity {
+            linvel: Vec3::ZERO,
+            angvel: Vec3::new(0.0, 0.1, 0.0),
         },
     ));
 }

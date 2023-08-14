@@ -68,7 +68,7 @@ pub fn float_force(
         let controller_point_velocity =
             velocity.linear + velocity.angular.cross(Vec3::ZERO - mass.com);
         let vel_align = up_vector.dot(controller_point_velocity);
-        let ground_vel_align = up_vector.dot(ground.point_velocity.linvel);
+        let ground_vel_align = up_vector.dot(ground.point_velocity);
 
         let relative_velocity = vel_align - ground_vel_align;
 
@@ -154,8 +154,7 @@ pub fn upright_force(
             );
 
             let ground_rot = if let Some(ground) = ground_cast.viable.last() {
-                ground.point_velocity.angvel
-                //Vec3::ZERO
+                ground.angular_velocity
             } else {
                 Vec3::ZERO
             };

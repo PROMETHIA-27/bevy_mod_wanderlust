@@ -119,6 +119,8 @@ pub fn movement_force(
         &ControllerVelocity,
         &ControllerMass,
     )>,
+    globals: Query<&GlobalTransform>,
+    masses: Query<&ReadMassProperties>,
     frictions: Query<&Friction>,
     mut gizmos: Gizmos,
 ) {
@@ -141,30 +143,28 @@ pub fn movement_force(
         let force_scale = movement.force_scale(&gravity);
 
         let input_dir = input.movement.clamp_length_max(1.0);
-        let input_goal_vel = input_dir * movement.max_speed;
-        let mut goal_vel = input_goal_vel;
+        let mut goal_vel = input_dir * movement.max_speed;
 
-        let slip_force = match cast.current {
+        let slip_vector = match cast.current {
             Some(ground) if !ground.stable => {
                 let (x, z) = ground.cast.normal.any_orthonormal_pair();
                 gizmos.ray(ground.cast.point, ground.cast.normal, Color::BLUE);
 
                 let projected_x = gravity.up_vector.project_onto(x);
                 let projected_z = gravity.up_vector.project_onto(z);
-                let slip_vector = (projected_x + projected_z) * force_scale;
+                let slip_vector = ((projected_x + projected_z) * force_scale).normalize_or_zero();
                 gizmos.ray(ground.cast.point, slip_vector, Color::LIME_GREEN);
 
                 // arbitrary value to ignore flat surfaces.
                 if slip_vector.length() > 0.01 {
                     // Counteract the movement going up the slope.
                     let slip_goal = goal_vel
-                        .project_onto(slip_vector.normalize())
+                        .project_onto(slip_vector)
                         .max(Vec3::ZERO);
                     goal_vel -= slip_goal * movement.slip_force_scale;
 
                     // Pushing to force the controller down the slope
-                    let slide = (slip_vector * force_scale).normalize();
-                    Some(slide)
+                    Some(slip_vector)
                 } else {
                     None
                 }
@@ -172,14 +172,28 @@ pub fn movement_force(
             _ => None,
         };
 
+        let slip_force = slip_vector.unwrap_or(Vec3::ZERO) * mass.mass;
+
         let last_ground_vel = if let Some(ground) = cast.viable.last() {
-            ground.point_velocity
+            let ground_global = globals
+                .get(ground.entity)
+                .unwrap_or(&GlobalTransform::IDENTITY);
+
+            let ground_mass = if let Ok(mass) = masses.get(ground.entity) {
+                mass.0.clone()
+            } else {
+                MassProperties::default()
+            };
+
+            let com = ground_global.transform_point(ground_mass.local_center_of_mass);
+            let projected_angular = ground.angular_velocity.project_onto(gravity.up_vector);
+            ground.linear_velocity + projected_angular.cross(ground.cast.point - com)
         } else {
-            Velocity::default()
+            Vec3::ZERO
         };
 
-        let relative_velocity = (velocity.linear - last_ground_vel.linvel) * force_scale;
-        let friction_force = if let ViableGround::Ground(ground) = cast.viable {
+        let relative_velocity = (velocity.linear - last_ground_vel) * force_scale;
+        let friction_coefficient = if let ViableGround::Ground(ground) = cast.viable {
             let friction = frictions
                 .get(controller_entity)
                 .copied()
@@ -189,38 +203,24 @@ pub fn movement_force(
                 .copied()
                 .unwrap_or(Friction::default());
             let friction_coefficient = friction.coefficient.max(ground_friction.coefficient);
-            friction_coefficient * relative_velocity * mass.mass / dt
+            friction_coefficient
         } else {
-            Vec3::ZERO
+            1.0
         };
-        //info!("friction: {:.2?}", friction_force.length());
-        //info!("relative velocity: {:.2?}", (relative_velocity * force_scale).length());
 
-        // Debug check to make sure we can clamp by the instant force
-        //assert!((-instant_force).cmple(instant_force).all());
+        let friction_strength = Strength::Instant(friction_coefficient.clamp(0.0, 1.0));
+        let friction_force = relative_velocity * friction_strength.get(mass.mass, dt);
 
         let strength = movement.acceleration.get(mass.mass, dt);
 
-        // This is effectively an implicit spring-damper function since the displacement is the velocity.
-        // We could try to add a damping factor here based off acceleration, but I'm not sure it matters.
-        let mut movement_force = (input_goal_vel * strength * force_scale);
+        let movement_force = (goal_vel * strength * force_scale);
 
-        // get displacement of relative velocity to goal velocity
         let clamped_velocity = relative_velocity.cap(goal_vel);
-
         let displacement = goal_vel - clamped_velocity;
         let max_movement_force = displacement * mass.mass / dt * force_scale + friction_force;
         let movement_force = movement_force.cap(max_movement_force);
 
-        if movement_force.length() > 0.1 {
-            info!("displacement: {:.1?}", displacement);
-            info!("relative_vel: {:.1?}", relative_velocity);
-            info!("goal_vel: {:.1?}", goal_vel);
-            info!("movement_force: {:.1?}", movement_force);
-            info!("max_movement_force: {:.1?}", max_movement_force);
-        }
-
-        force.linear += movement_force - friction_force - slip_force.unwrap_or(Vec3::ZERO);
+        force.linear += movement_force - friction_force - slip_force;
     }
 }
 
@@ -411,7 +411,7 @@ pub fn jump_force(
         }
 
         let velocity = if let Some(ground) = ground_cast.viable.last() {
-            velocity.linear - ground.point_velocity.linvel
+            velocity.linear - ground.point_velocity
         } else {
             velocity.linear
         };

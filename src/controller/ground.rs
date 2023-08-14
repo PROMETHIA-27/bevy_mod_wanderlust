@@ -61,8 +61,10 @@ pub struct Ground {
     pub stable: bool,
     /// Is this ground viable for the collider.
     pub viable: bool,
+    pub angular_velocity: Vec3,
+    pub linear_velocity: Vec3,
     /// Velocity at the point of contact.
-    pub point_velocity: Velocity,
+    pub point_velocity: Vec3,
 }
 
 /// The cached ground cast. Contains the entity hit, the hit info, and velocity of the entity
@@ -225,7 +227,7 @@ pub fn find_ground(
                     .get(ground_entity)
                     .unwrap_or(&GlobalTransform::IDENTITY);
                 let com = global.transform_point(local_com);
-                let velocity =
+                let point_velocity =
                     ground_velocity.linvel + ground_velocity.angvel.cross(result.point - com);
 
                 let (stable, viable) = if result.normal.length() > 0.0 {
@@ -242,10 +244,9 @@ pub fn find_ground(
                     cast: result,
                     stable: stable,
                     viable: viable,
-                    point_velocity: Velocity {
-                        linvel: velocity,
-                        angvel: ground_velocity.angvel,
-                    },
+                    linear_velocity: ground_velocity.linvel,
+                    angular_velocity: ground_velocity.angvel,
+                    point_velocity: point_velocity,
                 })
             }
             None => None,
@@ -348,12 +349,12 @@ pub fn ground_cast(
     let raycast_filter = filter.clone();
     let mut shapecast_filter = filter.clone();
     for _ in 0..12 {
-        gizmos.sphere(shape_pos, Quat::IDENTITY, 0.3, Color::CYAN);
+        //gizmos.sphere(shape_pos, Quat::IDENTITY, 0.3, Color::CYAN);
         if let Some((entity, toi)) =
             ctx.cast_shape(shape_pos, shape_rot, shape_vel, shape, max_toi, filter)
         {
             if toi.status != TOIStatus::Penetrating {
-                gizmos.sphere(toi.witness1, Quat::IDENTITY, 0.3, Color::BLUE);
+                //gizmos.sphere(toi.witness1, Quat::IDENTITY, 0.3, Color::BLUE);
                 return Some((entity, CastResult::from_toi1(toi)));
             }
 

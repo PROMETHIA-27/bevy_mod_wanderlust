@@ -1,4 +1,5 @@
-use bevy::prelude::*;
+use bevy::{prelude::*, math::Affine3A};
+use bevy_rapier3d::prelude::*;
 
 mod gravity;
 mod ground;
@@ -104,6 +105,7 @@ impl Default for ForceSettings {
 /// Add all forces together into a single force to be applied to the physics engine.
 pub fn accumulate_forces(
     globals: Query<&GlobalTransform>,
+    masses: Query<&ReadMassProperties>,
     mut forces: Query<(
         &ForceSettings,
         &mut ControllerForce,
@@ -115,7 +117,9 @@ pub fn accumulate_forces(
         &GravityForce,
         &GroundCast,
         &ControllerMass,
+        &Gravity,
     )>,
+    mut gizmos: Gizmos,
 ) {
     for (
         settings,
@@ -128,6 +132,7 @@ pub fn accumulate_forces(
         gravity,
         ground_cast,
         mass,
+        gravity_settings,
     ) in &mut forces
     {
         /*
@@ -144,27 +149,31 @@ pub fn accumulate_forces(
             + (jump.linear + float.linear) * settings.opposing_force_scale);
 
         if let ViableGround::Ground(ground) = ground_cast.viable {
-            let ground_transform = match globals.get(ground.entity) {
-                Ok(global) => global.compute_transform().compute_affine(),
-                _ => Transform::default().compute_affine(),
+            let ground_global = match globals.get(ground.entity) {
+                Ok(global) => global,
+                _ => &GlobalTransform::IDENTITY,
             };
 
-            let point = ground_transform
-                .inverse()
-                .transform_point3(ground.cast.point);
+            let ground_mass = if let Ok(mass) = masses.get(ground.entity) {
+                mass.0.clone()
+            } else {
+                MassProperties::default()
+            };
+
+            let com = ground_global.transform_point(ground_mass.local_center_of_mass);
             ground_force.linear = opposing_force;
-            ground_force.angular = (point - mass.com).cross(opposing_force);
+            ground_force.angular = (ground.cast.point - com).cross(opposing_force);
 
             #[cfg(feature = "debug_lines")]
             {
-                let color = if opposing_impulse.dot(settings.up_vector) < 0.0 {
+                let color = if opposing_force.dot(gravity_settings.up_vector) < 0.0 {
                     Color::RED
                 } else {
                     Color::BLUE
                 };
                 gizmos.line(
-                    ground.cast.witness,
-                    ground.cast.witness + opposing_impulse,
+                    ground.cast.point,
+                    ground.cast.point + opposing_force,
                     color,
                 );
             }
