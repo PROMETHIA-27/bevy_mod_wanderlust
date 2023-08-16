@@ -157,6 +157,7 @@ pub struct GroundForce {
 
 /// Performs groundcasting and updates controller state accordingly.
 pub fn find_ground(
+    time: Res<Time>,
     mut casters: Query<(
         Entity,
         &GlobalTransform,
@@ -171,10 +172,51 @@ pub fn find_ground(
     colliders: Query<&Collider>,
 
     ctx: Res<RapierContext>,
+    names: Query<DebugName>,
+
+    mut freeze: ResMut<Freeze>,
+    mut last_ground_state: ResMut<LastGroundState>,
 
     mut gizmos: Gizmos,
 ) {
+    #[cfg(feature = "debug_lines")]
+    if last_ground_state.valid {
+        gizmos.sphere(last_ground_state.above, Quat::IDENTITY, 0.03, Color::BLUE);
+        gizmos.sphere(last_ground_state.nudged, Quat::IDENTITY, 0.03, Color::RED);
+        gizmos.ray(
+            last_ground_state.nudged,
+            last_ground_state.shape_vel * (last_ground_state.toi + 0.05),
+            Color::PURPLE,
+        );
+        gizmos.ray(
+            last_ground_state.shape_pos,
+            last_ground_state.direct_ray * 1.5,
+            Color::RED,
+        );
+
+        //gizmos.ray(last_ground_state.point2, last_ground_state.normal2 * 0.75, Color::YELLOW);
+        gizmos.ray(
+            last_ground_state.point1,
+            last_ground_state.normal1 * 1.25,
+            Color::PINK,
+        );
+        gizmos.ray(
+            last_ground_state.point1,
+            last_ground_state.correctednormal * 1.25,
+            Color::PURPLE,
+        );
+        gizmos.ray(
+            last_ground_state.point1,
+            last_ground_state.correctednormal2 * 1.25,
+            Color::RED,
+        );
+    }
+
     let dt = ctx.integration_parameters.dt;
+    if time.delta_seconds() == 0.0 {
+        return;
+    }
+
     for (entity, tf, gravity, mut caster, mut cast) in &mut casters {
         let casted = if caster.skip_ground_check_timer == 0.0 && !caster.skip_ground_check_override
         {
@@ -200,6 +242,7 @@ pub fn find_ground(
                 caster.cast_length,
                 filter,
                 &mut gizmos,
+                &mut *last_ground_state,
             )
         } else {
             caster.skip_ground_check_timer = (caster.skip_ground_check_timer - dt).max(0.0);
@@ -233,6 +276,19 @@ pub fn find_ground(
                 let (stable, viable) = if result.normal.length() > 0.0 {
                     let ground_angle = result.normal.angle_between(gravity.up_vector);
                     let viable = ground_angle <= caster.max_ground_angle;
+                    if viable && ground_angle != 0.0 {
+                        info!(
+                            "found viable ground {:?}",
+                            names.get(ground_entity).unwrap()
+                        );
+                        info!("result normal: {:?}", result.normal);
+                        info!("up vector: {:?}", gravity.up_vector);
+                        info!(
+                            "ground angle: {:?}",
+                            ground_angle * 180.0 / std::f32::consts::PI
+                        );
+                        //freeze.0 = true;
+                    }
                     let stable = ground_angle <= caster.unstable_ground_angle && viable;
                     (stable, viable)
                 } else {
@@ -329,6 +385,24 @@ impl From<RayIntersection> for CastResult {
     }
 }
 
+#[derive(Debug, Resource, Default)]
+pub struct LastGroundState {
+    pub valid: bool,
+    pub above: Vec3,
+    pub nudged: Vec3,
+    pub shape_pos: Vec3,
+    pub shape_vel: Vec3,
+    pub toi: f32,
+    pub direct_ray: Vec3,
+
+    pub point1: Vec3,
+    pub normal1: Vec3,
+    pub point2: Vec3,
+    pub normal2: Vec3,
+    pub correctednormal: Vec3,
+    pub correctednormal2: Vec3,
+}
+
 /// Robust casting to find the ground beneath the controller.
 ///
 /// This has fallbacks to make sure we catch non-convex colliders.
@@ -345,67 +419,140 @@ pub fn ground_cast(
     filter: QueryFilter,
 
     gizmos: &mut Gizmos,
+    last_ground_state: &mut LastGroundState,
 ) -> Option<(Entity, CastResult)> {
+    last_ground_state.valid = false;
+
     let raycast_filter = filter.clone();
     let mut shapecast_filter = filter.clone();
+    let original_position = shape_pos;
+    //gizmos.sphere(shape_pos, Quat::IDENTITY, 0.3, Color::CYAN);
     for _ in 0..12 {
-        //gizmos.sphere(shape_pos, Quat::IDENTITY, 0.3, Color::CYAN);
         if let Some((entity, toi)) =
             ctx.cast_shape(shape_pos, shape_rot, shape_vel, shape, max_toi, filter)
         {
             if toi.status != TOIStatus::Penetrating {
-                //gizmos.sphere(toi.witness1, Quat::IDENTITY, 0.3, Color::BLUE);
+                if shape_pos != original_position {
+                    //gizmos.line(original_position, shape_pos, Color::RED);
+                }
+                //gizmos.sphere(shape_pos, Quat::IDENTITY, 0.3, Color::RED);
+                gizmos.sphere(shape_pos + shape_vel * toi.toi, Quat::IDENTITY, 0.3, Color::BLUE);
                 let mut cast_result = CastResult::from_toi1(toi);
 
                 // try to get a better normal rather than an edge interpolated normal.
-
                 // project back onto original shape position
                 let above = toi.witness1 + -shape_vel * toi.toi;
                 let dir = (shape_pos - above).normalize_or_zero();
                 // nudge slightly in the direction of the hit point
                 let nudged = above - dir * 0.05;
 
-                #[cfg(feature = "debug_lines")]
-                {
-                    gizmos.sphere(above, Quat::IDENTITY, 0.03, Color::BLUE);
-                    gizmos.sphere(nudged, Quat::IDENTITY, 0.03, Color::RED);
-                }
+                let direct_ray = (cast_result.point - shape_pos).normalize_or_zero();
 
-                if let Some((ray_entity, inter)) = ctx.cast_ray_and_get_normal(nudged, shape_vel, toi.toi + 0.05, true, filter) {
-                    if entity == ray_entity {
-                        cast_result.normal = inter.normal;
+                /*
+                last_ground_state.valid = true;
+                last_ground_state.above = above;
+                last_ground_state.nudged = nudged;
+                last_ground_state.shape_pos = shape_pos;
+                last_ground_state.shape_vel = shape_vel;
+                last_ground_state.toi = toi.toi;
+                last_ground_state.direct_ray = direct_ray;
+
+                last_ground_state.point1 = toi.witness1;
+                last_ground_state.normal1 = toi.normal1;
+                last_ground_state.correctednormal = Vec3::ZERO;
+                last_ground_state.correctednormal2 = Vec3::ZERO;
+                //last_ground_state.point2 = toi.witness2;
+                //last_ground_state.normal2 = toi.normal2;
+                */
+
+                // Initial correction, nudge the position slightly
+                // in the direction of the contact point and cast
+                // directly downward.
+                let mut secondary_correction = true;
+                if let Some((ray_entity, inter)) =
+                    ctx.cast_ray_and_get_normal(nudged, shape_vel.normalize_or_zero(), toi.toi + 0.05, true, filter)
+                {
+                    if entity == ray_entity && inter.toi > 0.0 && inter.normal.length() > 0.0 {
+                        let angle_between = cast_result.normal.angle_between(inter.normal).abs();
+                        if angle_between < std::f32::consts::PI / 2.0 {
+                            cast_result.normal = inter.normal;
+                            secondary_correction = false;
+                        }
                     }
                 }
 
+                // Secondary correction checking a direct path to the contact point
+                if secondary_correction {
+                    if direct_ray.length() > 0.0 {
+                        if let Some((ray_entity, inter)) = ctx.cast_ray_and_get_normal(
+                            shape_pos,
+                            direct_ray.normalize_or_zero(),
+                            1.1,
+                            true,
+                            filter,
+                        ) {
+                            if inter.toi <= 0.0 {
+                                warn!("Ray intersection toi should not be 0.0 if the shapecast was not penetrating.");
+                                return None;
+                            }
+                            //info!("correcting: {:?} == {:?}", entity, ray_entity);
+                            if entity == ray_entity && inter.toi > 0.0 && inter.normal.length() > 0.0 {
+                                let angle_between =
+                                    cast_result.normal.angle_between(inter.normal).abs();
+                                if angle_between < std::f32::consts::PI / 2.0 {
+                                    /*
+                                    info!("pos: {:?}", shape_pos);
+                                    info!("direct_ray: {:?}", direct_ray);
+                                    info!("length: {:?}", direct_ray.length() + 0.5);
+                                    info!("new normal: {:?}", inter.normal);
+                                    */
+                                    cast_result.normal = inter.normal;
+                                    //last_ground_state.correctednormal2 = inter.normal;
+                                }
+                            }
+                        } else {
+                            warn!("Missed the contact point with a direct raycast");
+                            return None;
+                        }
+                    }
+                }
+
+                //info!("returning cast: {:?}", entity);
                 return Some((entity, cast_result));
             }
 
+            // We are penetrating something, try to push the shape cast out from any contacts.
             match (globals.get(entity), colliders.get(entity)) {
                 (Ok(ground_global), Ok(ground_collider)) => {
-                    let cast_iso = Isometry3 {
-                        translation: shape_pos.into(),
-                        rotation: shape_rot.into(),
-                    };
+                    for penetration_iters in 0..12 {
+                        let cast_iso = Isometry3 {
+                            translation: shape_pos.into(),
+                            rotation: shape_rot.into(),
+                        };
 
-                    let (_, ground_rotation, ground_translation) =
-                        ground_global.to_scale_rotation_translation();
-                    let ground_iso = Isometry3 {
-                        translation: ground_translation.into(),
-                        rotation: ground_rotation.into(),
-                    };
+                        let (_, ground_rotation, ground_translation) =
+                            ground_global.to_scale_rotation_translation();
+                        let ground_iso = Isometry3 {
+                            translation: ground_translation.into(),
+                            rotation: ground_rotation.into(),
+                        };
 
-                    if let Ok(Some(contact)) = bevy_rapier3d::parry::query::contact(
-                        &cast_iso,
-                        &*shape.raw,
-                        &ground_iso,
-                        &*ground_collider.raw,
-                        0.0,
-                    ) {
-                        let normal: Vec3 = contact.normal2.into();
-                        // This prevents some issues where we get a near 0.0 time-of-impact due to floating point imprecision.
-                        const EXTRA_CORRECTION: f32 = 1.5;
-                        let correction = normal * (-contact.dist).max(0.05) * EXTRA_CORRECTION;
-                        shape_pos += correction;
+                        if let Ok(Some(contact)) = bevy_rapier3d::parry::query::contact(
+                            &cast_iso,
+                            &*shape.raw,
+                            &ground_iso,
+                            &*ground_collider.raw,
+                            0.0,
+                        ) {
+                            let normal: Vec3 = contact.normal2.into();
+                            // This prevents some issues where we get a near 0.0 time-of-impact due to floating point imprecision.
+                            const EXTRA_CORRECTION: f32 = 2.5;
+                            let correction = normal * -contact.dist * EXTRA_CORRECTION;
+                            shape_pos += correction;
+                        } else {
+                            //info!("iters: {:?}", penetration_iters);
+                            break;
+                        }
                     }
                 }
                 _ => {}

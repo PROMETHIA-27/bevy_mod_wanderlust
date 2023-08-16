@@ -95,6 +95,9 @@ impl Cap for Vec3 {
     }
 }
 
+#[derive(Debug, Resource, Default)]
+pub struct Freeze(pub bool);
+
 /// Calculates the movement forces for this controller.
 pub fn movement_force(
     ctx: Res<RapierContext>,
@@ -114,6 +117,7 @@ pub fn movement_force(
     masses: Query<&ReadMassProperties>,
     frictions: Query<&Friction>,
     mut gizmos: Gizmos,
+    mut freeze: ResMut<Freeze>,
 ) {
     let dt = ctx.integration_parameters.dt;
     for (
@@ -139,12 +143,12 @@ pub fn movement_force(
         let slip_vector = match cast.current {
             Some(ground) if !ground.stable => {
                 let (x, z) = ground.cast.normal.any_orthonormal_pair();
-                gizmos.ray(ground.cast.point, ground.cast.normal, Color::BLUE);
+                //gizmos.ray(ground.cast.point, ground.cast.normal, Color::BLUE);
 
                 let projected_x = gravity.up_vector.project_onto(x);
                 let projected_z = gravity.up_vector.project_onto(z);
                 let slip_vector = ((projected_x + projected_z) * force_scale).normalize_or_zero();
-                gizmos.ray(ground.cast.point, slip_vector, Color::LIME_GREEN);
+                //gizmos.ray(ground.cast.point, slip_vector, Color::LIME_GREEN);
 
                 // arbitrary value to ignore flat surfaces.
                 if slip_vector.length() > 0.01 {

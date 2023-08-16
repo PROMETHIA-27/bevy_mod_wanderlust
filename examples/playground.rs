@@ -9,8 +9,8 @@ use bevy::{
 };
 use bevy_framepace::*;
 use bevy_mod_wanderlust::{
-    Controller, ControllerBundle, ControllerInput, ControllerPhysicsBundle, Float, GroundCaster,
-    Jump, Movement, RapierPhysicsBundle, Strength, Upright, WanderlustPlugin,
+    Controller, ControllerBundle, ControllerInput, ControllerPhysicsBundle, Float, Freeze,
+    GroundCaster, Jump, Movement, RapierPhysicsBundle, Strength, Upright, WanderlustPlugin,
 };
 use bevy_rapier3d::prelude::*;
 use std::f32::consts::{FRAC_2_PI, PI};
@@ -47,6 +47,7 @@ fn main() {
         .insert_resource(FramepaceSettings {
             limiter: Limiter::Manual(std::time::Duration::from_secs_f64(0.016)), //limiter: Limiter::Auto,
         })
+        .insert_resource(Freeze(true))
         .insert_resource(Sensitivity(1.0))
         .add_systems(
             Startup,
@@ -60,6 +61,30 @@ fn main() {
                 walls,
                 free_objects,
             ),
+        )
+        .add_systems(
+            Last,
+            |input: Res<Input<KeyCode>>,
+             mut freeze: ResMut<Freeze>,
+             mut time: ResMut<Time>,
+             mut rapier_config: ResMut<RapierConfiguration>| {
+                if input.just_pressed(KeyCode::R) {
+                    freeze.0 = !freeze.0;
+                }
+
+                if !freeze.0 || input.just_pressed(KeyCode::F) {
+                    rapier_config.timestep_mode = TimestepMode::Fixed {
+                        dt: 0.016,
+                        substeps: 32,
+                    };
+                } else {
+                    *time = Time::default();
+                    rapier_config.timestep_mode = TimestepMode::Fixed {
+                        dt: 0.0,
+                        substeps: 1,
+                    };
+                }
+            },
         )
         // Add to PreUpdate to ensure updated before movement is calculated
         .add_systems(
@@ -298,8 +323,8 @@ pub fn stairs(
 
     steps(
         Transform {
-            translation: Vec3::new(5.0, 0.0, -10.0),
-            rotation: Quat::from_rotation_y(-PI / 4.0),
+            translation: Vec3::new(1.0, 0.0, -9.0),
+            rotation: Quat::from_rotation_y(PI / 4.0),
             ..default()
         },
         0.4,
