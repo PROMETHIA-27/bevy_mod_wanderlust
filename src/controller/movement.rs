@@ -4,9 +4,6 @@ use crate::spring::Strength;
 /// Movements applied via inputs.
 ///
 /// This includes directional movement and jumping.
-use bevy_rapier3d::prelude::*;
-
-/// Settings used to determine movement impulses on this controller.
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Default)]
 pub struct Movement {
@@ -24,6 +21,7 @@ pub struct Movement {
     pub slip_force_scale: Vec3,
 }
 
+/// Determine force scale for movement.
 #[derive(Debug, Default, Clone, Reflect)]
 pub enum ForceScale {
     /// Use the inverse of `Gravity::up_vector` for a force scale.
@@ -47,6 +45,7 @@ impl Default for Movement {
 }
 
 impl Movement {
+    /// Calculate force scale.
     pub fn force_scale(&self, gravity: &Gravity) -> Vec3 {
         match self.force_scale {
             ForceScale::Vec3(v) => v,
@@ -74,7 +73,10 @@ pub struct MovementForce {
     pub angular: Vec3,
 }
 
+/// Sign independent maximum.
 pub trait Cap {
+    /// If the `cap` is negative, then it clamps `self` if it is less than `cap`.
+    /// If the `cap` is positive, then it clamps `self` if it is greater than `cap`.
     fn cap(self, cap: Self) -> Self;
 }
 
@@ -100,31 +102,26 @@ pub fn movement_force(
     ctx: Res<RapierContext>,
     mut query: Query<(
         Entity,
-        &GlobalTransform,
         &mut MovementForce,
         &mut Movement,
         &Gravity,
         &ControllerInput,
         &GroundCast,
-        &GroundCaster,
         &ControllerVelocity,
         &ControllerMass,
     )>,
     globals: Query<&GlobalTransform>,
     masses: Query<&ReadMassProperties>,
     frictions: Query<&Friction>,
-    mut gizmos: Gizmos,
 ) {
     let dt = ctx.integration_parameters.dt;
     for (
         controller_entity,
-        global,
         mut force,
         movement,
         gravity,
         input,
         cast,
-        ground_caster,
         velocity,
         mass,
     ) in &mut query
@@ -202,7 +199,7 @@ pub fn movement_force(
 
         let strength = movement.acceleration.get(mass.mass, dt);
 
-        let movement_force = (goal_vel * strength * force_scale);
+        let movement_force = goal_vel * strength * force_scale;
 
         let clamped_velocity = relative_velocity.cap(goal_vel);
         let displacement = goal_vel - clamped_velocity;
@@ -388,7 +385,7 @@ pub fn jump_force(
     {
         force.linear = Vec3::ZERO;
 
-        let grounded = ground_cast.grounded();
+        let grounded = **grounded;
         jumping.tick_timers(dt);
 
         if grounded {

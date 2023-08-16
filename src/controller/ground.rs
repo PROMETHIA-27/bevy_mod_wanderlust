@@ -1,6 +1,6 @@
 use crate::controller::*;
 use bevy::utils::HashSet;
-use bevy_rapier3d::{na::Isometry3, prelude::*};
+use bevy_rapier3d::{na::Isometry3};
 
 /// How to detect if something below the controller is suitable
 /// for standing on.
@@ -61,9 +61,11 @@ pub struct Ground {
     pub stable: bool,
     /// Is this ground viable for the collider.
     pub viable: bool,
+    /// Angular velocity of the ground body.
     pub angular_velocity: Vec3,
+    /// Linear velocity of the ground body.
     pub linear_velocity: Vec3,
-    /// Velocity at the point of contact.
+    /// Linear velocity at the point of contact.
     pub point_velocity: Vec3,
 }
 
@@ -172,9 +174,6 @@ pub fn find_ground(
     colliders: Query<&Collider>,
 
     ctx: Res<RapierContext>,
-    names: Query<DebugName>,
-
-    mut gizmos: Gizmos,
 ) {
     let dt = ctx.integration_parameters.dt;
     if time.delta_seconds() == 0.0 {
@@ -196,7 +195,6 @@ pub fn find_ground(
 
             ground_cast(
                 &*ctx,
-                caster.max_ground_angle,
                 &colliders,
                 &globals,
                 cast_position,
@@ -205,7 +203,6 @@ pub fn find_ground(
                 &shape,
                 caster.cast_length,
                 filter,
-                &mut gizmos,
             )
         } else {
             caster.skip_ground_check_timer = (caster.skip_ground_check_timer - dt).max(0.0);
@@ -276,7 +273,6 @@ pub fn determine_groundedness(
         &GroundCast,
         &mut Grounded,
     )>,
-    mut gizmos: Gizmos,
 ) {
     for (global, gravity, float, cast, mut grounded) in &mut query {
         grounded.0 = false;
@@ -340,7 +336,6 @@ impl From<RayIntersection> for CastResult {
 /// This has fallbacks to make sure we catch non-convex colliders.
 pub fn ground_cast(
     ctx: &RapierContext,
-    max_angle: f32,
     colliders: &Query<&Collider>,
     globals: &Query<&GlobalTransform>,
     mut shape_pos: Vec3,
@@ -349,12 +344,7 @@ pub fn ground_cast(
     shape: &Collider,
     max_toi: f32,
     filter: QueryFilter,
-
-    gizmos: &mut Gizmos,
 ) -> Option<(Entity, CastResult)> {
-    let raycast_filter = filter.clone();
-    let mut shapecast_filter = filter.clone();
-    let original_position = shape_pos;
     //gizmos.sphere(shape_pos, Quat::IDENTITY, 0.3, Color::CYAN);
     for _ in 0..12 {
         if let Some((entity, toi)) =

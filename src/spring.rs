@@ -19,6 +19,7 @@ pub enum Strength {
 }
 
 impl Strength {
+    /// Calculate strength.
     pub fn get(&self, mass: f32, dt: f32) -> f32 {
         match *self {
             Self::Instant(raw) => raw * mass / dt,

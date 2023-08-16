@@ -1,4 +1,4 @@
-use bevy::{math::Affine3A, prelude::*};
+use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
 
 mod gravity;
@@ -116,10 +116,7 @@ pub fn accumulate_forces(
         &JumpForce,
         &GravityForce,
         &GroundCast,
-        &ControllerMass,
-        &Gravity,
     )>,
-    mut gizmos: Gizmos,
 ) {
     for (
         settings,
@@ -131,8 +128,6 @@ pub fn accumulate_forces(
         jump,
         gravity,
         ground_cast,
-        mass,
-        gravity_settings,
     ) in &mut forces
     {
         /*

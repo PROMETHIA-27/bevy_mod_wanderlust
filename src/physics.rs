@@ -1,5 +1,4 @@
 use bevy::prelude::*;
-use bevy_rapier3d::prelude::*;
 
 /// Mass/inertia properties for controller.
 #[derive(Component, Clone, Default, Reflect)]
@@ -51,12 +50,5 @@ impl Default for ControllerPhysicsBundle {
             velocity: default(),
             force: default(),
         }
-    }
-}
-
-pub fn update_integration_dt(time: Res<Time>, mut ctx: ResMut<RapierContext>) {
-    let dt = time.delta_seconds();
-    if dt > 0.0 {
-        ctx.integration_parameters.dt = dt;
     }
 }

@@ -2,7 +2,6 @@ use crate::controller::*;
 use crate::SpringStrength;
 
 /// Keeps the controller properly oriented in a floating state.
-
 #[derive(Component, Reflect)]
 #[reflect(Component, Default)]
 pub struct Float {
@@ -158,13 +157,7 @@ pub fn upright_force(
             };
 
             let local_velocity = velocity.angular - ground_rot;
-            let projected_vel = if local_velocity.length() > 0.0 && desired_axis.length() > 0.0 {
-                local_velocity.project_onto(desired_axis)
-            } else {
-                Vec3::ZERO
-            };
-
-            let spring = (desired_axis * upright.spring.strength.get(mass.inertia)) - (velocity.angular * damping);
+            let spring = (desired_axis * upright.spring.strength.get(mass.inertia)) - (local_velocity * damping);
             //spring.clamp_length_max(upright.spring.strength)
             spring
         };
