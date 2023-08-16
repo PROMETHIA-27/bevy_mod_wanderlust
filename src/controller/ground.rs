@@ -174,6 +174,7 @@ pub fn find_ground(
     colliders: Query<&Collider>,
 
     ctx: Res<RapierContext>,
+    mut gizmos: Gizmos,
 ) {
     let dt = ctx.integration_parameters.dt;
     if time.delta_seconds() == 0.0 {
@@ -203,6 +204,7 @@ pub fn find_ground(
                 &shape,
                 caster.cast_length,
                 filter,
+                &mut gizmos,
             )
         } else {
             caster.skip_ground_check_timer = (caster.skip_ground_check_timer - dt).max(0.0);
@@ -287,6 +289,7 @@ pub fn determine_groundedness(
                 //gizmos.sphere(translation, Quat::IDENTITY, 0.3, Color::GREEN);
                 let offset = float.distance - updated_toi;
 
+                //let up_velocity = up_velocity.clamp(-float.distance, float.distance);
                 // Loosen constraints based on velocity.
                 let max = if up_velocity > float.max_offset {
                     float.max_offset + up_velocity
@@ -364,6 +367,7 @@ pub fn ground_cast(
     shape: &Collider,
     max_toi: f32,
     filter: QueryFilter,
+    gizmos: &mut Gizmos,
 ) -> Option<(Entity, CastResult)> {
     //gizmos.sphere(shape_pos, Quat::IDENTITY, 0.3, Color::CYAN);
     for _ in 0..12 {
@@ -383,28 +387,49 @@ pub fn ground_cast(
 
                 let direct_ray = (cast_result.point - shape_pos).normalize_or_zero();
 
-                // Initial correction, nudge the position slightly
-                // in the direction of the contact point and cast
-                // directly downward.
-                let mut secondary_correction = true;
-                if let Some((ray_entity, inter)) = ctx.cast_ray_and_get_normal(
-                    nudged,
-                    shape_vel.normalize_or_zero(),
-                    toi.toi + 0.05,
-                    true,
-                    filter,
-                ) {
-                    if entity == ray_entity && inter.toi > 0.0 && inter.normal.length() > 0.0 {
-                        let angle_between = cast_result.normal.angle_between(inter.normal).abs();
-                        if angle_between < std::f32::consts::PI / 2.0 {
-                            cast_result.normal = inter.normal;
-                            secondary_correction = false;
+                let fudge = 0.05;
+                let (x, z) = shape_vel.any_orthonormal_pair();
+
+                let samples = [
+                    -x + z,
+                    -x - z,
+                    x + z,
+                    x - z,
+                ];
+
+                // Initial correction, sample points around the contact point
+                // for the closest normal
+                let mut sampled = None;
+                for sample in samples {
+
+                    if let Some((ray_entity, inter)) = ctx.cast_ray_and_get_normal(
+                        above - sample * fudge,
+                        shape_vel.normalize_or_zero(),
+                        max_toi,
+                        true,
+                        filter,
+                    ) {
+                        if entity == ray_entity && inter.toi > 0.0 && inter.normal.length() > 0.0 {
+                            gizmos.ray(inter.point, inter.normal * 0.5, Color::RED);
+                            match sampled {
+                                None => {
+                                    sampled = Some(inter);
+                                }
+                                Some(current) if inter.toi < current.toi => {
+                                    sampled = Some(inter);
+                                }
+                                _ => {}
+                            }
                         }
                     }
                 }
 
+                if let Some(sampled) = sampled {
+                    cast_result.normal = sampled.normal;
+                }
+
                 // Secondary correction checking a direct path to the contact point
-                if secondary_correction {
+                if sampled.is_none() {
                     if direct_ray.length() > 0.0 {
                         if let Some((ray_entity, inter)) = ctx.cast_ray_and_get_normal(
                             shape_pos,
@@ -434,6 +459,7 @@ pub fn ground_cast(
                     }
                 }
 
+                gizmos.ray(cast_result.point, cast_result.normal * 0.5, Color::RED);
                 //info!("returning cast: {:?}", entity);
                 return Some((entity, cast_result));
             }

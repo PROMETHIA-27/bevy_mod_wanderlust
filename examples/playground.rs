@@ -477,6 +477,21 @@ pub fn slopes(
             Name::from(format!("Slope {:?} radians", radians)),
             Collider::cuboid(0.5, 0.5, 0.5),
         ));
+
+        commands.spawn((
+            PbrBundle {
+                mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+                material: material.clone(),
+                transform: Transform {
+                    translation: Vec3::new(12.0, 0.0, angle as f32 * width),
+                    rotation: Quat::from_rotation_z(-radians),
+                    scale: Vec3::new(12.0, 1.0, width),
+                },
+                ..default()
+            },
+            Name::from(format!("Slope {:?} radians", radians)),
+            Collider::cuboid(0.5, 0.5, 0.5),
+        ));
     }
 }
 
