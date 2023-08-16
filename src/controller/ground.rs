@@ -1,6 +1,6 @@
 use crate::controller::*;
 use bevy::utils::HashSet;
-use bevy_rapier3d::{na::Isometry3};
+use bevy_rapier3d::na::Isometry3;
 
 /// How to detect if something below the controller is suitable
 /// for standing on.
@@ -271,20 +271,40 @@ pub fn determine_groundedness(
         &Gravity,
         &Float,
         &GroundCast,
+        &ControllerVelocity,
         &mut Grounded,
     )>,
 ) {
-    for (global, gravity, float, cast, mut grounded) in &mut query {
+    for (global, gravity, float, cast, velocity, mut grounded) in &mut query {
         grounded.0 = false;
         if let Some(ground) = cast.current {
             if ground.viable {
+                let up_velocity = velocity.linear.dot(gravity.up_vector);
                 let translation = global.translation();
                 let updated_toi =
                     translation.dot(gravity.up_vector) - ground.cast.point.dot(gravity.up_vector);
                 //gizmos.sphere(ground.cast.point, Quat::IDENTITY, 0.3, Color::RED);
                 //gizmos.sphere(translation, Quat::IDENTITY, 0.3, Color::GREEN);
                 let offset = float.distance - updated_toi;
-                grounded.0 = offset <= float.max_offset && offset >= float.min_offset;
+
+                // Loosen constraints based on velocity.
+                let max = if up_velocity > float.max_offset {
+                    float.max_offset + up_velocity
+                } else {
+                    float.max_offset
+                };
+                let min = if up_velocity < float.min_offset {
+                    float.min_offset + up_velocity
+                } else {
+                    float.min_offset
+                };
+                grounded.0 = offset >= min && offset <= max;
+                /*
+                info!(
+                    "grounded: {:?}, {:.3?} <= {:.3?} <= {:.3?}",
+                    grounded.0, min, offset, max
+                );
+                */
             }
         };
     }
@@ -367,9 +387,13 @@ pub fn ground_cast(
                 // in the direction of the contact point and cast
                 // directly downward.
                 let mut secondary_correction = true;
-                if let Some((ray_entity, inter)) =
-                    ctx.cast_ray_and_get_normal(nudged, shape_vel.normalize_or_zero(), toi.toi + 0.05, true, filter)
-                {
+                if let Some((ray_entity, inter)) = ctx.cast_ray_and_get_normal(
+                    nudged,
+                    shape_vel.normalize_or_zero(),
+                    toi.toi + 0.05,
+                    true,
+                    filter,
+                ) {
                     if entity == ray_entity && inter.toi > 0.0 && inter.normal.length() > 0.0 {
                         let angle_between = cast_result.normal.angle_between(inter.normal).abs();
                         if angle_between < std::f32::consts::PI / 2.0 {
@@ -393,7 +417,10 @@ pub fn ground_cast(
                                 warn!("Ray intersection toi should not be 0.0 if the shapecast was not penetrating.");
                                 return None;
                             }
-                            if entity == ray_entity && inter.toi > 0.0 && inter.normal.length() > 0.0 {
+                            if entity == ray_entity
+                                && inter.toi > 0.0
+                                && inter.normal.length() > 0.0
+                            {
                                 let angle_between =
                                     cast_result.normal.angle_between(inter.normal).abs();
                                 if angle_between < std::f32::consts::PI / 2.0 {

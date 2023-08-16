@@ -9,8 +9,8 @@ use bevy::{
 };
 use bevy_framepace::*;
 use bevy_mod_wanderlust::{
-    Controller, ControllerBundle, ControllerInput, ControllerPhysicsBundle, Float,
-    GroundCaster, Jump, Movement, RapierPhysicsBundle, Strength, Upright, WanderlustPlugin,
+    Controller, ControllerBundle, ControllerInput, ControllerPhysicsBundle, Float, GroundCaster,
+    Jump, Movement, RapierPhysicsBundle, Strength, Upright, WanderlustPlugin,
 };
 use bevy_rapier3d::prelude::*;
 use std::f32::consts::{FRAC_2_PI, PI};

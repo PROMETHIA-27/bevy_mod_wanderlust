@@ -78,11 +78,7 @@ impl Spring {
     /// The damping coefficient that will just reach the target without overshooting.
     pub fn critical_damping_point(&self, inertia: Vec3) -> Vec3 {
         let km = inertia * self.strength.get(inertia);
-        let sqrt = Vec3::new(
-            km.x.sqrt(),
-            km.y.sqrt(),
-            km.z.sqrt(),
-        );
+        let sqrt = Vec3::new(km.x.sqrt(), km.y.sqrt(), km.z.sqrt());
         2.0 * sqrt
     }
 

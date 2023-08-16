@@ -115,16 +115,7 @@ pub fn movement_force(
     frictions: Query<&Friction>,
 ) {
     let dt = ctx.integration_parameters.dt;
-    for (
-        controller_entity,
-        mut force,
-        movement,
-        gravity,
-        input,
-        cast,
-        velocity,
-        mass,
-    ) in &mut query
+    for (controller_entity, mut force, movement, gravity, input, cast, velocity, mass) in &mut query
     {
         force.linear = Vec3::ZERO;
 

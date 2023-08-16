@@ -25,8 +25,8 @@ impl Default for Float {
     fn default() -> Self {
         Self {
             distance: 0.55,
-            min_offset: -0.3,
-            max_offset: 0.05,
+            min_offset: -0.55,
+            max_offset: 0.1,
             spring: Spring {
                 strength: SpringStrength::AngularFrequency(12.0),
                 damping: 0.8,
@@ -150,6 +150,7 @@ pub fn upright_force(
 
             let damping = upright.spring.damp_coefficient(mass.inertia);
 
+            /*
             let ground_rot = if let Some(ground) = ground_cast.viable.last() {
                 ground.angular_velocity
             } else {
@@ -157,7 +158,15 @@ pub fn upright_force(
             };
 
             let local_velocity = velocity.angular - ground_rot;
-            let spring = (desired_axis * upright.spring.strength.get(mass.inertia)) - (local_velocity * damping);
+            let projected_vel = if local_velocity.length() > 0.0 && desired_axis.length() > 0.0 {
+                local_velocity.project_onto(desired_axis)
+            } else {
+                Vec3::ZERO
+            };
+            */
+
+            let spring = (desired_axis * upright.spring.strength.get(mass.inertia))
+                - (velocity.angular * damping);
             //spring.clamp_length_max(upright.spring.strength)
             spring
         };
