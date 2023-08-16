@@ -95,9 +95,6 @@ impl Cap for Vec3 {
     }
 }
 
-#[derive(Debug, Resource, Default)]
-pub struct Freeze(pub bool);
-
 /// Calculates the movement forces for this controller.
 pub fn movement_force(
     ctx: Res<RapierContext>,
@@ -117,7 +114,6 @@ pub fn movement_force(
     masses: Query<&ReadMassProperties>,
     frictions: Query<&Friction>,
     mut gizmos: Gizmos,
-    mut freeze: ResMut<Freeze>,
 ) {
     let dt = ctx.integration_parameters.dt;
     for (

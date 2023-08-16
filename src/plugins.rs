@@ -26,9 +26,6 @@ impl Plugin for WanderlustPlugin {
         app.register_type::<ControllerInput>()
             .register_type::<Option<Vec3>>();
 
-        app.init_resource::<Freeze>();
-        app.init_resource::<LastGroundState>();
-
         if self.tweaks {
             app.add_systems(Startup, setup_physics_context);
         }

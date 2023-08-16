@@ -9,7 +9,7 @@ use bevy::{
 };
 use bevy_framepace::*;
 use bevy_mod_wanderlust::{
-    Controller, ControllerBundle, ControllerInput, ControllerPhysicsBundle, Float, Freeze,
+    Controller, ControllerBundle, ControllerInput, ControllerPhysicsBundle, Float,
     GroundCaster, Jump, Movement, RapierPhysicsBundle, Strength, Upright, WanderlustPlugin,
 };
 use bevy_rapier3d::prelude::*;
@@ -47,7 +47,6 @@ fn main() {
         .insert_resource(FramepaceSettings {
             limiter: Limiter::Manual(std::time::Duration::from_secs_f64(0.016)), //limiter: Limiter::Auto,
         })
-        .insert_resource(Freeze(true))
         .insert_resource(Sensitivity(1.0))
         .add_systems(
             Startup,
@@ -65,14 +64,15 @@ fn main() {
         .add_systems(
             Last,
             |input: Res<Input<KeyCode>>,
-             mut freeze: ResMut<Freeze>,
+             //mut freeze: ResMut<Freeze>,
+             mut freeze: Local<bool>,
              mut time: ResMut<Time>,
              mut rapier_config: ResMut<RapierConfiguration>| {
                 if input.just_pressed(KeyCode::R) {
-                    freeze.0 = !freeze.0;
+                    *freeze = !*freeze;
                 }
 
-                if !freeze.0 || input.just_pressed(KeyCode::F) {
+                if !*freeze || input.just_pressed(KeyCode::F) {
                     rapier_config.timestep_mode = TimestepMode::Fixed {
                         dt: 0.016,
                         substeps: 32,
