@@ -1,4 +1,6 @@
 use crate::controller::*;
+use crate::SpringStrength;
+
 /// Keeps the controller properly oriented in a floating state.
 
 #[derive(Component, Reflect)]
@@ -27,7 +29,7 @@ impl Default for Float {
             min_offset: -0.3,
             max_offset: 0.05,
             spring: Spring {
-                strength: 100.0,
+                strength: SpringStrength::AngularFrequency(12.0),
                 damping: 0.8,
             },
         }
@@ -77,8 +79,8 @@ pub fn float_force(
         let displacement = float.distance - worldspace_diff;
 
         if displacement > 0.0 {
-            let strength = displacement * float.spring.strength;
-            let damping = relative_velocity * float.spring.damp_coefficient(mass.mass);
+            let strength = displacement * float.spring.strength.get(Vec3::splat(mass.mass));
+            let damping = relative_velocity * float.spring.damp_coefficient(Vec3::splat(mass.mass));
             force.linear += up_vector * (strength - damping);
         }
     }
@@ -99,7 +101,7 @@ impl Default for Upright {
     fn default() -> Self {
         Self {
             spring: Spring {
-                strength: 10.0,
+                strength: SpringStrength::AngularFrequency(25.0),
                 damping: 0.5,
             },
             forward_vector: None,
@@ -147,11 +149,7 @@ pub fn upright_force(
 
             //upright.spring.damping = 0.1;
 
-            let damping = Vec3::new(
-                upright.spring.damp_coefficient(mass.inertia.x),
-                upright.spring.damp_coefficient(mass.inertia.y),
-                upright.spring.damp_coefficient(mass.inertia.z),
-            );
+            let damping = upright.spring.damp_coefficient(mass.inertia);
 
             let ground_rot = if let Some(ground) = ground_cast.viable.last() {
                 ground.angular_velocity
@@ -166,8 +164,9 @@ pub fn upright_force(
                 Vec3::ZERO
             };
 
-            let spring = (desired_axis * upright.spring.strength) - (velocity.angular * damping);
-            spring.clamp_length_max(upright.spring.strength)
+            let spring = (desired_axis * upright.spring.strength.get(mass.inertia)) - (velocity.angular * damping);
+            //spring.clamp_length_max(upright.spring.strength)
+            spring
         };
     }
 }

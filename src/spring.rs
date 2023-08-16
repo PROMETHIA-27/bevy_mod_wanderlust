@@ -28,16 +28,22 @@ impl Strength {
     }
 }
 
+/// Methods of calculating strength for a spring.
+#[derive(Debug, Clone, Copy, Reflect)]
 pub enum SpringStrength {
+    /// Desired angular frequency for this spring.
+    /// This takes into account mass.
     AngularFrequency(f32),
+    /// Raw stiffness coefficient for the `F = -kv - cv` function.
     StiffnessCoefficient(f32),
 }
 
 impl SpringStrength {
-    pub fn get(&self, mass: f32, dt: f32) -> f32 {
-        match self {
+    /// Calculate the spring stiffness coefficient.
+    pub fn get(&self, mass: Vec3) -> Vec3 {
+        match *self {
             Self::AngularFrequency(angular) => mass * angular * angular,
-            Self::StiffnessCoefficient(raw) => *raw,
+            Self::StiffnessCoefficient(raw) => Vec3::splat(raw),
         }
     }
 }
@@ -50,7 +56,7 @@ impl SpringStrength {
 #[derive(Debug, Clone, Copy, Reflect)]
 pub struct Spring {
     /// How strong the spring will push it into position.
-    pub strength: f32,
+    pub strength: SpringStrength,
     /// Damping ratio for the spring, this prevents endless oscillation if greater than 0.
     /// <1 is under-dampened so it will overshoot the target
     /// 1 is critically dampened so it will slow just enough to reach the target without overshooting
@@ -61,7 +67,7 @@ pub struct Spring {
 impl Default for Spring {
     fn default() -> Self {
         Self {
-            strength: 1.0,
+            strength: SpringStrength::AngularFrequency(1.0),
             damping: 0.25,
         }
     }
@@ -69,13 +75,19 @@ impl Default for Spring {
 
 impl Spring {
     /// The damping coefficient that will just reach the target without overshooting.
-    pub fn critical_damping_point(&self, mass: f32) -> f32 {
-        2.0 * (mass * self.strength).sqrt()
+    pub fn critical_damping_point(&self, inertia: Vec3) -> Vec3 {
+        let km = inertia * self.strength.get(inertia);
+        let sqrt = Vec3::new(
+            km.x.sqrt(),
+            km.y.sqrt(),
+            km.z.sqrt(),
+        );
+        2.0 * sqrt
     }
 
     /// Get the correct damping coefficient for our damping ratio.
     /// See [`Spring`]'s damping for more information on the ratio.
-    pub fn damp_coefficient(&self, mass: f32) -> f32 {
-        self.damping * self.critical_damping_point(mass)
+    pub fn damp_coefficient(&self, inertia: Vec3) -> Vec3 {
+        self.damping * self.critical_damping_point(inertia)
     }
 }
