@@ -113,8 +113,11 @@ pub fn movement_force(
     globals: Query<&GlobalTransform>,
     masses: Query<&ReadMassProperties>,
     frictions: Query<&Friction>,
+    mut gizmos: Gizmos,
+    mut gizconfig: ResMut<GizmoConfig>,
 ) {
     let dt = ctx.integration_parameters.dt;
+    gizconfig.depth_bias = -1.0;
     for (controller_entity, mut force, movement, gravity, input, cast, velocity, mass) in &mut query
     {
         force.linear = Vec3::ZERO;
@@ -127,18 +130,21 @@ pub fn movement_force(
         let slip_vector = match cast.current {
             Some(ground) if !ground.stable => {
                 let (x, z) = ground.cast.normal.any_orthonormal_pair();
-                //gizmos.ray(ground.cast.point, ground.cast.normal, Color::BLUE);
+                gizmos.ray(ground.cast.point, ground.cast.normal, Color::BLUE);
 
                 let projected_x = gravity.up_vector.project_onto(x);
                 let projected_z = gravity.up_vector.project_onto(z);
                 let slip_vector = ((projected_x + projected_z) * force_scale).normalize_or_zero();
-                //gizmos.ray(ground.cast.point, slip_vector, Color::LIME_GREEN);
+                gizmos.ray(ground.cast.point, slip_vector, Color::LIME_GREEN);
 
                 // arbitrary value to ignore flat surfaces.
                 if slip_vector.length() > 0.01 {
                     // Counteract the movement going up the slope.
-                    let slip_goal = goal_vel.project_onto(slip_vector).max(Vec3::ZERO);
-                    goal_vel -= slip_goal * movement.slip_force_scale;
+                    let alignment = goal_vel.dot(slip_vector);
+                    if alignment > 0.0 {
+                        let slip_goal = alignment * slip_vector;
+                        goal_vel -= slip_goal * movement.slip_force_scale;
+                    }
 
                     // Pushing to force the controller down the slope
                     Some(slip_vector)

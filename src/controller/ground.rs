@@ -371,7 +371,7 @@ pub fn ground_cast(
 ) -> Option<(Entity, CastResult)> {
     //gizmos.sphere(shape_pos, Quat::IDENTITY, 0.3, Color::CYAN);
     for _ in 0..12 {
-        if let Some((entity, toi)) =
+        if let Some((mut entity, toi)) =
             ctx.cast_shape(shape_pos, shape_rot, shape_vel, shape, max_toi, filter)
         {
             if toi.status != TOIStatus::Penetrating {
@@ -390,18 +390,14 @@ pub fn ground_cast(
                 let fudge = 0.05;
                 let (x, z) = shape_vel.any_orthonormal_pair();
 
-                let samples = [
-                    -x + z,
-                    -x - z,
-                    x + z,
-                    x - z,
-                ];
+                let samples = [-x + z, -x - z, x + z, x - z];
 
                 // Initial correction, sample points around the contact point
                 // for the closest normal
-                let mut sampled = None;
+                //let mut ray_samples = Vec::new();
+                let mut ray_sum = Vec3::ZERO;
+                let mut ray_length = 0;
                 for sample in samples {
-
                     if let Some((ray_entity, inter)) = ctx.cast_ray_and_get_normal(
                         above - sample * fudge,
                         shape_vel.normalize_or_zero(),
@@ -409,54 +405,45 @@ pub fn ground_cast(
                         true,
                         filter,
                     ) {
-                        if entity == ray_entity && inter.toi > 0.0 && inter.normal.length() > 0.0 {
+                        if inter.toi > 0.0 && inter.normal.length() > 0.0 {
                             gizmos.ray(inter.point, inter.normal * 0.5, Color::RED);
-                            match sampled {
-                                None => {
-                                    sampled = Some(inter);
-                                }
-                                Some(current) if inter.toi < current.toi => {
-                                    sampled = Some(inter);
-                                }
-                                _ => {}
-                            }
+                            //ray_samples.push((ray_entity, inter));
+                            ray_sum += inter.normal;
+                            ray_length += 1;
                         }
                     }
                 }
 
-                if let Some(sampled) = sampled {
-                    cast_result.normal = sampled.normal;
-                }
+                //let ray_sum = ray_samples.iter().map(|(_, sample)| sample).sum::<Vec3>();
+                let ray_avg = ray_sum / ray_length as f32;
+                if ray_length > 0 {
+                    //entity = ray_entity;
+                    cast_result.normal = ray_avg;
+                } else {
+                    // Secondary correction checking a direct path to the contact point
+                        if direct_ray.length() > 0.0 {
+                            if let Some((ray_entity, inter)) = ctx.cast_ray_and_get_normal(
+                                shape_pos,
+                                direct_ray.normalize_or_zero(),
+                                1.1,
+                                true,
+                                filter,
+                            ) {
+                                if inter.toi <= 0.0 {
+                                    warn!("Ray intersection toi should not be 0.0 if the shapecast was not penetrating.");
+                                    return None;
+                                }
 
-                // Secondary correction checking a direct path to the contact point
-                if sampled.is_none() {
-                    if direct_ray.length() > 0.0 {
-                        if let Some((ray_entity, inter)) = ctx.cast_ray_and_get_normal(
-                            shape_pos,
-                            direct_ray.normalize_or_zero(),
-                            1.1,
-                            true,
-                            filter,
-                        ) {
-                            if inter.toi <= 0.0 {
-                                warn!("Ray intersection toi should not be 0.0 if the shapecast was not penetrating.");
+                                if inter.toi > 0.0 && inter.normal.length() > 0.0 {
+                                    entity = ray_entity;
+                                    cast_result = inter.into();
+                                }
+                            } else {
+                                warn!("Missed the contact point with a direct raycast");
                                 return None;
                             }
-                            if entity == ray_entity
-                                && inter.toi > 0.0
-                                && inter.normal.length() > 0.0
-                            {
-                                let angle_between =
-                                    cast_result.normal.angle_between(inter.normal).abs();
-                                if angle_between < std::f32::consts::PI / 2.0 {
-                                    cast_result.normal = inter.normal;
-                                }
-                            }
-                        } else {
-                            warn!("Missed the contact point with a direct raycast");
-                            return None;
                         }
-                    }
+
                 }
 
                 gizmos.ray(cast_result.point, cast_result.normal * 0.5, Color::RED);

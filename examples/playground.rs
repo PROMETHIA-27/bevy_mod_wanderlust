@@ -463,12 +463,14 @@ pub fn slopes(
     for angle in 0..=angles {
         let radians = angle as f32 * angle_increment;
         let width = 2.5;
+
+        let rotation_diff = width * radians;
         commands.spawn((
             PbrBundle {
                 mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
                 material: material.clone(),
                 transform: Transform {
-                    translation: Vec3::new(0.0, 0.0, angle as f32 * width),
+                    translation: Vec3::new(rotation_diff, 0.0, angle as f32 * width),
                     rotation: Quat::from_rotation_z(radians),
                     scale: Vec3::new(12.0, 1.0, width),
                 },
@@ -483,7 +485,7 @@ pub fn slopes(
                 mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
                 material: material.clone(),
                 transform: Transform {
-                    translation: Vec3::new(12.0, 0.0, angle as f32 * width),
+                    translation: Vec3::new(12.0 - rotation_diff, 0.0, angle as f32 * width),
                     rotation: Quat::from_rotation_z(-radians),
                     scale: Vec3::new(12.0, 1.0, width),
                 },
