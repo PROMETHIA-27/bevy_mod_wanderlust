@@ -10,7 +10,8 @@ use bevy::{
 use bevy_framepace::*;
 use bevy_mod_wanderlust::{
     Controller, ControllerBundle, ControllerInput, ControllerPhysicsBundle, Float, GroundCaster,
-    Jump, Movement, RapierPhysicsBundle, Strength, Upright, WanderlustPlugin,
+    Jump, Movement, RapierPhysicsBundle, Spring, SpringStrength, Strength, Upright,
+    WanderlustPlugin,
 };
 use bevy_rapier3d::prelude::*;
 use std::f32::consts::{FRAC_2_PI, PI};
@@ -45,7 +46,8 @@ fn main() {
             ..default()
         })
         .insert_resource(FramepaceSettings {
-            limiter: Limiter::Manual(std::time::Duration::from_secs_f64(0.016)), //limiter: Limiter::Auto,
+            limiter: Limiter::Manual(std::time::Duration::from_secs_f64(0.016)),
+            //limiter: Limiter::Manual(std::time::Duration::from_secs_f64(0.1)),
         })
         .insert_resource(Sensitivity(1.0))
         .add_systems(
@@ -99,6 +101,18 @@ fn main() {
             PostUpdate,
             mouse_look.before(bevy::transform::TransformSystem::TransformPropagate),
         )
+        .add_systems(
+            Update,
+            |input: Res<Input<KeyCode>>, mut impulses: Query<&mut ExternalImpulse>| {
+                if !input.just_pressed(KeyCode::P) {
+                    return;
+                }
+
+                for mut impulse in &mut impulses {
+                    impulse.impulse += Vec3::new(1.0, 0.0, 0.0) * 10.0;
+                }
+            },
+        )
         .run()
 }
 
@@ -146,7 +160,7 @@ pub fn player(
                 },
                 controller: Controller {
                     movement: Movement {
-                        acceleration: Strength::Scaled(50.0),
+                        acceleration: Strength::Scaled(5.0),
                         max_speed: 5.0,
                         //slip_force_scale: Vec3::splat(0.95),
                         ..default()
@@ -158,6 +172,14 @@ pub fn player(
                     },
                     float: Float {
                         distance: 1.0,
+                        ..default()
+                    },
+                    upright: Upright {
+                        spring: Spring {
+                            strength: SpringStrength::AngularFrequency(20.0),
+                            damping: 2.0,
+                            ..default()
+                        },
                         ..default()
                     },
                     ground_caster: GroundCaster {
@@ -244,7 +266,7 @@ pub fn ground(
     mut meshes: ResMut<Assets<Mesh>>,
     mut mats: ResMut<Assets<StandardMaterial>>,
 ) {
-    let material = mats.add(Color::WHITE.into());
+    let material = mats.add(Color::BLACK.into());
 
     let size = 1000.0;
     let mesh = meshes.add(
@@ -397,7 +419,7 @@ pub fn walls(
     let wall = commands
         .spawn(SpatialBundle {
             transform: Transform {
-                translation: Vec3::new(-5.0, 0.0, -5.0),
+                translation: Vec3::new(-2.0, 0.0, -2.0),
                 rotation: Quat::from_rotation_y(-PI / 4.0),
                 ..default()
             },
@@ -470,7 +492,7 @@ pub fn slopes(
                 mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
                 material: material.clone(),
                 transform: Transform {
-                    translation: Vec3::new(rotation_diff, 0.0, angle as f32 * width),
+                    translation: Vec3::new(rotation_diff, 0.0, angle as f32 * width + width * 2.0),
                     rotation: Quat::from_rotation_z(radians),
                     scale: Vec3::new(12.0, 1.0, width),
                 },
@@ -485,7 +507,11 @@ pub fn slopes(
                 mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
                 material: material.clone(),
                 transform: Transform {
-                    translation: Vec3::new(12.0 - rotation_diff, 0.0, angle as f32 * width),
+                    translation: Vec3::new(
+                        12.0 - rotation_diff,
+                        0.0,
+                        angle as f32 * width + width * 2.0,
+                    ),
                     rotation: Quat::from_rotation_z(-radians),
                     scale: Vec3::new(12.0, 1.0, width),
                 },
@@ -582,26 +608,35 @@ pub fn oscillating(time: Res<Time>, mut oscillators: Query<(&mut Velocity, &Osci
 }
 
 fn movement_input(
-    mut body: Query<&mut ControllerInput, With<PlayerBody>>,
-    camera: Query<&GlobalTransform, (With<PlayerCam>, Without<PlayerBody>)>,
+    mut body: Query<(&mut ControllerInput, &mut Movement), With<PlayerBody>>,
+    camera: Query<&PlayerCam>,
     input: Res<Input<KeyCode>>,
 ) {
-    let tf = camera.single();
+    let camera = camera.single();
+    let camera_dir = Quat::from_rotation_y(camera.yaw);
+    let right = camera_dir * Vec3::X;
+    let forward = camera_dir * -Vec3::Z;
 
-    let mut player_input = body.single_mut();
+    let (mut player_input, mut movement) = body.single_mut();
+
+    if input.pressed(KeyCode::ShiftLeft) {
+        movement.max_speed = 15.0;
+    } else {
+        movement.max_speed = 5.0;
+    }
 
     let mut dir = Vec3::ZERO;
     if input.pressed(KeyCode::A) {
-        dir += -tf.right();
+        dir += -right;
     }
     if input.pressed(KeyCode::D) {
-        dir += tf.right();
+        dir += right;
     }
     if input.pressed(KeyCode::S) {
-        dir += -tf.forward();
+        dir += -forward;
     }
     if input.pressed(KeyCode::W) {
-        dir += tf.forward();
+        dir += forward;
     }
     dir.y = 0.0;
     player_input.movement = dir.normalize_or_zero();
@@ -626,9 +661,12 @@ fn mouse_look(
     let cumulative: Vec2 = -(input.iter().map(|motion| &motion.delta).sum::<Vec2>());
     player_cam.pitch += cumulative.y as f32 / 180.0 * sens;
     player_cam.yaw += cumulative.x as f32 / 180.0 * sens;
+
     // Ensure the vertical rotation is clamped
-    let pitch_limit = PI / 2.0 + (3.0 * PI / 180.0);
-    player_cam.pitch = player_cam.pitch.clamp(-pitch_limit, pitch_limit);
+    let pitch_limit = PI / 2.0;
+    player_cam.pitch = player_cam
+        .pitch
+        .clamp(-pitch_limit + 5.0 * PI / 180.0, pitch_limit);
 
     cam_tf.rotation =
         Quat::from_rotation_y(player_cam.yaw) * Quat::from_rotation_x(player_cam.pitch);

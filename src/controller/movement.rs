@@ -1,5 +1,4 @@
-use crate::controller::*;
-use crate::spring::Strength;
+use crate::{cap::Cap, controller::*, spring::Strength};
 
 /// Movements applied via inputs.
 ///
@@ -9,7 +8,6 @@ use crate::spring::Strength;
 pub struct Movement {
     /// How fast the controller will get to the `max_speed`.
     pub acceleration: Strength,
-
     /// How fast our controller will move.
     pub max_speed: f32,
     /// Scales movement force. This is useful to ensure movement does not
@@ -73,30 +71,6 @@ pub struct MovementForce {
     pub angular: Vec3,
 }
 
-/// Sign independent maximum.
-pub trait Cap {
-    /// If the `cap` is negative, then it clamps `self` if it is less than `cap`.
-    /// If the `cap` is positive, then it clamps `self` if it is greater than `cap`.
-    fn cap(self, cap: Self) -> Self;
-}
-
-impl Cap for Vec3 {
-    fn cap(self, cap: Self) -> Self {
-        let mut out = self;
-        if cap.x == 0.0 || cap.x < 0.0 && self.x < cap.x || cap.x > 0.0 && self.x > cap.x {
-            out.x = cap.x;
-        }
-        if cap.y == 0.0 || cap.y < 0.0 && self.y < cap.y || cap.y > 0.0 && self.y > cap.y {
-            out.y = cap.y;
-        }
-        if cap.z == 0.0 || cap.z < 0.0 && self.z < cap.z || cap.z > 0.0 && self.z > cap.z {
-            out.z = cap.z;
-        }
-
-        out
-    }
-}
-
 /// Calculates the movement forces for this controller.
 pub fn movement_force(
     ctx: Res<RapierContext>,
@@ -117,7 +91,7 @@ pub fn movement_force(
     mut gizconfig: ResMut<GizmoConfig>,
 ) {
     let dt = ctx.integration_parameters.dt;
-    gizconfig.depth_bias = -1.0;
+    //gizconfig.depth_bias = -1.0;
     for (controller_entity, mut force, movement, gravity, input, cast, velocity, mass) in &mut query
     {
         force.linear = Vec3::ZERO;
@@ -188,20 +162,50 @@ pub fn movement_force(
             let friction_coefficient = friction.coefficient.max(ground_friction.coefficient);
             friction_coefficient
         } else {
-            1.0
+            0.05
         };
-
-        let friction_strength = Strength::Instant(friction_coefficient.clamp(0.0, 1.0));
-        let friction_force = relative_velocity * friction_strength.get(mass.mass, dt);
 
         let strength = movement.acceleration.get(mass.mass, dt);
 
         let movement_force = goal_vel * strength * force_scale;
 
-        let clamped_velocity = relative_velocity.cap(goal_vel);
+        let clamped_velocity = relative_velocity.signed_max(goal_vel);
         let displacement = goal_vel - clamped_velocity;
-        let max_movement_force = displacement * mass.mass / dt * force_scale + friction_force;
-        let movement_force = movement_force.cap(max_movement_force);
+        let max_movement_force = displacement * mass.mass / dt * force_scale;
+        let movement_force = movement_force.signed_max(max_movement_force);
+
+        let mut over_goal = relative_velocity;
+        let unaffected = |unaffected: f32, current: f32| -> f32 {
+            if unaffected > 0.0 && current > 0.0 {
+                if current <= unaffected {
+                    return 0.0;
+                } else if current > unaffected {
+                    return current - unaffected;
+                }
+            }
+
+            if unaffected < 0.0 && current < 0.0 {
+                if current >= unaffected {
+                    return 0.0;
+                } else if current > unaffected {
+                    return current + unaffected;
+                }
+            }
+
+            current
+        };
+
+        over_goal.x = unaffected(goal_vel.x, over_goal.x);
+        over_goal.y = unaffected(goal_vel.y, over_goal.y);
+        over_goal.z = unaffected(goal_vel.z, over_goal.z);
+
+        //if over_goal.x.abs() > 0.0 {
+        //info!("relative_velocity: {:.2}", relative_velocity.x);
+        //info!("goal_vel: {:.2}", goal_vel.x);
+        //info!("over_goal: {:.2}", over_goal.x);
+        //}
+        let friction_strength = Strength::Scaled(friction_coefficient.clamp(0.0, 1.0) * 10.0);
+        let friction_force = over_goal * friction_strength.get(mass.mass, dt) * force_scale;
 
         force.linear += movement_force - friction_force - slip_force;
     }

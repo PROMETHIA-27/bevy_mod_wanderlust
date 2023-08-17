@@ -76,6 +76,7 @@ pub fn float_force(
         let worldspace_diff =
             global.translation().dot(gravity.up_vector) - ground.cast.point.dot(gravity.up_vector);
         let displacement = float.distance - worldspace_diff;
+        //info!("displacement: {:.2?}", displacement);
 
         if displacement > 0.0 {
             let strength = displacement * float.spring.strength.get(Vec3::splat(mass.mass));

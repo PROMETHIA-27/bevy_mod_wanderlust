@@ -41,7 +41,7 @@ impl Default for GroundCaster {
             skip_ground_check_timer: 0.0,
             skip_ground_check_override: false,
             cast_origin: Vec3::ZERO,
-            cast_length: 1.0,
+            cast_length: 1.5,
             cast_collider: None,
             exclude_from_ground: default(),
             unstable_ground_angle: 45.0 * (std::f32::consts::PI / 180.0),
@@ -355,13 +355,11 @@ impl From<RayIntersection> for CastResult {
 }
 
 /// Robust casting to find the ground beneath the controller.
-///
-/// This has fallbacks to make sure we catch non-convex colliders.
 pub fn ground_cast(
     ctx: &RapierContext,
     colliders: &Query<&Collider>,
     globals: &Query<&GlobalTransform>,
-    mut shape_pos: Vec3,
+    shape_pos: Vec3,
     shape_rot: Quat,
     shape_vel: Vec3,
     shape: &Collider,
@@ -369,126 +367,130 @@ pub fn ground_cast(
     filter: QueryFilter,
     gizmos: &mut Gizmos,
 ) -> Option<(Entity, CastResult)> {
+    const FUDGE: f32 = 0.05;
+
+    let mut shape_pos = shape_pos + -shape_vel * FUDGE;
+    let original_pos = shape_pos;
     //gizmos.sphere(shape_pos, Quat::IDENTITY, 0.3, Color::CYAN);
     for _ in 0..12 {
-        if let Some((mut entity, toi)) =
-            ctx.cast_shape(shape_pos, shape_rot, shape_vel, shape, max_toi, filter)
-        {
-            if toi.status != TOIStatus::Penetrating {
-                //gizmos.sphere(shape_pos + shape_vel * toi.toi, Quat::IDENTITY, 0.3, Color::BLUE);
-                let mut cast_result = CastResult::from_toi1(toi);
+        let height_dot = (shape_pos - original_pos).dot(-shape_vel);
+        if height_dot > 0.0 {
+            shape_pos += shape_vel * height_dot;
+        }
+        let Some((mut entity, toi)) =
+            ctx.cast_shape(shape_pos, shape_rot, shape_vel, shape, max_toi, filter) else { return None };
 
-                // try to get a better normal rather than an edge interpolated normal.
-                // project back onto original shape position
-                let above = toi.witness1 + -shape_vel * toi.toi;
-                let dir = (shape_pos - above).normalize_or_zero();
-                // nudge slightly in the direction of the hit point
-                let nudged = above - dir * 0.05;
+        let casted_pos = shape_pos + shape_vel * toi.toi;
+        let contact_dir = shape_rot * toi.normal2;
+        let down_alignment = contact_dir.dot(shape_vel);
+        if down_alignment <= FUDGE {
+            let correction = -contact_dir * FUDGE;
+            shape_pos += correction;
+            continue;
+        }
 
-                let direct_ray = (cast_result.point - shape_pos).normalize_or_zero();
+        if toi.status != TOIStatus::Penetrating && toi.toi > 0.0 {
+            gizmos.ray(casted_pos, contact_dir * 0.5, Color::GREEN);
+            //gizmos.sphere(toi.witness1, Quat::IDENTITY, 0.05, Color::GREEN);
+            //gizmos.sphere(casted_pos, Quat::IDENTITY, 0.3, Color::PURPLE);
+            //info!("toi: {:.2?}", toi.toi);
+            //gizmos.sphere(shape_pos + shape_vel * toi.toi, Quat::IDENTITY, 0.3, Color::BLUE);
+            let mut cast_result = CastResult::from_toi1(toi);
+            cast_result.normal = Vec3::ZERO;
+            //gizmos.sphere(cast_result.point, Quat::IDENTITY, 0.05, Color::CYAN);
 
-                let fudge = 0.05;
-                let (x, z) = shape_vel.any_orthonormal_pair();
+            // try to get a better normal rather than an edge interpolated normal.
+            // project back onto original shape position
+            let above = toi.witness1 + -contact_dir * toi.toi;
 
-                let samples = [-x + z, -x - z, x + z, x - z];
+            let dir = (shape_pos - above).normalize_or_zero();
+            // nudge slightly in the direction of the hit point
+            let nudged = above - dir * FUDGE;
 
-                // Initial correction, sample points around the contact point
-                // for the closest normal
-                //let mut ray_samples = Vec::new();
-                let mut ray_sum = Vec3::ZERO;
-                let mut ray_length = 0;
-                for sample in samples {
-                    if let Some((ray_entity, inter)) = ctx.cast_ray_and_get_normal(
-                        above - sample * fudge,
-                        shape_vel.normalize_or_zero(),
-                        max_toi,
-                        true,
-                        filter,
-                    ) {
-                        if inter.toi > 0.0 && inter.normal.length() > 0.0 {
-                            gizmos.ray(inter.point, inter.normal * 0.5, Color::RED);
-                            //ray_samples.push((ray_entity, inter));
-                            ray_sum += inter.normal;
-                            ray_length += 1;
-                        }
+            let direct_ray = (cast_result.point - shape_pos).normalize_or_zero();
+
+            let (x, z) = shape_vel.any_orthonormal_pair();
+            let samples = [-x + z, -x - z, x + z, x - z, Vec3::ZERO];
+
+            // Initial correction, sample points around the contact point
+            // for the closest normal
+            let mut sampled = Vec::new();
+            for sample in samples {
+                if let Some((ray_entity, inter)) = ctx.cast_ray_and_get_normal(
+                    above - sample * FUDGE,
+                    contact_dir,
+                    max_toi,
+                    true,
+                    filter,
+                ) {
+                    if inter.toi > 0.0
+                        && inter.normal.length() > 0.0
+                        && inter.point.distance(toi.witness1) < FUDGE * 2.0
+                    {
+                        gizmos.ray(inter.point, inter.normal * 0.5, Color::RED);
+                        sampled.push(inter.normal);
                     }
                 }
-
-                //let ray_sum = ray_samples.iter().map(|(_, sample)| sample).sum::<Vec3>();
-                let ray_avg = ray_sum / ray_length as f32;
-                if ray_length > 0 {
-                    //entity = ray_entity;
-                    cast_result.normal = ray_avg;
-                } else {
-                    // Secondary correction checking a direct path to the contact point
-                        if direct_ray.length() > 0.0 {
-                            if let Some((ray_entity, inter)) = ctx.cast_ray_and_get_normal(
-                                shape_pos,
-                                direct_ray.normalize_or_zero(),
-                                1.1,
-                                true,
-                                filter,
-                            ) {
-                                if inter.toi <= 0.0 {
-                                    warn!("Ray intersection toi should not be 0.0 if the shapecast was not penetrating.");
-                                    return None;
-                                }
-
-                                if inter.toi > 0.0 && inter.normal.length() > 0.0 {
-                                    entity = ray_entity;
-                                    cast_result = inter.into();
-                                }
-                            } else {
-                                warn!("Missed the contact point with a direct raycast");
-                                return None;
-                            }
-                        }
-
-                }
-
-                gizmos.ray(cast_result.point, cast_result.normal * 0.5, Color::RED);
-                //info!("returning cast: {:?}", entity);
-                return Some((entity, cast_result));
             }
 
-            // We are penetrating something, try to push the shape cast out from any contacts.
-            match (globals.get(entity), colliders.get(entity)) {
-                (Ok(ground_global), Ok(ground_collider)) => {
-                    for _ in 0..12 {
-                        let cast_iso = Isometry3 {
-                            translation: shape_pos.into(),
-                            rotation: shape_rot.into(),
-                        };
+            let mut sum = Vec3::ZERO;
+            let len = sampled.len() as f32;
+            for sample in sampled {
+                sum += sample;
+            }
+            let average = sum / len;
+            cast_result.normal = average;
 
-                        let (_, ground_rotation, ground_translation) =
-                            ground_global.to_scale_rotation_translation();
-                        let ground_iso = Isometry3 {
-                            translation: ground_translation.into(),
-                            rotation: ground_rotation.into(),
-                        };
+            gizmos.ray(cast_result.point, cast_result.normal * 0.5, Color::RED);
 
-                        if let Ok(Some(contact)) = bevy_rapier3d::parry::query::contact(
-                            &cast_iso,
-                            &*shape.raw,
-                            &ground_iso,
-                            &*ground_collider.raw,
-                            0.0,
-                        ) {
-                            let normal: Vec3 = contact.normal2.into();
-                            // This prevents some issues where we get a near 0.0 time-of-impact due to floating point imprecision.
-                            const EXTRA_CORRECTION: f32 = 1.5;
-                            let correction = normal * -contact.dist * EXTRA_CORRECTION;
-                            shape_pos += correction;
-                        } else {
-                            break;
-                        }
+            if cast_result.normal.length() > 0.0 {
+                return Some((entity, cast_result));
+            } else {
+                warn!("normal is 0");
+                return None;
+            }
+        }
+
+        // We are penetrating something, try to push the shape cast out from any contacts.
+        match (globals.get(entity), colliders.get(entity)) {
+            (Ok(ground_global), Ok(ground_collider)) => {
+                for iter in 0..30 {
+                    let cast_iso = Isometry3 {
+                        translation: shape_pos.into(),
+                        rotation: shape_rot.into(),
+                    };
+
+                    let (_, ground_rotation, ground_translation) =
+                        ground_global.to_scale_rotation_translation();
+                    let ground_iso = Isometry3 {
+                        translation: ground_translation.into(),
+                        rotation: ground_rotation.into(),
+                    };
+
+                    if let Ok(Some(contact)) = bevy_rapier3d::parry::query::contact(
+                        &cast_iso,
+                        &*shape.raw,
+                        &ground_iso,
+                        &*ground_collider.raw,
+                        0.0,
+                    ) {
+                        let point = contact.point2.into();
+                        let normal: Vec3 = contact.normal2.into();
+                        //gizmos.ray(contact.point2.into(), normal, Color::BLUE);
+                        // This prevents some issues where we get a near 0.0 time-of-impact due to floating point imprecision.
+                        gizmos.ray(point, normal * 0.3, Color::RED);
+                        let correction = normal * -contact.dist * 2.5;
+                        //gizmos.ray(shape_pos, correction, Color::RED);
+                        shape_pos += correction;
+                        //info!("correction: {:?}", correction);
+                    } else {
+                        //info!("iter: {:?}", iter);
+                        break;
                     }
                 }
-                _ => {}
-            };
-        } else {
-            return None;
-        }
+            }
+            _ => {}
+        };
     }
 
     // Final attempt to check the ground by just raycasting downwards.
