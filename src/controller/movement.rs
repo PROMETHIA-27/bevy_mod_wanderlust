@@ -109,7 +109,7 @@ pub fn movement_force(
                 let projected_x = gravity.up_vector.project_onto(x);
                 let projected_z = gravity.up_vector.project_onto(z);
                 let slip_vector = ((projected_x + projected_z) * force_scale).normalize_or_zero();
-                gizmos.ray(ground.cast.point, slip_vector, Color::LIME_GREEN);
+                //gizmos.ray(ground.cast.point, slip_vector, Color::LIME_GREEN);
 
                 // arbitrary value to ignore flat surfaces.
                 if slip_vector.length() > 0.01 {
@@ -174,38 +174,25 @@ pub fn movement_force(
         let max_movement_force = displacement * mass.mass / dt * force_scale;
         let movement_force = movement_force.signed_max(max_movement_force);
 
-        let mut over_goal = relative_velocity;
-        let unaffected = |unaffected: f32, current: f32| -> f32 {
-            if unaffected > 0.0 && current > 0.0 {
-                if current <= unaffected {
-                    return 0.0;
-                } else if current > unaffected {
-                    return current - unaffected;
-                }
-            }
+        let mut friction_velocity = relative_velocity;
+        let goal_dir = goal_vel.normalize_or_zero();
+        let goal_align = friction_velocity
+            .dot(goal_dir);
+        let goal_offset = goal_align.clamp(0.0, goal_vel.length());
+        friction_velocity -= goal_offset * goal_dir;
 
-            if unaffected < 0.0 && current < 0.0 {
-                if current >= unaffected {
-                    return 0.0;
-                } else if current > unaffected {
-                    return current + unaffected;
-                }
-            }
-
-            current
-        };
-
-        over_goal.x = unaffected(goal_vel.x, over_goal.x);
-        over_goal.y = unaffected(goal_vel.y, over_goal.y);
-        over_goal.z = unaffected(goal_vel.z, over_goal.z);
-
-        //if over_goal.x.abs() > 0.0 {
-        //info!("relative_velocity: {:.2}", relative_velocity.x);
-        //info!("goal_vel: {:.2}", goal_vel.x);
-        //info!("over_goal: {:.2}", over_goal.x);
-        //}
         let friction_strength = Strength::Scaled(friction_coefficient.clamp(0.0, 1.0) * 10.0);
-        let friction_force = over_goal * friction_strength.get(mass.mass, dt) * force_scale;
+        let friction_force = friction_velocity * friction_strength.get(mass.mass, dt) * force_scale;
+
+        /*
+        let squish = 0.2;
+        gizmos.ray(Vec3::ZERO, goal_vel * squish, Color::GREEN);
+        gizmos.sphere(goal_align * goal_dir * squish, Quat::IDENTITY, 0.1, Color::GREEN);
+        gizmos.ray(Vec3::ZERO, relative_velocity * squish, Color::BLUE);
+        gizmos.ray(relative_velocity * squish, -goal_offset * goal_dir * squish, Color::RED);
+        gizmos.ray(Vec3::new(0.0, 0.1, 0.0), friction_velocity * squish, Color::CYAN);
+        */
+
 
         force.linear += movement_force - friction_force - slip_force;
     }

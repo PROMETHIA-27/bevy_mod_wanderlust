@@ -156,6 +156,7 @@ pub fn player(
                 rapier_physics: RapierPhysicsBundle {
                     // Lock the axes to prevent camera shake whilst moving up slopes
                     //locked_axes: LockedAxes::ROTATION_LOCKED,
+                    //locked_axes: LockedAxes::all(),
                     ..default()
                 },
                 controller: Controller {
@@ -200,10 +201,13 @@ pub fn player(
         })
         .id();
 
+    let origin_dummy = commands
+        .spawn(SpatialBundle::default()).id();
     commands
         .spawn(SpatialBundle::default())
         .insert(PlayerCam {
-            target: player,
+            //target: player,
+            target: origin_dummy,
             pitch: 0.0,
             yaw: 0.0,
         })

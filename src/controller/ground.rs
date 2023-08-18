@@ -48,7 +48,7 @@ impl Default for GroundCaster {
             skip_ground_check_timer: 0.0,
             skip_ground_check_override: false,
             cast_origin: Vec3::ZERO,
-            cast_length: 1.5,
+            cast_length: 1.25,
             cast_collider: None,
             exclude_from_ground: default(),
             unstable_ground_angle: 45.0 * (std::f32::consts::PI / 180.0),
@@ -372,10 +372,6 @@ pub fn contact_manifolds(
 
     let physics_scale = ctx.physics_scale();
 
-    /*let RapierContext {
-        query_pipeline, bodies, colliders, entity2collider, entity2body, ..
-    } = &*ctx;*/
-
     let shape = &collider.raw;
     let shape_iso = Isometry3 {
         translation: (position * physics_scale).into(),
@@ -397,13 +393,14 @@ pub fn contact_manifolds(
                         &pos12,
                         shape.as_ref(),
                         collider.shape(),
-                        0.05,
+                        0.01,
                         &mut new_manifolds,
                         &mut None,
                     );
 
                     if let Some(entity) = ctx.collider_entity(*handle) {
-                        manifolds.extend(new_manifolds.into_iter().map(|manifold| (entity, manifold)));
+                        manifolds
+                            .extend(new_manifolds.into_iter().map(|manifold| (entity, manifold)));
                     }
                 }
             }
@@ -430,6 +427,8 @@ pub fn ground_cast(
     const FUDGE: f32 = 0.05;
 
     let shape_vel = shape_vel.normalize_or_zero();
+    assert!(shape_vel.length() > 0.0);
+
     let mut shape_pos = shape_pos + -shape_vel * FUDGE;
     let original_pos = shape_pos;
     gizmos.sphere(shape_pos, shape_rot, 0.25, Color::CYAN);
@@ -442,108 +441,100 @@ pub fn ground_cast(
         let Ok(contact_global) = globals.get(*entity) else { continue };
         let normal = contact_global.to_scale_rotation_translation().1 * local_normal;
         for point in &manifold.points {
-            let dist = point.dist;
-            //if dist < 0.0 {
-                //let correction = normal * -dist * 100.0;
-                let correction = normal * 0.01;
-                shape_pos += correction;
-            //}
+            let correction = normal * 0.01;
+            shape_pos += correction;
         }
     }
-
-    //info!("corrections: {:?}", corrections);
-
-    gizmos.sphere(shape_pos, shape_rot, 0.3, Color::BLUE);
 
     let height_dot = (shape_pos - original_pos).dot(-shape_vel);
     if height_dot > 0.0 {
         shape_pos += shape_vel * height_dot;
     }
-    let Some((mut entity, toi)) =
-            ctx.cast_shape(shape_pos, shape_rot, shape_vel, shape, max_toi, filter) else { return None };
 
-    let casted_pos = shape_pos + shape_vel * toi.toi;
-    let contact_dir = shape_rot * toi.normal2;
-    /*
-    let down_alignment = contact_dir.dot(shape_vel);
-    if down_alignment <= FUDGE {
-        let correction = -contact_dir * FUDGE;
-        shape_pos += correction;
+    let mut cast_result = ctx
+        .cast_shape(shape_pos, shape_rot, shape_vel, shape, max_toi, filter)
+        .filter(|(entity, toi)| toi.status != TOIStatus::Penetrating && toi.toi > 0.0)
+        .map(|(entity, toi)| (entity, CastResult::from_toi1(toi)));
+
+    if let Some((_, cast)) = cast_result {
+        gizmos.ray(shape_pos, shape_vel * cast.toi, Color::BLUE);
+        gizmos.sphere(
+            shape_pos + shape_vel * cast.toi,
+            shape_rot,
+            0.3,
+            Color::BLUE,
+        );
     }
-    */
 
-    if toi.status != TOIStatus::Penetrating && toi.toi > 0.0 {
-        gizmos.ray(casted_pos, contact_dir * 0.5, Color::GREEN);
-        //gizmos.sphere(toi.witness1, Quat::IDENTITY, 0.05, Color::GREEN);
-        //gizmos.sphere(casted_pos, Quat::IDENTITY, 0.3, Color::PURPLE);
-        //info!("toi: {:.2?}", toi.toi);
-        //gizmos.sphere(shape_pos + shape_vel * toi.toi, Quat::IDENTITY, 0.3, Color::BLUE);
-        let mut cast_result = CastResult::from_toi1(toi);
-        cast_result.normal = Vec3::ZERO;
-        //gizmos.sphere(cast_result.point, Quat::IDENTITY, 0.05, Color::CYAN);
+    if cast_result.is_none() {
+        // Fallback to simple raycasting downwards.
+
+        // This should only occur if the controller fails to correct penetration
+        // of colliders.
+
+        // We need to offset it so the time-of-impact is identical to the shape cast.
+        let offset = shape
+            .cast_local_ray(Vec3::ZERO, shape_vel, 10.0, false)
+            .unwrap_or(0.);
+        let ray_pos = shape_pos + shape_vel * offset;
+
+        cast_result = ctx
+            .cast_ray_and_get_normal(ray_pos, shape_vel, max_toi, true, filter)
+            .map(|(entity, inter)| (entity, inter.into()));
+    }
+
+    if let Some((entity, mut cast)) = cast_result {
+        cast.normal = Vec3::ZERO;
 
         // try to get a better normal rather than an edge interpolated normal.
         // project back onto original shape position
-        let above = toi.witness1 + -contact_dir * toi.toi;
+        let ray_dir = shape_vel;
+        let ray_origin = cast.point + -ray_dir * cast.toi;
 
-        let dir = (shape_pos - above).normalize_or_zero();
-        // nudge slightly in the direction of the hit point
-        let nudged = above - dir * FUDGE;
-
-        let direct_ray = (cast_result.point - shape_pos).normalize_or_zero();
-
-        let (x, z) = shape_vel.any_orthonormal_pair();
+        let (x, z) = ray_dir.any_orthonormal_pair();
         let samples = [-x + z, -x - z, x + z, x - z, Vec3::ZERO];
 
         // Initial correction, sample points around the contact point
         // for the closest normal
         let mut sampled = Vec::new();
+        let valid_radius = FUDGE * 2.0;
+        gizmos.sphere(cast.point, Quat::IDENTITY, valid_radius, Color::RED); // Bounding sphere of valid ray normals
         for sample in samples {
-            if let Some((ray_entity, inter)) = ctx.cast_ray_and_get_normal(
-                above - sample * FUDGE,
-                contact_dir,
+            let Some((ray_entity, inter)) = ctx.cast_ray_and_get_normal(
+                ray_origin - sample * FUDGE,
+                ray_dir,
                 max_toi,
                 true,
                 filter,
-            ) {
-                if inter.toi > 0.0
-                    && inter.normal.length() > 0.0
-                    && inter.point.distance(toi.witness1) < FUDGE * 2.0
-                {
-                    gizmos.ray(inter.point, inter.normal * 0.5, Color::RED);
-                    sampled.push(inter.normal);
-                }
+            ) else { continue };
+
+            if inter.toi > 0.0
+                && inter.normal.length_squared() > 0.0
+                && inter.point.distance(cast.point) < valid_radius
+            {
+                gizmos.ray(inter.point, inter.normal * 0.2, Color::RED);
+                sampled.push(inter.normal);
             }
         }
 
         let mut sum = Vec3::ZERO;
-        let len = sampled.len() as f32;
+        let mut weights = 0.0;
         for sample in sampled {
-            sum += sample;
+            let alignment = sample.dot(shape_vel).abs();
+            sum += alignment * sample;
+            weights += alignment;
         }
-        let average = sum / len;
-        cast_result.normal = average;
+        let weighted_average = sum / weights;
+        cast.normal = weighted_average;
 
-        gizmos.ray(cast_result.point, cast_result.normal * 0.5, Color::RED);
+        gizmos.ray(cast.point, cast.normal * 0.5, Color::MAROON);
 
-        if cast_result.normal.length() > 0.0 {
-            return Some((entity, cast_result));
+        if cast.normal.length_squared() > 0.0 {
+            return Some((entity, cast));
         } else {
             warn!("normal is 0");
-            return None;
         }
     }
 
-    // Final attempt to check the ground by just raycasting downwards.
-    // This should only occur if the controller fails to correct penetration
-    // of colliders.
-
-    // We need to offset it so the point of contact is identical to the shape cast.
-    let offset = shape
-        .cast_local_ray(Vec3::ZERO, shape_vel, 10.0, false)
-        .unwrap_or(0.);
-    shape_pos = shape_pos + shape_vel * offset;
-
-    ctx.cast_ray_and_get_normal(shape_pos, shape_vel, max_toi, true, filter)
-        .map(|(entity, inter)| (entity, inter.into()))
+    None
 }

@@ -19,8 +19,21 @@ pub enum Strength {
 }
 
 impl Strength {
-    /// Calculate strength.
+    /// Maximum strength that can be applied.
+    pub fn max() -> Self {
+        Self::Instant(1.0)
+    }
+
+    /// Calculate strength, prevents overshooting.
     pub fn get(&self, mass: f32, dt: f32) -> f32 {
+        let max = Self::max().uncapped(mass, dt);
+        let uncapped = self.uncapped(mass, dt);
+        uncapped.min(max)
+    }
+
+    /// Calculate strength without capping before we overshoot
+    /// and start extrapolating.
+    pub fn uncapped(&self, mass: f32, dt: f32) -> f32 {
         match *self {
             Self::Instant(raw) => raw * mass / dt,
             Self::Scaled(raw) => raw * mass,
