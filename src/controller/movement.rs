@@ -166,22 +166,24 @@ pub fn movement_force(
         };
 
         let strength = movement.acceleration.get(mass.mass, dt);
-
         let movement_force = goal_vel * strength * force_scale;
-
-        let clamped_velocity = relative_velocity.signed_max(goal_vel);
-        let displacement = goal_vel - clamped_velocity;
-        let max_movement_force = displacement * mass.mass / dt * force_scale;
-        let movement_force = movement_force.signed_max(max_movement_force);
 
         let mut friction_velocity = relative_velocity;
         let goal_dir = goal_vel.normalize_or_zero();
-        let goal_align = friction_velocity
+        let goal_align = relative_velocity
             .dot(goal_dir);
-        let goal_offset = goal_align.clamp(0.0, goal_vel.length());
-        friction_velocity -= goal_offset * goal_dir;
+        
+        let difference = (goal_vel.length() - goal_align.max(0.0)).max(0.0);
+        let displacement = difference * goal_dir;
 
-        let friction_strength = Strength::Scaled(friction_coefficient.clamp(0.0, 1.0) * 10.0);
+        let max_movement_force = displacement * mass.mass / dt * force_scale;
+        let movement_force = movement_force.clamp_length_max(max_movement_force.length());
+
+        let friction_align = goal_align;
+        let friction_offset = friction_align.clamp(0.0, goal_vel.length());
+        friction_velocity -= friction_offset * goal_dir;
+
+        let friction_strength = Strength::Scaled(friction_coefficient.clamp(0.0, 1.0) * 15.0);
         let friction_force = friction_velocity * friction_strength.get(mass.mass, dt) * force_scale;
 
         /*

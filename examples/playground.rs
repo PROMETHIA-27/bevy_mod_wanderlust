@@ -95,6 +95,7 @@ fn main() {
                 movement_input.before(bevy_mod_wanderlust::movement_force),
                 toggle_cursor_lock,
                 oscillating,
+                controlled_platform,
             ),
         )
         .add_systems(
@@ -201,13 +202,12 @@ pub fn player(
         })
         .id();
 
-    let origin_dummy = commands
-        .spawn(SpatialBundle::default()).id();
+    let origin_dummy = commands.spawn(SpatialBundle::default()).id();
     commands
         .spawn(SpatialBundle::default())
         .insert(PlayerCam {
-            //target: player,
-            target: origin_dummy,
+            target: player,
+            //target: origin_dummy,
             pitch: 0.0,
             yaw: 0.0,
         })
@@ -585,7 +585,35 @@ pub fn moving_objects(
             angvel: Vec3::new(0.0, 0.1, 0.0),
         },
     ));
+
+    // controlled
+
+    let simple_width = 3.0;
+    commands.spawn((
+        PbrBundle {
+            mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+            material: material.clone(),
+            transform: Transform {
+                translation: Vec3::new(-5.0, 0.3, 10.0),
+                scale: Vec3::new(simple_width, 0.1, simple_width),
+                ..default()
+            },
+            ..default()
+        },
+        Name::from("Controlled moving platform"),
+        RigidBody::KinematicVelocityBased,
+        Collider::cuboid(0.5, 0.5, 0.5),
+        Controlled,
+        Velocity {
+            linvel: Vec3::ZERO,
+            angvel: Vec3::ZERO,
+        },
+    ));
+
 }
+
+#[derive(Component)]
+pub struct Controlled;
 
 #[derive(Component)]
 pub struct Oscillator {
@@ -596,6 +624,20 @@ impl Default for Oscillator {
     fn default() -> Self {
         Self {
             strength: Vec3::ONE,
+        }
+    }
+}
+
+pub fn controlled_platform(input: Res<Input<KeyCode>>, mut controlled: Query<(&mut Velocity, &Controlled)>) {
+    for (mut velocity, _) in &mut controlled {
+        //velocity.x = 0.0;
+
+        if input.pressed(KeyCode::N) {
+            velocity.linvel.x = 5.0;
+        } 
+
+        if input.pressed(KeyCode::M) {
+            velocity.linvel.x = -5.0;
         }
     }
 }
