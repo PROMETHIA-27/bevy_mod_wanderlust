@@ -7,6 +7,7 @@ use bevy::{
     prelude::*,
     window::{Cursor, PrimaryWindow},
 };
+use bevy_framepace::{FramepacePlugin, FramepaceSettings, Limiter};
 use bevy_mod_wanderlust::{
     ControllerBundle, ControllerInput, ControllerPhysicsBundle, RapierPhysicsBundle,
     WanderlustPlugin,
@@ -34,7 +35,18 @@ fn main() {
             // RapierDebugRenderPlugin::default(),
             WanderlustPlugin::default(),
             aether_spyglass::SpyglassPlugin,
+            FramepacePlugin,
         ))
+        .insert_resource(RapierConfiguration {
+            timestep_mode: TimestepMode::Fixed {
+                dt: 0.008,
+                substeps: 4,
+            },
+            ..default()
+        })
+        .insert_resource(FramepaceSettings {
+            limiter: Limiter::Manual(std::time::Duration::from_secs_f64(0.008)),
+        })
         .insert_resource(Sensitivity(1.0))
         .add_systems(Startup, setup)
         // Add to PreUpdate to ensure updated before movement is calculated
@@ -82,10 +94,15 @@ fn setup(
                 rapier_physics: RapierPhysicsBundle {
                     // Lock the axes to prevent camera shake whilst moving up slopes
                     locked_axes: LockedAxes::ROTATION_LOCKED,
+                    restitution: Restitution {
+                        coefficient: 0.0,
+                        combine_rule: CoefficientCombineRule::Min,
+                    },
                     ..default()
                 },
                 ..default()
             },
+            ColliderMassProperties::Density(50.0),
             Name::from("Player"),
             PlayerBody,
         ))
@@ -102,7 +119,7 @@ fn setup(
                         projection: Projection::Perspective(PerspectiveProjection {
                             fov: 90.0 * (std::f32::consts::PI / 180.0),
                             aspect_ratio: 1.0,
-                            near: 0.3,
+                            near: 0.1,
                             far: 1000.0,
                         }),
                         ..default()

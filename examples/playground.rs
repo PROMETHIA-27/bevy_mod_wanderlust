@@ -298,6 +298,29 @@ pub fn ground(
         //Collider::cuboid(size / 2.0, 0.1, size / 2.0),
         Name::from("Ground"),
     ));
+
+    let material = mats.add(Color::WHITE.into());
+    let mesh = meshes.add(
+        shape::UVSphere {
+            radius: 0.5,
+            ..default()
+        }
+        .into(),
+    );
+    commands.spawn((
+        PbrBundle {
+            mesh,
+            material: material.clone(),
+            transform: Transform::from_xyz(-2.5, 0.5, 2.0),
+            ..default()
+        },
+        RigidBody::Fixed,
+        Velocity::default(),
+        ExternalImpulse::default(),
+        ReadMassProperties::default(),
+        Collider::ball(0.5),
+        Name::from("Ball"),
+    ));
 }
 
 fn lights(
@@ -609,7 +632,6 @@ pub fn moving_objects(
             angvel: Vec3::ZERO,
         },
     ));
-
 }
 
 #[derive(Component)]
@@ -628,13 +650,18 @@ impl Default for Oscillator {
     }
 }
 
-pub fn controlled_platform(input: Res<Input<KeyCode>>, mut controlled: Query<(&mut Velocity, &Controlled)>) {
+pub fn controlled_platform(
+    input: Res<Input<KeyCode>>,
+    mut controlled: Query<(&mut Velocity, &Controlled)>,
+) {
     for (mut velocity, _) in &mut controlled {
-        //velocity.x = 0.0;
+        if input.pressed(KeyCode::H) {
+            velocity.linvel.x = 0.0;
+        }
 
         if input.pressed(KeyCode::N) {
             velocity.linvel.x = 5.0;
-        } 
+        }
 
         if input.pressed(KeyCode::M) {
             velocity.linvel.x = -5.0;

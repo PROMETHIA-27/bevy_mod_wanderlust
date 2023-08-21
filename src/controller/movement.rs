@@ -35,7 +35,7 @@ impl Default for Movement {
     fn default() -> Self {
         Self {
             acceleration: Strength::Scaled(10.0),
-            max_speed: 10.0,
+            max_speed: 5.0,
             force_scale: default(),
             slip_force_scale: Vec3::splat(1.0),
         }
@@ -103,13 +103,7 @@ pub fn movement_force(
 
         let slip_vector = match cast.current {
             Some(ground) if !ground.stable => {
-                let (x, z) = ground.cast.normal.any_orthonormal_pair();
-                gizmos.ray(ground.cast.point, ground.cast.normal, Color::BLUE);
-
-                let projected_x = gravity.up_vector.project_onto(x);
-                let projected_z = gravity.up_vector.project_onto(z);
-                let slip_vector = ((projected_x + projected_z) * force_scale).normalize_or_zero();
-                //gizmos.ray(ground.cast.point, slip_vector, Color::LIME_GREEN);
+                let slip_vector = ground.cast.down_tangent(gravity.up_vector) * force_scale;
 
                 // arbitrary value to ignore flat surfaces.
                 if slip_vector.length() > 0.01 {
@@ -162,7 +156,7 @@ pub fn movement_force(
             let friction_coefficient = friction.coefficient.max(ground_friction.coefficient);
             friction_coefficient
         } else {
-            0.05
+            0.25
         };
 
         let strength = movement.acceleration.get(mass.mass, dt);
@@ -170,9 +164,8 @@ pub fn movement_force(
 
         let mut friction_velocity = relative_velocity;
         let goal_dir = goal_vel.normalize_or_zero();
-        let goal_align = relative_velocity
-            .dot(goal_dir);
-        
+        let goal_align = relative_velocity.dot(goal_dir);
+
         let difference = (goal_vel.length() - goal_align.max(0.0)).max(0.0);
         let displacement = difference * goal_dir;
 
@@ -183,7 +176,7 @@ pub fn movement_force(
         let friction_offset = friction_align.clamp(0.0, goal_vel.length());
         friction_velocity -= friction_offset * goal_dir;
 
-        let friction_strength = Strength::Scaled(friction_coefficient.clamp(0.0, 1.0) * 15.0);
+        let friction_strength = Strength::Scaled(friction_coefficient.clamp(0.0, 1.0) * 45.0);
         let friction_force = friction_velocity * friction_strength.get(mass.mass, dt) * force_scale;
 
         /*
@@ -194,7 +187,6 @@ pub fn movement_force(
         gizmos.ray(relative_velocity * squish, -goal_offset * goal_dir * squish, Color::RED);
         gizmos.ray(Vec3::new(0.0, 0.1, 0.0), friction_velocity * squish, Color::CYAN);
         */
-
 
         force.linear += movement_force - friction_force - slip_force;
     }
