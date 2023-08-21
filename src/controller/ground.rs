@@ -77,6 +77,7 @@ pub struct Ground {
 }
 
 impl Ground {
+    /// Construct a `Ground` based on the results of `GroundCastParams`.
     pub fn from_cast(
         entity: Entity,
         cast: CastResult,
@@ -138,8 +139,13 @@ pub struct GroundCast(
     pub GroundCache,
 );
 
+/// The cached viable ground cast. Contains the entity hit, the hit info, and velocity of the entity
+/// hit.
 #[derive(Component, Default, Deref, DerefMut)]
-pub struct ViableGroundCast(pub GroundCache);
+pub struct ViableGroundCast(
+    /// Ground that was found this frame
+    pub GroundCache,
+);
 
 /// Current/last ground.
 #[derive(Default)]

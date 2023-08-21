@@ -122,10 +122,10 @@ pub fn upright_force(
         &Gravity,
         &ControllerMass,
         &ControllerVelocity,
-        &ViableGroundCast,
+        /*&ViableGroundCast,*/
     )>,
 ) {
-    for (mut impulse, upright, tf, gravity, mass, velocity, viable_ground) in &mut query {
+    for (mut impulse, upright, tf, gravity, mass, velocity, /*viable_ground*/) in &mut query {
         impulse.angular = {
             let desired_axis = if let Some(forward) = upright.forward_vector {
                 let right = gravity.up_vector.cross(forward).normalize();
@@ -142,8 +142,6 @@ pub fn upright_force(
                 let current = tf.up();
                 current.cross(gravity.up_vector)
             };
-
-            //upright.spring.damping = 0.1;
 
             let damping = upright.spring.damp_coefficient(mass.inertia);
 

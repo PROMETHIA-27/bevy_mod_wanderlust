@@ -88,11 +88,9 @@ pub fn movement_force(
     globals: Query<&GlobalTransform>,
     masses: Query<&ReadMassProperties>,
     frictions: Query<&Friction>,
-    mut gizmos: Gizmos,
-    mut gizconfig: ResMut<GizmoConfig>,
+    //mut gizmos: Gizmos,
 ) {
     let dt = ctx.integration_parameters.dt;
-    //gizconfig.depth_bias = -1.0;
     for (
         controller_entity,
         mut force,
