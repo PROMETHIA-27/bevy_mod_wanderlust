@@ -1,4 +1,4 @@
-#![deny(
+#![warn(
     missing_docs,
     rustdoc::broken_intra_doc_links,
     rustdoc::private_intra_doc_links
@@ -16,5 +16,5 @@ mod rapier;
 
 pub use {
     bundles::ControllerBundle, controller::*, physics::*, plugins::WanderlustPlugin, rapier::*,
-    spring::Spring,
+    spring::*,
 };

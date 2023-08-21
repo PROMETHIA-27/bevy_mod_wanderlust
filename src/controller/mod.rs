@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy_rapier3d::prelude::*;
 
 mod gravity;
 mod ground;
@@ -25,7 +26,9 @@ pub struct Controller {
     pub ground_caster: GroundCaster,
     /// Ground entity found that is considered ground.
     pub ground_cast: GroundCast,
-    /// Is the controller currently considered stable on the ground.
+    /// Ground entity found that is considered viable ground.
+    pub viable_ground_cast: ViableGroundCast,
+    /// Is the controller currently considered on viable ground.
     pub grounded: Grounded,
     /// Force applied to the ground the controller is on.
     pub ground_force: GroundForce,
@@ -63,6 +66,7 @@ impl Default for Controller {
 
             ground_caster: default(),
             ground_cast: default(),
+            viable_ground_cast: default(),
             grounded: default(),
             ground_force: default(),
 
@@ -82,7 +86,7 @@ impl Default for Controller {
 }
 
 /// Settings for how the forces applied to the physics engine should be calculated.
-#[derive(Component, Default, Reflect)]
+#[derive(Component, Reflect)]
 #[reflect(Component, Default)]
 pub struct ForceSettings {
     /// Scaling factor for the force applied to the ground to keep the character moving/off the ground.
@@ -92,9 +96,19 @@ pub struct ForceSettings {
     pub opposing_movement_force_scale: f32,
 }
 
+impl Default for ForceSettings {
+    fn default() -> Self {
+        Self {
+            opposing_force_scale: 1.0,
+            opposing_movement_force_scale: 0.0,
+        }
+    }
+}
+
 /// Add all forces together into a single force to be applied to the physics engine.
 pub fn accumulate_forces(
     globals: Query<&GlobalTransform>,
+    masses: Query<&ReadMassProperties>,
     mut forces: Query<(
         &ForceSettings,
         &mut ControllerForce,
@@ -104,8 +118,7 @@ pub fn accumulate_forces(
         &MovementForce,
         &JumpForce,
         &GravityForce,
-        &GroundCast,
-        &ControllerMass,
+        &ViableGroundCast,
     )>,
 ) {
     for (
@@ -117,10 +130,15 @@ pub fn accumulate_forces(
         movement,
         jump,
         gravity,
-        ground_cast,
-        mass,
+        viable_ground,
     ) in &mut forces
     {
+        /*
+        info!(
+            "movement: {:.2?}, jump: {:.2?}, float: {:.2?}, gravity: {:.2?}",
+            movement.linear, jump.linear, float.linear, gravity.linear
+        );
+        */
         force.linear = movement.linear + jump.linear + float.linear + gravity.linear;
         force.angular = movement.angular + upright.angular;
         //force.angular = movement.angular;
@@ -128,30 +146,30 @@ pub fn accumulate_forces(
         let opposing_force = -(movement.linear * settings.opposing_movement_force_scale
             + (jump.linear + float.linear) * settings.opposing_force_scale);
 
-        if let GroundCast::Touching(ground) = ground_cast {
-            let ground_transform = match globals.get(ground.entity) {
-                Ok(global) => global.compute_transform().compute_affine(),
-                _ => Transform::default().compute_affine(),
+        if let Some(ground) = viable_ground.current() {
+            let ground_global = match globals.get(ground.entity) {
+                Ok(global) => global,
+                _ => &GlobalTransform::IDENTITY,
             };
 
-            let point = ground_transform
-                .inverse()
-                .transform_point3(ground.cast.point);
+            let ground_mass = if let Ok(mass) = masses.get(ground.entity) {
+                mass.0.clone()
+            } else {
+                MassProperties::default()
+            };
+
+            let com = ground_global.transform_point(ground_mass.local_center_of_mass);
             ground_force.linear = opposing_force;
-            ground_force.angular = (point - mass.com).cross(opposing_force);
+            ground_force.angular = (ground.cast.point - com).cross(opposing_force);
 
             #[cfg(feature = "debug_lines")]
             {
-                let color = if opposing_impulse.dot(settings.up_vector) < 0.0 {
+                let color = if opposing_force.dot(gravity_settings.up_vector) < 0.0 {
                     Color::RED
                 } else {
                     Color::BLUE
                 };
-                gizmos.line(
-                    ground.cast.witness,
-                    ground.cast.witness + opposing_impulse,
-                    color,
-                );
+                //gizmos.line(ground.cast.point, ground.cast.point + opposing_force, color);
             }
         } else {
             ground_force.linear = opposing_force;

@@ -1,34 +1,62 @@
-use crate::controller::*;
+use crate::{controller::*, spring::Strength};
+
 /// Movements applied via inputs.
 ///
 /// This includes directional movement and jumping.
-use bevy_rapier3d::prelude::*;
-
-/// Settings used to determine movement impulses on this controller.
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Default)]
 pub struct Movement {
-    /// How fast to get to the max speed.
-    pub acceleration: f32,
-    /// Caps acceleration so we don't overshoot too hard.
-    pub max_acceleration_force: f32,
+    /// How fast the controller will get to the `max_speed`.
+    pub acceleration: Strength,
     /// How fast our controller will move.
     pub max_speed: f32,
     /// Scales movement force. This is useful to ensure movement does not
     /// affect vertical velocity (by setting it to e.g. `Vec3(1.0, 0.0, 1.0)`).
-    pub force_scale: Vec3,
-    // /// Stick to the same position on the ground.
-    // pub stick_to_ground: Vec3,
+    pub force_scale: ForceScale,
+    /// Scales movement force when we are slipping.
+    /// If this is not `Vec3(1.0, 1.0, 1.0)` then the character can try to
+    /// move up the slope.
+    pub slip_force_scale: Vec3,
+}
+
+/// Determine force scale for movement.
+#[derive(Debug, Default, Clone, Reflect)]
+pub enum ForceScale {
+    /// Use the inverse of `Gravity::up_vector` for a force scale.
+    #[default]
+    Up,
+    /// Don't scale at all.
+    None,
+    /// Specific force scale.
+    Vec3(Vec3),
 }
 
 impl Default for Movement {
     fn default() -> Self {
         Self {
-            acceleration: 50.0,
-            max_speed: 10.0,
-            force_scale: Vec3::ONE,
-            max_acceleration_force: 10.0,
-            //stick_to_ground: true,
+            acceleration: Strength::Scaled(10.0),
+            max_speed: 5.0,
+            force_scale: default(),
+            slip_force_scale: Vec3::splat(1.0),
+        }
+    }
+}
+
+impl Movement {
+    /// Calculate force scale.
+    pub fn force_scale(&self, gravity: &Gravity) -> Vec3 {
+        match self.force_scale {
+            ForceScale::Vec3(v) => v,
+            ForceScale::Up => {
+                if gravity.up_vector.length() > 0.0 {
+                    let up = gravity.up_vector.normalize();
+                    let (x, z) = up.any_orthonormal_pair();
+                    x.abs() + z.abs()
+                } else {
+                    Vec3::ONE
+                }
+            }
+            ForceScale::None => Vec3::ONE,
         }
     }
 }
@@ -45,41 +73,128 @@ pub struct MovementForce {
 
 /// Calculates the movement forces for this controller.
 pub fn movement_force(
+    ctx: Res<RapierContext>,
     mut query: Query<(
+        Entity,
         &mut MovementForce,
         &mut Movement,
         &Gravity,
         &ControllerInput,
         &GroundCast,
-        &GroundCaster,
+        &ViableGroundCast,
         &ControllerVelocity,
+        &ControllerMass,
     )>,
+    globals: Query<&GlobalTransform>,
+    masses: Query<&ReadMassProperties>,
+    frictions: Query<&Friction>,
+    //mut gizmos: Gizmos,
 ) {
-    for (mut force, movement, gravity, input, cast, ground_caster, velocity) in &mut query {
+    let dt = ctx.integration_parameters.dt;
+    for (
+        controller_entity,
+        mut force,
+        movement,
+        gravity,
+        input,
+        ground,
+        viable_ground,
+        velocity,
+        mass,
+    ) in &mut query
+    {
         force.linear = Vec3::ZERO;
 
-        let Some(ground) = cast.last() else { continue };
-        let ground_angle = ground.cast.normal.angle_between(gravity.up_vector);
-        let slipping = (ground.cast.normal.length() > 0.0
-            && ground_angle > ground_caster.max_ground_angle)
-            || ground.cast.normal.length() == 0.0;
-        if slipping {
-            if let GroundCast::Touching(ground) = cast {
-                let mut slip_vector = ground.cast.normal.reject_from_normalized(gravity.up_vector);
-                slip_vector = slip_vector.normalize_or_zero();
-                force.linear += slip_vector * -gravity.acceleration;
-                force.linear += gravity.up_vector * gravity.acceleration * 5.0;
-            }
-        } else {
-            let input_dir = input.movement.clamp_length_max(1.0);
-            let input_goal_vel = input_dir * movement.max_speed;
-            let goal_vel = input_goal_vel;
-            let current_vel = velocity.linear - ground.point_velocity.linvel;
+        let force_scale = movement.force_scale(&gravity);
 
-            let displacement = (goal_vel - current_vel) * movement.force_scale;
-            force.linear += (displacement * movement.acceleration)
-                .clamp_length_max(movement.max_acceleration_force);
-        }
+        let input_dir = input.movement.clamp_length_max(1.0);
+        let mut goal_vel = input_dir * movement.max_speed;
+
+        let slip_vector = match ground.current() {
+            Some(ground) if !ground.stable => {
+                let down_tangent = ground.cast.down_tangent(gravity.up_vector);
+                let slip_vector = (down_tangent * force_scale).normalize_or_zero();
+
+                // Counteract the movement going up the slope.
+                let alignment = goal_vel.dot(slip_vector);
+                if alignment < 0.0 {
+                    let slip_goal = alignment * slip_vector;
+                    goal_vel -= slip_goal * movement.slip_force_scale;
+                }
+
+                // Pushing to force the controller down the slope
+                Some(slip_vector)
+            }
+            _ => None,
+        };
+
+        let slip_force = -(slip_vector.unwrap_or(Vec3::ZERO)) * mass.mass;
+
+        let last_ground_vel = if let Some(ground) = viable_ground.last() {
+            let ground_global = globals
+                .get(ground.entity)
+                .unwrap_or(&GlobalTransform::IDENTITY);
+
+            let ground_mass = if let Ok(mass) = masses.get(ground.entity) {
+                mass.0.clone()
+            } else {
+                MassProperties::default()
+            };
+
+            let com = ground_global.transform_point(ground_mass.local_center_of_mass);
+            let projected_angular = ground.angular_velocity.project_onto(gravity.up_vector);
+            ground.linear_velocity + projected_angular.cross(ground.cast.point - com)
+        } else {
+            Vec3::ZERO
+        };
+
+        let relative_velocity = (velocity.linear - last_ground_vel) * force_scale;
+        let friction_coefficient = if let Some(ground) = viable_ground.current() {
+            let friction = frictions
+                .get(controller_entity)
+                .copied()
+                .unwrap_or(Friction::default());
+            let ground_friction = frictions
+                .get(ground.entity)
+                .copied()
+                .unwrap_or(Friction::default());
+            let friction_coefficient = friction.coefficient.max(ground_friction.coefficient);
+            friction_coefficient
+        } else {
+            // Air damping coefficient
+            0.25
+        };
+
+        let strength = movement.acceleration.get(mass.mass, dt);
+        let movement_force = goal_vel * strength * force_scale;
+
+        let mut friction_velocity = relative_velocity;
+        let goal_dir = goal_vel.normalize_or_zero();
+        let goal_align = relative_velocity.dot(goal_dir);
+
+        let difference = (goal_vel.length() - goal_align.max(0.0)).max(0.0);
+        let displacement = difference * goal_dir;
+
+        let max_movement_force = displacement * mass.mass / dt * force_scale;
+        let movement_force = movement_force.clamp_length_max(max_movement_force.length());
+
+        let friction_align = goal_align;
+        let friction_offset = friction_align.clamp(0.0, goal_vel.length());
+        friction_velocity -= friction_offset * goal_dir;
+
+        let friction_strength = Strength::Scaled(friction_coefficient.clamp(0.0, 1.0) * 45.0);
+        let friction_force = friction_velocity * friction_strength.get(mass.mass, dt) * force_scale;
+
+        /*
+        let squish = 0.2;
+        gizmos.ray(Vec3::ZERO, goal_vel * squish, Color::GREEN);
+        gizmos.sphere(goal_align * goal_dir * squish, Quat::IDENTITY, 0.1, Color::GREEN);
+        gizmos.ray(Vec3::ZERO, relative_velocity * squish, Color::BLUE);
+        gizmos.ray(relative_velocity * squish, -goal_offset * goal_dir * squish, Color::RED);
+        gizmos.ray(Vec3::new(0.0, 0.1, 0.0), friction_velocity * squish, Color::CYAN);
+        */
+
+        force.linear += movement_force - friction_force - slip_force;
     }
 }
 
@@ -137,8 +252,8 @@ pub struct Jump {
 impl Default for Jump {
     fn default() -> Self {
         Self {
-            initial_force: 300.0,
-            force: 50.0,
+            initial_force: 30.0,
+            force: 20.0,
             cooldown_duration: 0.25,
             cooldown_timer: 0.0,
             jump_duration: 0.1,
@@ -157,7 +272,7 @@ impl Default for Jump {
             remaining_jumps: 1,
             pressed_last_frame: false,
 
-            skip_ground_check_duration: 0.3,
+            skip_ground_check_duration: 0.0,
         }
     }
 }
@@ -185,7 +300,9 @@ impl Jump {
     /// Can we jump right now?
     pub fn can_jump(&self, grounded: bool) -> bool {
         let first_jump = self.remaining_jumps == self.jumps;
+        //info!("first_jump: {:?}", first_jump);
         let grounded = grounded || self.coyote_timer > 0.0;
+        //info!("grounded: {:?}", grounded);
         if first_jump && !grounded {
             return false;
         }
@@ -231,15 +348,15 @@ pub fn jump_force(
         &mut Jump,
         &ControllerInput,
         &mut GroundCaster,
-        &GroundCast,
+        &ViableGroundCast,
         &Grounded,
         &Gravity,
         &ControllerVelocity,
+        &ControllerMass,
     )>,
     ctx: Res<RapierContext>,
 ) {
     let dt = ctx.integration_parameters.dt;
-
     for (
         mut force,
         mut float_force,
@@ -247,10 +364,11 @@ pub fn jump_force(
         mut jumping,
         input,
         mut ground_caster,
-        ground_cast,
+        viable_ground,
         grounded,
         gravity,
         velocity,
+        mass,
     ) in &mut query
     {
         force.linear = Vec3::ZERO;
@@ -266,8 +384,8 @@ pub fn jump_force(
             jumping.reset_jump();
         }
 
-        let velocity = if let Some(ground) = ground_cast.last() {
-            velocity.linear - ground.point_velocity.linvel
+        let velocity = if let Some(ground) = viable_ground.last() {
+            velocity.linear - ground.point_velocity
         } else {
             velocity.linear
         };
@@ -285,7 +403,7 @@ pub fn jump_force(
             // and prevents stacking jumps to reach high upwards velocities
             let initial_jump_force = jumping.initial_force * gravity.up_vector;
             let negate_up_velocity =
-                (-1.0 * gravity.up_vector * velocity.dot(gravity.up_vector)) / dt;
+                (-1.0 * gravity.up_vector * velocity.dot(gravity.up_vector)) * mass.mass / dt;
             force.linear += negate_up_velocity + initial_jump_force;
 
             gravity_force.linear = Vec3::ZERO;
@@ -299,16 +417,13 @@ pub fn jump_force(
         } else if jumping.jumping() {
             if !input.jumping {
                 // Cut the jump short if we aren't holding the jump down.
-                jumping.reset_jump();
-                let stop_force = 
-                    velocity.project_onto(gravity.up_vector) * -jumping.stop_force;
-                force.linear +=stop_force;
+                //jumping.reset_jump();
+                let stop_force = velocity.project_onto(gravity.up_vector) * -jumping.stop_force;
+                force.linear += stop_force;
             } else {
                 ground_caster.skip_ground_check_timer = jumping.skip_ground_check_duration;
 
-                let jump = gravity.up_vector
-                    * jumping.force
-                    * jumping.decay_multiplier();
+                let jump = gravity.up_vector * jumping.force * jumping.decay_multiplier();
                 force.linear += jump;
             }
         }
