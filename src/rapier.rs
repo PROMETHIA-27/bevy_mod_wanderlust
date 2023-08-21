@@ -74,12 +74,12 @@ pub fn apply_forces(
 /// Apply the opposing ground force to the entity we are pushing off of to float.
 pub fn apply_ground_forces(
     mut impulses: Query<&mut ExternalImpulse>,
-    ground_forces: Query<(&GroundForce, &GroundCast)>,
+    ground_forces: Query<(&GroundForce, &ViableGroundCast)>,
     ctx: Res<RapierContext>,
 ) {
     let dt = ctx.integration_parameters.dt;
-    for (force, cast) in &ground_forces {
-        if let ViableGround::Ground(ground) = cast.viable {
+    for (force, viable_ground) in &ground_forces {
+        if let Some(ground) = viable_ground.current() {
             if let Ok(mut impulse) = impulses.get_mut(ground.entity) {
                 impulse.impulse += force.linear * dt;
                 impulse.torque_impulse += force.angular * dt;

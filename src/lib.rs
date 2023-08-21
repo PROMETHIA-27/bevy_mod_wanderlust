@@ -6,7 +6,6 @@
 #![doc = include_str!("../README.md")]
 
 mod bundles;
-mod cap;
 mod controller;
 mod physics;
 mod plugins;
@@ -16,6 +15,6 @@ mod spring;
 mod rapier;
 
 pub use {
-    bundles::ControllerBundle, cap::*, controller::*, physics::*, plugins::WanderlustPlugin,
-    rapier::*, spring::*,
+    bundles::ControllerBundle, controller::*, physics::*, plugins::WanderlustPlugin, rapier::*,
+    spring::*,
 };

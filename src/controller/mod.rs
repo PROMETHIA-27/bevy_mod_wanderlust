@@ -26,6 +26,8 @@ pub struct Controller {
     pub ground_caster: GroundCaster,
     /// Ground entity found that is considered ground.
     pub ground_cast: GroundCast,
+    /// Ground entity found that is considered viable ground.
+    pub viable_ground_cast: ViableGroundCast,
     /// Is the controller currently considered on viable ground.
     pub grounded: Grounded,
     /// Force applied to the ground the controller is on.
@@ -64,6 +66,7 @@ impl Default for Controller {
 
             ground_caster: default(),
             ground_cast: default(),
+            viable_ground_cast: default(),
             grounded: default(),
             ground_force: default(),
 
@@ -115,7 +118,7 @@ pub fn accumulate_forces(
         &MovementForce,
         &JumpForce,
         &GravityForce,
-        &GroundCast,
+        &ViableGroundCast,
     )>,
 ) {
     for (
@@ -127,7 +130,7 @@ pub fn accumulate_forces(
         movement,
         jump,
         gravity,
-        ground_cast,
+        viable_ground,
     ) in &mut forces
     {
         /*
@@ -143,7 +146,7 @@ pub fn accumulate_forces(
         let opposing_force = -(movement.linear * settings.opposing_movement_force_scale
             + (jump.linear + float.linear) * settings.opposing_force_scale);
 
-        if let ViableGround::Ground(ground) = ground_cast.viable {
+        if let Some(ground) = viable_ground.current() {
             let ground_global = match globals.get(ground.entity) {
                 Ok(global) => global,
                 _ => &GlobalTransform::IDENTITY,

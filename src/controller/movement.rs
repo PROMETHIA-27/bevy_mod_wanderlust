@@ -1,4 +1,4 @@
-use crate::{cap::Cap, controller::*, spring::Strength};
+use crate::{controller::*, spring::Strength};
 
 /// Movements applied via inputs.
 ///
@@ -81,6 +81,7 @@ pub fn movement_force(
         &Gravity,
         &ControllerInput,
         &GroundCast,
+        &ViableGroundCast,
         &ControllerVelocity,
         &ControllerMass,
     )>,
@@ -92,7 +93,17 @@ pub fn movement_force(
 ) {
     let dt = ctx.integration_parameters.dt;
     //gizconfig.depth_bias = -1.0;
-    for (controller_entity, mut force, movement, gravity, input, cast, velocity, mass) in &mut query
+    for (
+        controller_entity,
+        mut force,
+        movement,
+        gravity,
+        input,
+        ground,
+        viable_ground,
+        velocity,
+        mass,
+    ) in &mut query
     {
         force.linear = Vec3::ZERO;
 
@@ -101,31 +112,27 @@ pub fn movement_force(
         let input_dir = input.movement.clamp_length_max(1.0);
         let mut goal_vel = input_dir * movement.max_speed;
 
-        let slip_vector = match cast.current {
+        let slip_vector = match ground.current() {
             Some(ground) if !ground.stable => {
-                let slip_vector = ground.cast.down_tangent(gravity.up_vector) * force_scale;
+                let down_tangent = ground.cast.down_tangent(gravity.up_vector);
+                let slip_vector = (down_tangent * force_scale).normalize_or_zero();
 
-                // arbitrary value to ignore flat surfaces.
-                if slip_vector.length() > 0.01 {
-                    // Counteract the movement going up the slope.
-                    let alignment = goal_vel.dot(slip_vector);
-                    if alignment > 0.0 {
-                        let slip_goal = alignment * slip_vector;
-                        goal_vel -= slip_goal * movement.slip_force_scale;
-                    }
-
-                    // Pushing to force the controller down the slope
-                    Some(slip_vector)
-                } else {
-                    None
+                // Counteract the movement going up the slope.
+                let alignment = goal_vel.dot(slip_vector);
+                if alignment < 0.0 {
+                    let slip_goal = alignment * slip_vector;
+                    goal_vel -= slip_goal * movement.slip_force_scale;
                 }
+
+                // Pushing to force the controller down the slope
+                Some(slip_vector)
             }
             _ => None,
         };
 
-        let slip_force = slip_vector.unwrap_or(Vec3::ZERO) * mass.mass;
+        let slip_force = -(slip_vector.unwrap_or(Vec3::ZERO)) * mass.mass;
 
-        let last_ground_vel = if let Some(ground) = cast.viable.last() {
+        let last_ground_vel = if let Some(ground) = viable_ground.last() {
             let ground_global = globals
                 .get(ground.entity)
                 .unwrap_or(&GlobalTransform::IDENTITY);
@@ -144,7 +151,7 @@ pub fn movement_force(
         };
 
         let relative_velocity = (velocity.linear - last_ground_vel) * force_scale;
-        let friction_coefficient = if let ViableGround::Ground(ground) = cast.viable {
+        let friction_coefficient = if let Some(ground) = viable_ground.current() {
             let friction = frictions
                 .get(controller_entity)
                 .copied()
@@ -156,6 +163,7 @@ pub fn movement_force(
             let friction_coefficient = friction.coefficient.max(ground_friction.coefficient);
             friction_coefficient
         } else {
+            // Air damping coefficient
             0.25
         };
 
@@ -266,7 +274,7 @@ impl Default for Jump {
             remaining_jumps: 1,
             pressed_last_frame: false,
 
-            skip_ground_check_duration: 0.3,
+            skip_ground_check_duration: 0.0,
         }
     }
 }
@@ -342,7 +350,7 @@ pub fn jump_force(
         &mut Jump,
         &ControllerInput,
         &mut GroundCaster,
-        &GroundCast,
+        &ViableGroundCast,
         &Grounded,
         &Gravity,
         &ControllerVelocity,
@@ -358,7 +366,7 @@ pub fn jump_force(
         mut jumping,
         input,
         mut ground_caster,
-        ground_cast,
+        viable_ground,
         grounded,
         gravity,
         velocity,
@@ -378,7 +386,7 @@ pub fn jump_force(
             jumping.reset_jump();
         }
 
-        let velocity = if let Some(ground) = ground_cast.viable.last() {
+        let velocity = if let Some(ground) = viable_ground.last() {
             velocity.linear - ground.point_velocity
         } else {
             velocity.linear

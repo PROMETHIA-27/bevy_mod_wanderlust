@@ -49,20 +49,16 @@ pub fn float_force(
         &GlobalTransform,
         &mut FloatForce,
         &Float,
-        &GroundCast,
+        &ViableGroundCast,
         &ControllerVelocity,
         &ControllerMass,
         &Gravity,
     )>,
 ) {
-    for (global, mut force, float, cast, velocity, mass, gravity) in &mut query {
+    for (global, mut force, float, viable_ground, velocity, mass, gravity) in &mut query {
         force.linear = Vec3::ZERO;
 
-        //let ViableGround::Ground(ground) = cast.viable else { continue };
-        let Some(ground) = cast.current else { continue };
-        if !ground.viable {
-            continue;
-        }
+        let Some(ground) = viable_ground.current() else { continue };
 
         let up_vector = gravity.up_vector;
 
@@ -126,10 +122,10 @@ pub fn upright_force(
         &Gravity,
         &ControllerMass,
         &ControllerVelocity,
-        &GroundCast,
+        &ViableGroundCast,
     )>,
 ) {
-    for (mut impulse, upright, tf, gravity, mass, velocity, ground_cast) in &mut query {
+    for (mut impulse, upright, tf, gravity, mass, velocity, viable_ground) in &mut query {
         impulse.angular = {
             let desired_axis = if let Some(forward) = upright.forward_vector {
                 let right = gravity.up_vector.cross(forward).normalize();
@@ -152,7 +148,7 @@ pub fn upright_force(
             let damping = upright.spring.damp_coefficient(mass.inertia);
 
             /*
-            let ground_rot = if let Some(ground) = ground_cast.viable.last() {
+            let ground_rot = if let Some(ground) = viable_ground.last() {
                 ground.angular_velocity
             } else {
                 Vec3::ZERO

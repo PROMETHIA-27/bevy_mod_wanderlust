@@ -6,7 +6,7 @@ use bevy_rapier3d::{
         bounding_volume::BoundingVolume,
         query::{DefaultQueryDispatcher, PersistentQueryDispatcher},
     },
-    rapier::{self, geometry::ContactManifold},
+    rapier::geometry::ContactManifold,
 };
 
 /// How to detect if something below the controller is suitable
@@ -76,37 +76,89 @@ pub struct Ground {
     pub point_velocity: Vec3,
 }
 
-/// The cached ground cast. Contains the entity hit, the hit info, and velocity of the entity
-/// hit.
-#[derive(Component, Default)]
-pub struct GroundCast {
-    /// Ground that was found this frame,
-    /// this might not be viable for standing on.
-    pub current: Option<Ground>,
-    /// Cached *stable* ground that was found in the past.
-    pub viable: ViableGround,
+impl Ground {
+    pub fn from_cast(
+        entity: Entity,
+        cast: CastResult,
+        up_vector: Vec3,
+        caster: &GroundCaster,
+        ctx: &RapierContext,
+        masses: &Query<&ReadMassProperties>,
+        velocities: &Query<&Velocity>,
+        globals: &Query<&GlobalTransform>,
+    ) -> Self {
+        let ground_entity = ctx.collider_parent(entity).unwrap_or(entity);
+
+        let mass = if let Ok(mass) = masses.get(ground_entity) {
+            mass.0.clone()
+        } else {
+            MassProperties::default()
+        };
+
+        let local_com = mass.local_center_of_mass;
+
+        let ground_velocity = velocities
+            .get(ground_entity)
+            .copied()
+            .unwrap_or(Velocity::default());
+
+        let global = globals
+            .get(ground_entity)
+            .unwrap_or(&GlobalTransform::IDENTITY);
+        let com = global.transform_point(local_com);
+        let point_velocity =
+            ground_velocity.linvel + ground_velocity.angvel.cross(cast.point - com);
+
+        let (stable, viable) = if cast.normal.length() > 0.0 {
+            let viable = cast.viable(up_vector, caster.max_ground_angle);
+            let stable = cast.viable(up_vector, caster.unstable_ground_angle) && viable;
+            (stable, viable)
+        } else {
+            (false, false)
+        };
+
+        Ground {
+            entity: ground_entity,
+            cast: cast,
+            stable: stable,
+            viable: viable,
+            linear_velocity: ground_velocity.linvel,
+            angular_velocity: ground_velocity.angvel,
+            point_velocity: point_velocity,
+        }
+    }
 }
 
-/// Current/last viable ground.
+/// The cached ground cast. Contains the entity hit, the hit info, and velocity of the entity
+/// hit.
+#[derive(Component, Default, Deref, DerefMut)]
+pub struct GroundCast(
+    /// Ground that was found this frame,
+    /// this might not be viable for standing on.
+    pub GroundCache,
+);
+
+#[derive(Component, Default, Deref, DerefMut)]
+pub struct ViableGroundCast(pub GroundCache);
+
+/// Current/last ground.
 #[derive(Default)]
-pub enum ViableGround {
-    /// This will stay the viable ground until we leave the ground entirely.
+pub enum GroundCache {
+    /// This will stay the ground until we leave the ground entirely.
     Ground(Ground),
-    /// Cached viable ground.
+    /// Cached ground.
     Last(Ground),
     /// No stable ground.
     #[default]
     None,
 }
 
-impl ViableGround {
-    /// Update the viable ground depending on the current ground cast.
+impl GroundCache {
+    /// Update the ground depending on the current ground cast.
     pub fn update(&mut self, ground: Option<Ground>) {
         match ground {
             Some(ground) => {
-                if ground.viable {
-                    *self = ViableGround::Ground(ground);
-                }
+                *self = Self::Ground(ground);
             }
             None => {
                 self.into_last();
@@ -117,10 +169,18 @@ impl ViableGround {
     /// Archive this ground cast.
     pub fn into_last(&mut self) {
         match self {
-            ViableGround::Ground(ground) => {
-                *self = ViableGround::Last(ground.clone());
+            Self::Ground(ground) => {
+                *self = Self::Last(ground.clone());
             }
             _ => {}
+        }
+    }
+
+    /// Ground we are currently touching
+    pub fn current(&self) -> Option<&Ground> {
+        match self {
+            Self::Ground(ground) => Some(ground),
+            _ => None,
         }
     }
 
@@ -129,22 +189,6 @@ impl ViableGround {
         match self {
             Self::Ground(ground) | Self::Last(ground) => Some(ground),
             Self::None => None,
-        }
-    }
-}
-
-impl GroundCast {
-    /// Given new information on a ground cast, update what we know.
-    pub fn update(&mut self, ground: Option<Ground>) {
-        self.current = ground.clone();
-        self.viable.update(ground);
-    }
-
-    /// Are we currently touching the ground?
-    pub fn grounded(&self) -> bool {
-        match self.viable {
-            ViableGround::Ground(_) => true,
-            _ => false,
         }
     }
 }
@@ -173,6 +217,7 @@ pub fn find_ground(
         &Gravity,
         &mut GroundCaster,
         &mut GroundCast,
+        &mut ViableGroundCast,
     )>,
 
     velocities: Query<&Velocity>,
@@ -188,10 +233,8 @@ pub fn find_ground(
         return;
     }
 
-    for (entity, tf, gravity, mut caster, mut cast) in &mut casters {
-        let casted: Option<(Entity, CastResult)> = if caster.skip_ground_check_timer == 0.0
-            && !caster.skip_ground_check_override
-        {
+    for (entity, tf, gravity, mut caster, mut ground, mut viable_ground) in &mut casters {
+        if caster.skip_ground_check_timer == 0.0 && !caster.skip_ground_check_override {
             let cast_position = tf.transform_point(caster.cast_origin);
             let cast_rotation = tf.to_scale_rotation_translation().1;
             let cast_direction = -gravity.up_vector;
@@ -202,7 +245,7 @@ pub fn find_ground(
                 |collider| collider != entity && !caster.exclude_from_ground.contains(&collider);
             let filter = QueryFilter::new().exclude_sensors().predicate(&predicate);
 
-            let mut params = GroundCastParams {
+            let mut viable_params = GroundCastParams {
                 position: cast_position,
                 rotation: cast_rotation,
                 direction: cast_direction,
@@ -211,46 +254,51 @@ pub fn find_ground(
                 filter: filter,
             };
 
-            params.cast_iters(
-                &*ctx,
-                &colliders,
-                &globals,
-                caster.max_ground_angle,
-                gravity.up_vector,
-                5,
-                &mut gizmos,
-            )
+            let mut any_params = viable_params.clone();
 
-            //for _ in 0.
-            /*
-            params.correct_penetrations(ctx, globals);
-            params.cast_shape();
-            params.sample_normals();
-            params.slide();
-            */
-            /*
-            viable_ground_cast(
-                &*ctx,
-                &colliders,
-                &globals,
-                GroundCastParams {
-                    position: cast_position,
-                    rotation: cast_rotation,
-                    direction: cast_direction,
-                    shape: &shape,
-                    max_toi: caster.cast_length,
-                    filter: &filter,
-                },
-                caster.max_ground_angle,
-                gravity.up_vector,
-                &mut gizmos,
-            )
-            */
+            let next_viable_ground = viable_params
+                .viable_cast_iters(
+                    &*ctx,
+                    &globals,
+                    caster.max_ground_angle,
+                    gravity.up_vector,
+                    5,
+                    &mut gizmos,
+                )
+                .map(|(entity, cast)| {
+                    Ground::from_cast(
+                        entity,
+                        cast,
+                        gravity.up_vector,
+                        &*caster,
+                        &*ctx,
+                        &masses,
+                        &velocities,
+                        &globals,
+                    )
+                });
+            viable_ground.update(next_viable_ground);
+
+            let next_ground = any_params
+                .cast_iters(&*ctx, &globals, gravity.up_vector, 5, &mut gizmos)
+                .map(|(entity, cast)| {
+                    Ground::from_cast(
+                        entity,
+                        cast,
+                        gravity.up_vector,
+                        &*caster,
+                        &*ctx,
+                        &masses,
+                        &velocities,
+                        &globals,
+                    )
+                });
+            ground.update(next_ground);
         } else {
             caster.skip_ground_check_timer = (caster.skip_ground_check_timer - dt).max(0.0);
-            None
         };
 
+        /*
         let next_ground = match casted {
             Some((entity, result)) => {
                 let ground_entity = ctx.collider_parent(entity).unwrap_or(entity);
@@ -296,8 +344,7 @@ pub fn find_ground(
             }
             None => None,
         };
-
-        cast.update(next_ground);
+        */
 
         // If we hit something, just get back up instead of waiting.
         if ctx.contacts_with(entity).next().is_some() {
@@ -312,43 +359,41 @@ pub fn determine_groundedness(
         &GlobalTransform,
         &Gravity,
         &Float,
-        &GroundCast,
+        &ViableGroundCast,
         &ControllerVelocity,
         &mut Grounded,
     )>,
 ) {
-    for (global, gravity, float, cast, velocity, mut grounded) in &mut query {
+    for (global, gravity, float, viable_ground, velocity, mut grounded) in &mut query {
         grounded.0 = false;
-        if let Some(ground) = cast.current {
-            if ground.viable {
-                let up_velocity = velocity.linear.dot(gravity.up_vector);
-                let translation = global.translation();
-                let updated_toi =
-                    translation.dot(gravity.up_vector) - ground.cast.point.dot(gravity.up_vector);
-                //gizmos.sphere(ground.cast.point, Quat::IDENTITY, 0.3, Color::RED);
-                //gizmos.sphere(translation, Quat::IDENTITY, 0.3, Color::GREEN);
-                let offset = float.distance - updated_toi;
+        if let Some(ground) = viable_ground.current() {
+            let up_velocity = velocity.linear.dot(gravity.up_vector);
+            let translation = global.translation();
+            let updated_toi =
+                translation.dot(gravity.up_vector) - ground.cast.point.dot(gravity.up_vector);
+            //gizmos.sphere(ground.cast.point, Quat::IDENTITY, 0.3, Color::RED);
+            //gizmos.sphere(translation, Quat::IDENTITY, 0.3, Color::GREEN);
+            let offset = float.distance - updated_toi;
 
-                //let up_velocity = up_velocity.clamp(-float.distance, float.distance);
-                // Loosen constraints based on velocity.
-                let max = if up_velocity > float.max_offset {
-                    float.max_offset + up_velocity
-                } else {
-                    float.max_offset
-                };
-                let min = if up_velocity < float.min_offset {
-                    float.min_offset + up_velocity
-                } else {
-                    float.min_offset
-                };
-                grounded.0 = offset >= min && offset <= max;
-                /*
-                info!(
-                    "grounded: {:?}, {:.3?} <= {:.3?} <= {:.3?}",
-                    grounded.0, min, offset, max
-                );
-                */
-            }
+            //let up_velocity = up_velocity.clamp(-float.distance, float.distance);
+            // Loosen constraints based on velocity.
+            let max = if up_velocity > float.max_offset {
+                float.max_offset + up_velocity
+            } else {
+                float.max_offset
+            };
+            let min = if up_velocity < float.min_offset {
+                float.min_offset + up_velocity
+            } else {
+                float.min_offset
+            };
+            grounded.0 = offset >= min && offset <= max;
+            /*
+            info!(
+                "grounded: {:?}, {:.3?} <= {:.3?} <= {:.3?}",
+                grounded.0, min, offset, max
+            );
+            */
         };
     }
 }
@@ -365,6 +410,7 @@ pub struct CastResult {
 }
 
 impl CastResult {
+    /// Get the tangential normal biased downwards.
     pub fn down_tangent(&self, up_vector: Vec3) -> Vec3 {
         let (x, z) = self.normal.any_orthonormal_pair();
         let projected_x = up_vector.project_onto(x);
@@ -408,6 +454,7 @@ impl From<RayIntersection> for CastResult {
     }
 }
 
+/// Get a list of contacts for a given shape.
 pub fn contact_manifolds(
     ctx: &RapierContext,
     position: Vec3,
@@ -415,8 +462,6 @@ pub fn contact_manifolds(
     collider: &Collider,
     filter: &QueryFilter,
 ) -> Vec<(Entity, ContactManifold)> {
-    const FUDGE: f32 = 0.05;
-
     let physics_scale = ctx.physics_scale();
 
     let shape = &collider.raw;
@@ -475,18 +520,33 @@ pub struct GroundCastParams<'c, 'f> {
     pub filter: QueryFilter<'f>,
 }
 
-pub struct GroundCastState<'c, 'f> {
-    pub params: GroundCastParams<'c, 'f>,
-    pub original_params: GroundCastParams<'c, 'f>,
-    pub cast_result: Option<(Entity, CastResult)>,
-}
-
+/// Arbitrary "slop"/"fudge" amount to adjust various things.
 pub const FUDGE: f32 = 0.05;
+
 impl<'c, 'f> GroundCastParams<'c, 'f> {
+    /// Ground cast
     pub fn cast_iters(
         &mut self,
         ctx: &RapierContext,
-        colliders: &Query<&Collider>,
+        globals: &Query<&GlobalTransform>,
+        up_vector: Vec3,
+        iterations: usize,
+        gizmos: &mut Gizmos,
+    ) -> Option<(Entity, CastResult)> {
+        for _ in 0..iterations {
+            if let Some((entity, cast)) = self.cast(ctx, globals, up_vector, gizmos) {
+                return Some((entity, cast));
+            }
+        }
+
+        None
+    }
+
+    /// Robust viable ground casting, will try multiple times
+    /// if the cast fails to find viable ground.
+    pub fn viable_cast_iters(
+        &mut self,
+        ctx: &RapierContext,
         globals: &Query<&GlobalTransform>,
         max_angle: f32,
         up_vector: Vec3,
@@ -495,7 +555,7 @@ impl<'c, 'f> GroundCastParams<'c, 'f> {
     ) -> Option<(Entity, CastResult)> {
         for _ in 0..iterations {
             if let Some((entity, cast)) =
-                self.cast(ctx, colliders, globals, max_angle, up_vector, gizmos)
+                self.viable_cast(ctx, globals, up_vector, max_angle, gizmos)
             {
                 return Some((entity, cast));
             }
@@ -504,22 +564,46 @@ impl<'c, 'f> GroundCastParams<'c, 'f> {
         None
     }
 
+    /// Find the first ground we can cast to.
     pub fn cast(
         &mut self,
         ctx: &RapierContext,
-        colliders: &Query<&Collider>,
         globals: &Query<&GlobalTransform>,
-        max_angle: f32,
         up_vector: Vec3,
         gizmos: &mut Gizmos,
     ) -> Option<(Entity, CastResult)> {
         self.correct_penetrations(ctx, globals);
 
-        let Some((entity, mut cast)) = self.cast_shape(ctx, gizmos) else { return None };
-        cast.normal = self.sample_normals(ctx, cast, up_vector, gizmos);
-        if !(cast.normal.length_squared() > 0.0) {
-            return None;
+        let (entity, mut cast) = if let Some((entity, cast)) = self.cast_shape(ctx, gizmos) {
+            (entity, cast)
+        } else {
+            if let Some((entity, cast)) = self.cast_ray(ctx) {
+                (entity, cast)
+            } else {
+                return None;
+            }
+        };
+        let Some(sampled_normal) = self.sample_normals(ctx, cast, up_vector, gizmos) else { return None };
+        cast.normal = sampled_normal;
+
+        // Either none of the samples
+        if cast.normal.length_squared() > 0.0 {
+            Some((entity, cast))
+        } else {
+            None
         }
+    }
+
+    /// Robust viable ground casting.
+    pub fn viable_cast(
+        &mut self,
+        ctx: &RapierContext,
+        globals: &Query<&GlobalTransform>,
+        up_vector: Vec3,
+        max_angle: f32,
+        gizmos: &mut Gizmos,
+    ) -> Option<(Entity, CastResult)> {
+        let Some((entity, cast)) = self.cast(ctx, globals, up_vector, gizmos) else { return None };
 
         if cast.viable(up_vector, max_angle) {
             Some((entity, cast))
@@ -539,13 +623,14 @@ impl<'c, 'f> GroundCastParams<'c, 'f> {
 
             let Ok(contact_global) = globals.get(*entity) else { continue };
             let normal = contact_global.to_scale_rotation_translation().1 * local_normal;
-            for point in &manifold.points {
-                let correction = normal * 0.05;
-                self.position += correction;
-            }
+            //for point in &manifold.points {
+            let correction = normal * 0.05;
+            self.position += correction;
+            //}
         }
     }
 
+    /// Cast a shape downwards using the parameters.
     pub fn cast_shape(
         &self,
         ctx: &RapierContext,
@@ -571,9 +656,10 @@ impl<'c, 'f> GroundCastParams<'c, 'f> {
         Some((entity, cast))
     }
 
+    /// A fallback to a simple raycasting downwards.
+    ///
+    /// Used in the case that we are unable to correct penetration.
     pub fn cast_ray(&self, ctx: &RapierContext) -> Option<(Entity, CastResult)> {
-        // Fallback to simple raycasting downwards.
-
         // This should only occur if the controller fails to correct penetration
         // of colliders.
 
@@ -588,9 +674,14 @@ impl<'c, 'f> GroundCastParams<'c, 'f> {
             .map(|(entity, inter)| (entity, inter.into()))
     }
 
+    /// Adjust to cast down the slope of the currently found ground.
+    ///
+    /// This is used so the controller doesn't repeatedly fall down
+    /// a slope despite there being some viable ground right beneath the
+    /// non-viable ground.
     pub fn slide(&mut self, cast: CastResult, up_vector: Vec3, gizmos: &mut Gizmos) {
         let projected_position = self.position + self.direction * cast.toi;
-        let offset = cast.point.distance(projected_position);
+        //let offset = cast.point.distance(projected_position);
 
         let down_tangent = cast.down_tangent(up_vector);
         self.direction = down_tangent.normalize_or_zero();
@@ -602,13 +693,17 @@ impl<'c, 'f> GroundCastParams<'c, 'f> {
         self.max_toi = self.max_toi.max(0.0);
     }
 
+    /// Sample a couple of points around the contact point.
+    ///
+    /// This way we get more reliable normals by averaging rather than relying
+    /// on just the shapecast (which tends to interpolate normals while on edges).
     pub fn sample_normals(
         &self,
         ctx: &RapierContext,
         cast: CastResult,
         up_vector: Vec3,
         gizmos: &mut Gizmos,
-    ) -> Vec3 {
+    ) -> Option<Vec3> {
         // try to get a better normal rather than an edge interpolated normal.
         // project back onto original shape position
         let ray_dir = self.direction;
@@ -623,7 +718,7 @@ impl<'c, 'f> GroundCastParams<'c, 'f> {
         let valid_radius = FUDGE * 2.0;
         gizmos.sphere(cast.point, Quat::IDENTITY, valid_radius, Color::RED); // Bounding sphere of valid ray normals
         for sample in samples {
-            let Some((ray_entity, inter)) = ctx.cast_ray_and_get_normal(
+            let Some((_, inter)) = ctx.cast_ray_and_get_normal(
                 ray_origin - sample * FUDGE,
                 ray_dir,
                 self.max_toi,
@@ -650,6 +745,10 @@ impl<'c, 'f> GroundCastParams<'c, 'f> {
         let weighted_average = sum / weights;
         gizmos.ray(cast.point, weighted_average * 0.5, Color::MAROON);
 
-        weighted_average
+        if weighted_average.length_squared() > 0.0 {
+            Some(weighted_average)
+        } else {
+            None
+        }
     }
 }
