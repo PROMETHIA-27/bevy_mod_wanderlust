@@ -44,4 +44,4 @@ opt-level = 3
 
 [patch.crates-io]
 #bevy_rapier3d = { path = "../bevy_rapier/bevy_rapier3d" }
-bevy_rapier3d = { git = "https://github.com/aceeri/bevy_rapier", branch = "with_query_filter" }
+bevy_rapier3d = { git = "https://github.com/dimforge/bevy_rapier", rev = "0ea000b" }
