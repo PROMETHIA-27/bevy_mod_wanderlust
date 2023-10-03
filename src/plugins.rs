@@ -1,54 +1,106 @@
 use crate::controller::*;
-use bevy::prelude::*;
+use bevy::{ecs::schedule::ScheduleLabel, prelude::*, utils::HashSet};
 use bevy_rapier3d::prelude::*;
 
 /// The [character controller](CharacterController) plugin. Necessary to have the character controller
 /// work.
 pub struct WanderlustPlugin {
     tweaks: bool,
+    schedule: Box<dyn ScheduleLabel>,
+    default_system_setup: bool,
 }
 
 impl WanderlustPlugin {
-    /// Apply tweaks to rapier to try to avoid some jitters/issues.
-    pub fn do_tweaks(tweaks: bool) -> Self {
-        Self { tweaks }
+    /// Apply tweaks to rapier (`true`) to try to avoid some jitters/issues.
+    pub fn with_tweaks(mut self, tweaks: bool) -> Self {
+        self.tweaks = tweaks;
+        self
+    }
+
+    /// Specifies whether the plugin should setup each of its [`PhysicsStages`]
+    /// (`true`), or if the user will set them up later (`false`).
+    ///
+    /// The default value is `true`.
+    pub fn with_default_system_setup(mut self, default_system_setup: bool) -> Self {
+        self.default_system_setup = default_system_setup;
+        self
+    }
+
+    /// Adds the controller systems to the `FixedUpdate` schedule rather than `Update`.
+    pub fn in_fixed_schedule(self) -> Self {
+        self.in_schedule(FixedUpdate)
+    }
+
+    /// Adds the controller systems to the provided schedule rather than `Update`.
+    pub fn in_schedule(mut self, schedule: impl ScheduleLabel) -> Self {
+        self.schedule = Box::new(schedule);
+        self
     }
 }
 
 impl Default for WanderlustPlugin {
     fn default() -> Self {
-        Self { tweaks: true }
+        Self {
+            tweaks: true,
+            schedule: Box::new(PostUpdate),
+            default_system_setup: true,
+        }
     }
 }
 
 impl Plugin for WanderlustPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<ControllerInput>()
-            .register_type::<Option<Vec3>>();
+            .register_type::<Gravity>()
+            .register_type::<GravityForce>()
+            .register_type::<Movement>()
+            .register_type::<MovementForce>()
+            .register_type::<Float>()
+            .register_type::<FloatForce>()
+            .register_type::<Upright>()
+            .register_type::<UprightForce>()
+            .register_type::<Option<Vec3>>()
+            .register_type::<GroundCaster>()
+            .register_type::<GroundCast>()
+            .register_type::<ViableGroundCast>()
+            .register_type::<Grounded>()
+            .register_type::<GroundForce>()
+            .register_type::<Movement>()
+            .register_type::<MovementForce>()
+            .register_type::<Jump>()
+            .register_type::<JumpForce>()
+            .register_type::<Float>()
+            .register_type::<FloatForce>()
+            .register_type::<Upright>()
+            .register_type::<UprightForce>()
+            .register_type::<ForceSettings>()
+            .register_type::<HashSet<Entity>>();
 
         if self.tweaks {
             app.add_systems(Startup, setup_physics_context);
         }
 
-        app.add_systems(
-            Update,
-            (
-                crate::get_mass_from_rapier,
-                crate::get_velocity_from_rapier,
-                find_ground,
-                determine_groundedness,
-                gravity_force,
-                movement_force,
-                float_force,
-                upright_force,
-                jump_force,
-                accumulate_forces,
-                crate::apply_forces,
-                crate::apply_ground_forces,
-            )
-                .chain()
-                .before(PhysicsSet::SyncBackend),
-        );
+        if self.default_system_setup {
+            app.add_systems(
+                self.schedule.clone(),
+                (
+                    crate::get_mass_from_rapier,
+                    crate::get_velocity_from_rapier,
+                    find_ground,
+                    determine_groundedness,
+                    gravity_force,
+                    movement_force,
+                    float_force,
+                    upright_force,
+                    jump_force,
+                    accumulate_forces,
+                    crate::apply_forces,
+                    crate::apply_ground_forces,
+                )
+                    .chain()
+                    .before(PhysicsSet::SyncBackend),
+            );
+        }
 
         #[cfg(feature = "debug-lines")]
         app.add_systems(Update, |casts: Query<&GroundCast>, mut gizmos: Gizmos| {

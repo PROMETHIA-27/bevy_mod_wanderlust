@@ -58,7 +58,9 @@ pub fn float_force(
     for (global, mut force, float, viable_ground, velocity, mass, gravity) in &mut query {
         force.linear = Vec3::ZERO;
 
-        let Some(ground) = viable_ground.current() else { continue };
+        let Some(ground) = viable_ground.current() else {
+            continue;
+        };
 
         let up_vector = gravity.up_vector;
 
@@ -125,7 +127,7 @@ pub fn upright_force(
         /*&ViableGroundCast,*/
     )>,
 ) {
-    for (mut impulse, upright, tf, gravity, mass, velocity, /*viable_ground*/) in &mut query {
+    for (mut impulse, upright, tf, gravity, mass, velocity /*viable_ground*/) in &mut query {
         impulse.angular = {
             let desired_axis = if let Some(forward) = upright.forward_vector {
                 let right = gravity.up_vector.cross(forward).normalize();

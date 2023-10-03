@@ -58,7 +58,7 @@ impl Default for GroundCaster {
 }
 
 /// Information about the ground entity/where we are touching it.
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Reflect)]
 pub struct Ground {
     /// Entity found in ground cast.
     pub entity: Entity,
@@ -132,7 +132,8 @@ impl Ground {
 
 /// The cached ground cast. Contains the entity hit, the hit info, and velocity of the entity
 /// hit.
-#[derive(Component, Default, Deref, DerefMut)]
+#[derive(Component, Default, Deref, DerefMut, Reflect)]
+#[reflect(Component)]
 pub struct GroundCast(
     /// Ground that was found this frame,
     /// this might not be viable for standing on.
@@ -141,14 +142,15 @@ pub struct GroundCast(
 
 /// The cached viable ground cast. Contains the entity hit, the hit info, and velocity of the entity
 /// hit.
-#[derive(Component, Default, Deref, DerefMut)]
+#[derive(Component, Default, Deref, DerefMut, Reflect)]
+#[reflect(Component)]
 pub struct ViableGroundCast(
     /// Ground that was found this frame
     pub GroundCache,
 );
 
 /// Current/last ground.
-#[derive(Default)]
+#[derive(Default, Reflect)]
 pub enum GroundCache {
     /// This will stay the ground until we leave the ground entirely.
     Ground(Ground),
@@ -244,7 +246,9 @@ pub fn find_ground(
             let cast_position = tf.transform_point(caster.cast_origin);
             let cast_rotation = tf.to_scale_rotation_translation().1;
             let cast_direction = -gravity.up_vector;
-            let Ok(caster_collider) = colliders.get(entity) else { continue };
+            let Ok(caster_collider) = colliders.get(entity) else {
+                continue;
+            };
             let shape = caster.cast_collider.as_ref().unwrap_or(caster_collider);
 
             let predicate =
@@ -589,7 +593,9 @@ impl<'c, 'f> GroundCastParams<'c, 'f> {
                 return None;
             }
         };
-        let Some(sampled_normal) = self.sample_normals(ctx, cast, up_vector, gizmos) else { return None };
+        let Some(sampled_normal) = self.sample_normals(ctx, cast, up_vector, gizmos) else {
+            return None;
+        };
         cast.normal = sampled_normal;
 
         // Either none of the samples
@@ -609,7 +615,9 @@ impl<'c, 'f> GroundCastParams<'c, 'f> {
         max_angle: f32,
         gizmos: &mut Gizmos,
     ) -> Option<(Entity, CastResult)> {
-        let Some((entity, cast)) = self.cast(ctx, globals, up_vector, gizmos) else { return None };
+        let Some((entity, cast)) = self.cast(ctx, globals, up_vector, gizmos) else {
+            return None;
+        };
 
         if cast.viable(up_vector, max_angle) {
             Some((entity, cast))
@@ -627,7 +635,9 @@ impl<'c, 'f> GroundCastParams<'c, 'f> {
         for (entity, manifold) in &manifolds {
             let local_normal: Vec3 = manifold.local_n2.into();
 
-            let Ok(contact_global) = globals.get(*entity) else { continue };
+            let Ok(contact_global) = globals.get(*entity) else {
+                continue;
+            };
             let normal = contact_global.to_scale_rotation_translation().1 * local_normal;
             //for point in &manifold.points {
             let correction = normal * 0.05;
@@ -642,8 +652,16 @@ impl<'c, 'f> GroundCastParams<'c, 'f> {
         ctx: &RapierContext,
         gizmos: &mut Gizmos,
     ) -> Option<(Entity, CastResult)> {
-        let Some((entity, toi)) = ctx
-            .cast_shape(self.position, self.rotation, self.direction, self.shape, self.max_toi, self.filter) else { return None };
+        let Some((entity, toi)) = ctx.cast_shape(
+            self.position,
+            self.rotation,
+            self.direction,
+            self.shape,
+            self.max_toi,
+            self.filter,
+        ) else {
+            return None;
+        };
 
         if toi.status == TOIStatus::Penetrating || toi.toi <= std::f32::EPSILON {
             return None;
@@ -730,7 +748,9 @@ impl<'c, 'f> GroundCastParams<'c, 'f> {
                 self.max_toi,
                 true,
                 self.filter,
-            ) else { continue };
+            ) else {
+                continue;
+            };
 
             if inter.toi > 0.0
                 && inter.normal.length_squared() > 0.0

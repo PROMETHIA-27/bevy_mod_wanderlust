@@ -130,7 +130,7 @@ pub fn movement_force(
 
         let slip_force = -(slip_vector.unwrap_or(Vec3::ZERO)) * mass.mass;
 
-        let last_ground_vel = if let Some(ground) = viable_ground.last() {
+        let last_ground_vel = if let Some(ground) = viable_ground.current() {
             let ground_global = globals
                 .get(ground.entity)
                 .unwrap_or(&GlobalTransform::IDENTITY);
