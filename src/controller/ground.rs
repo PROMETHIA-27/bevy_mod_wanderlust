@@ -91,7 +91,7 @@ impl Ground {
         let ground_entity = ctx.collider_parent(entity).unwrap_or(entity);
 
         let mass = if let Ok(mass) = masses.get(ground_entity) {
-            mass.0.clone()
+            (**mass).clone()
         } else {
             MassProperties::default()
         };
@@ -436,21 +436,25 @@ impl CastResult {
 
 impl CastResult {
     /// Use the first shape in the shape-cast as the cast result.
-    pub fn from_toi1(toi: Toi) -> Self {
-        Self {
-            toi: toi.toi,
-            normal: toi.normal1,
-            point: toi.witness1,
-        }
+    pub fn from_toi1(toi: Toi) -> Option<Self> {
+        toi.details.map(|details| {
+            Self {
+                toi: toi.toi,
+                normal: details.normal1,
+                point: details.witness1,
+            }
+        })
     }
 
     /// Use the second shape in the shape-cast as the cast result.
-    pub fn from_toi2(toi: Toi) -> Self {
-        Self {
-            toi: toi.toi,
-            normal: toi.normal2,
-            point: toi.witness2,
-        }
+    pub fn from_toi2(toi: Toi) -> Option<Self> {
+        toi.details.map(|details| {
+            Self {
+                toi: toi.toi,
+                normal: details.normal2,
+                point: details.witness2,
+            }
+        })
     }
 }
 
@@ -658,16 +662,18 @@ impl<'c, 'f> GroundCastParams<'c, 'f> {
             self.direction,
             self.shape,
             self.max_toi,
+            true,
             self.filter,
         ) else {
             return None;
         };
 
-        if toi.status == TOIStatus::Penetrating || toi.toi <= std::f32::EPSILON {
+        if toi.toi <= std::f32::EPSILON {
             return None;
         }
 
         let (entity, cast) = (entity, CastResult::from_toi1(toi));
+        let Some(cast) = cast else { return None; };
 
         gizmos.ray(self.position, self.direction * cast.toi, Color::BLUE);
         gizmos.sphere(
