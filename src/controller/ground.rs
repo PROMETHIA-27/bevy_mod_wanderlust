@@ -437,23 +437,19 @@ impl CastResult {
 impl CastResult {
     /// Use the first shape in the shape-cast as the cast result.
     pub fn from_toi1(toi: Toi) -> Option<Self> {
-        toi.details.map(|details| {
-            Self {
-                toi: toi.toi,
-                normal: details.normal1,
-                point: details.witness1,
-            }
+        toi.details.map(|details| Self {
+            toi: toi.toi,
+            normal: details.normal1,
+            point: details.witness1,
         })
     }
 
     /// Use the second shape in the shape-cast as the cast result.
     pub fn from_toi2(toi: Toi) -> Option<Self> {
-        toi.details.map(|details| {
-            Self {
-                toi: toi.toi,
-                normal: details.normal2,
-                point: details.witness2,
-            }
+        toi.details.map(|details| Self {
+            toi: toi.toi,
+            normal: details.normal2,
+            point: details.witness2,
         })
     }
 }
@@ -673,7 +669,9 @@ impl<'c, 'f> GroundCastParams<'c, 'f> {
         }
 
         let (entity, cast) = (entity, CastResult::from_toi1(toi));
-        let Some(cast) = cast else { return None; };
+        let Some(cast) = cast else {
+            return None;
+        };
 
         gizmos.ray(self.position, self.direction * cast.toi, Color::BLUE);
         gizmos.sphere(
