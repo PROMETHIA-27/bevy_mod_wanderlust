@@ -288,6 +288,12 @@ pub fn ground(
             ..default()
         },
         Collider::halfspace(Vec3::Y).unwrap(),
+        ColliderDebugColor(Color::Rgba {
+            red: 0.0,
+            green: 0.0,
+            blue: 0.0,
+            alpha: 0.0,
+        }),
         //Collider::cuboid(size / 2.0, 0.1, size / 2.0),
         Name::from("Ground"),
     ));
