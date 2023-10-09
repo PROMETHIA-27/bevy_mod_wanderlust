@@ -85,7 +85,7 @@ impl Plugin for WanderlustPlugin {
             .register_type::<ForceSettings>()
             .register_type::<HashSet<Entity>>();
 
-        app.insert_resource(PhysicsDeltaTime(0.0));
+        app.insert_resource(PhysicsDeltaTime(0.016));
 
         if self.default_system_setup {
             #[cfg(feature = "rapier")]
@@ -94,15 +94,17 @@ impl Plugin for WanderlustPlugin {
                     tweaks: self.tweaks,
                     schedule: self.schedule.clone(),
                 });
-
-                app.configure_sets(
-                    self.schedule.clone(),
-                    (
-                        WanderlustSet::Apply,
-                    )
-                        .before(crate::backend::rapier::backend_label()),
-                );
             };
+
+            app.configure_sets(
+                self.schedule.clone(),
+                (
+                    WanderlustSet::Sync,
+                    WanderlustSet::Compute,
+                    WanderlustSet::Apply,
+                )
+                    .chain(),
+            );
 
             app.add_systems(
                 self.schedule.clone(),

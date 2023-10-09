@@ -12,9 +12,15 @@ impl Plugin for WanderlustRapierPlugin {
             app.add_systems(Startup, super::setup_physics_context);
         }
 
+        app.configure_sets(
+            self.schedule.clone(),
+            (WanderlustSet::Apply,).before(crate::rapier::PhysicsSet::SyncBackend),
+        );
+
         app.add_systems(
             self.schedule.clone(),
             (
+                super::update_delta_time,
                 super::get_mass_from_backend,
                 super::get_velocity_from_backend,
             )

@@ -19,8 +19,8 @@ mod mass;
 pub use mass::get_mass_from_backend;
 mod velocity;
 pub use velocity::get_velocity_from_backend;
-mod query;
 mod plugin;
+mod query;
 pub use plugin::WanderlustRapierPlugin;
 
 use rapier::prelude::Collider;
