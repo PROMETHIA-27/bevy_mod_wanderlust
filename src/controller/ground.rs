@@ -319,12 +319,10 @@ pub fn find_ground(
                     MassProperties::default()
                 };
 
-                let local_com = mass.local_center_of_mass;
-
-                let ground_velocity = velocities
+                let (ground_linear_vel, ground_angular_vel) = velocities
                     .get(ground_entity)
-                    .copied()
-                    .unwrap_or(Velocity::default());
+                    .map(|velocity| (velocity.linear(), velocity.angular()))
+                .unwrap_or((Vec3::ZERO, Vec3::ZERO));
 
                 let global = globals
                     .get(ground_entity)

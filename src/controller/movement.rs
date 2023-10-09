@@ -347,6 +347,7 @@ pub struct JumpForce {
 
 /// Calculate the jump force for the controller.
 pub fn jump_force(
+    physics_dt: Res<PhysicsDeltaTime>,
     mut query: Query<(
         &mut JumpForce,
         &mut FloatForce,
@@ -360,9 +361,8 @@ pub fn jump_force(
         &ControllerVelocity,
         &ControllerMass,
     )>,
-    ctx: Res<RapierContext>,
 ) {
-    let dt = ctx.integration_parameters.dt;
+    let dt = **physics_dt;
     for (
         mut force,
         mut float_force,

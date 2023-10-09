@@ -1,26 +1,7 @@
 use bevy::prelude::*;
 
-/// Mass/inertia properties for controller.
-#[derive(Component, Clone, Default, Reflect)]
-#[reflect(Component, Default)]
-pub struct ControllerMass {
-    /// The mass of a character
-    pub mass: f32,
-    /// The rotational inertia of a character
-    pub inertia: Vec3,
-    /// The center of mass of a character
-    pub com: Vec3,
-}
-
-/// Current velocity of the controller.
-#[derive(Copy, Clone, Component, Default, Reflect)]
-#[reflect(Component, Default)]
-pub struct ControllerVelocity {
-    /// How fast this character is currently moving linearly in 3D space
-    pub linear: Vec3,
-    /// How fast this character is currently moving angularly in 3D space
-    pub angular: Vec3,
-}
+#[derive(Resource, Copy, Clone, Deref)]
+pub struct PhysicsDeltaTime(pub f32);
 
 /// Force applied to the controller.
 #[derive(Copy, Clone, Component, Default, Reflect)]
@@ -32,23 +13,45 @@ pub struct ControllerForce {
     pub angular: Vec3,
 }
 
+/// Mass of the controller
+#[derive(Copy, Clone, Component, Default, Reflect)]
+#[reflect(Component, Default)]
+pub struct ControllerMass {
+    /// Mass of the controller.
+    pub mass: f32,
+    /// Principal inertia of the controller.
+    pub inertia: Vec3,
+    /// Local center of mass of the controller.
+    pub local_center_of_mass: Vec3,
+}
+
+/// Velocity of the controller
+#[derive(Copy, Clone, Component, Default, Reflect)]
+#[reflect(Component, Default)]
+pub struct ControllerVelocity {
+    /// Linear velocity of the controller.
+    pub linear: Vec3,
+    /// Angular velocity of the controller.
+    pub angular: Vec3,
+}
+
 /// Components for computing forces/applying to physics engines.
 #[derive(Bundle)]
 pub struct ControllerPhysicsBundle {
-    /// Mass of the controller.
-    pub mass: ControllerMass,
-    /// Current velocity of the controller.
-    pub velocity: ControllerVelocity,
     /// Accumulated force of various controller constraints.
     pub force: ControllerForce,
+    /// Mass of the controller
+    pub mass: ControllerMass,
+    /// Velocity of the controller
+    pub velocity: ControllerVelocity,
 }
 
 impl Default for ControllerPhysicsBundle {
     fn default() -> Self {
         Self {
+            force: default(),
             mass: default(),
             velocity: default(),
-            force: default(),
         }
     }
 }

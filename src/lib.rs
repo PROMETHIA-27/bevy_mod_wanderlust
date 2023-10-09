@@ -11,10 +11,11 @@ mod physics;
 mod plugins;
 mod spring;
 
-#[cfg(feature = "rapier")]
-mod rapier;
+pub mod backend;
 
-pub use {
-    bundles::ControllerBundle, controller::*, physics::*, plugins::WanderlustPlugin, rapier::*,
-    spring::*,
-};
+pub use backend::*;
+pub use bundles::*;
+pub use controller::*;
+pub use physics::*;
+pub use plugins::*;
+pub use spring::*;

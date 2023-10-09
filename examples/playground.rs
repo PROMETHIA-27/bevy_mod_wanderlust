@@ -88,11 +88,10 @@ fn main() {
                 }
             },
         )
-        // Add to PreUpdate to ensure updated before movement is calculated
         .add_systems(
             Update,
             (
-                movement_input.before(bevy_mod_wanderlust::movement_force),
+                movement_input.before(bevy_mod_wanderlust::WanderlustSet::Sync),
                 toggle_cursor_lock,
                 oscillating,
                 controlled_platform,
@@ -154,7 +153,7 @@ pub fn player(
                     translation: Vec3::new(0.0, 3.0, 0.0),
                     ..default()
                 },
-                rapier_physics: RapierPhysicsBundle {
+                rapier: RapierPhysicsBundle {
                     // Lock the axes to prevent camera shake whilst moving up slopes
                     //locked_axes: LockedAxes::ROTATION_LOCKED,
                     //locked_axes: LockedAxes::all(),
