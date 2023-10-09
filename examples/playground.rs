@@ -88,11 +88,10 @@ fn main() {
                 }
             },
         )
-        // Add to PreUpdate to ensure updated before movement is calculated
         .add_systems(
             Update,
             (
-                movement_input.before(bevy_mod_wanderlust::movement_force),
+                movement_input.before(bevy_mod_wanderlust::WanderlustSet::Sync),
                 toggle_cursor_lock,
                 oscillating,
                 controlled_platform,
