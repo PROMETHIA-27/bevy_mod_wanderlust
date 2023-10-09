@@ -81,6 +81,7 @@ pub fn movement_force(
         &Gravity,
         &ControllerInput,
         &GroundCast,
+        &Grounded,
         &ViableGroundCast,
         &ControllerVelocity,
         &ControllerMass,
@@ -98,6 +99,7 @@ pub fn movement_force(
         gravity,
         input,
         ground,
+        grounded,
         viable_ground,
         velocity,
         mass,
@@ -105,6 +107,7 @@ pub fn movement_force(
     {
         force.linear = Vec3::ZERO;
 
+        let grounded = **grounded;
         let force_scale = movement.force_scale(&gravity);
 
         let input_dir = input.movement.clamp_length_max(1.0);
@@ -149,20 +152,23 @@ pub fn movement_force(
         };
 
         let relative_velocity = (velocity.linear - last_ground_vel) * force_scale;
-        let friction_coefficient = if let Some(ground) = viable_ground.current() {
-            let friction = frictions
-                .get(controller_entity)
-                .copied()
-                .unwrap_or(Friction::default());
-            let ground_friction = frictions
-                .get(ground.entity)
-                .copied()
-                .unwrap_or(Friction::default());
-            let friction_coefficient = friction.coefficient.max(ground_friction.coefficient);
-            friction_coefficient
-        } else {
-            // Air damping coefficient
-            0.25
+        let friction_coefficient = match viable_ground.current() {
+            Some(ground) if grounded => {
+                let friction = frictions
+                    .get(controller_entity)
+                    .copied()
+                    .unwrap_or(Friction::default());
+                let ground_friction = frictions
+                    .get(ground.entity)
+                    .copied()
+                    .unwrap_or(Friction::default());
+                let friction_coefficient = friction.coefficient.max(ground_friction.coefficient);
+                friction_coefficient
+            }
+            _ => {
+                // Air damping coefficient
+                0.25
+            }
         };
 
         let strength = movement.acceleration.get(mass.mass, dt);
