@@ -91,9 +91,9 @@ pub fn apply_ground_forces(
 /// Sync rapier masses over to our masses.
 pub fn get_mass_from_rapier(mut query: Query<(&mut ControllerMass, &ReadMassProperties)>) {
     for (mut mass, rapier_mass) in &mut query {
-        mass.mass = rapier_mass.0.mass;
-        mass.inertia = rapier_mass.0.principal_inertia;
-        mass.com = rapier_mass.0.local_center_of_mass;
+        mass.mass = rapier_mass.mass;
+        mass.inertia = rapier_mass.principal_inertia;
+        mass.com = rapier_mass.local_center_of_mass;
     }
 }
 

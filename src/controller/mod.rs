@@ -153,7 +153,7 @@ pub fn accumulate_forces(
             };
 
             let ground_mass = if let Ok(mass) = masses.get(ground.entity) {
-                mass.0.clone()
+                (**mass).clone()
             } else {
                 MassProperties::default()
             };
