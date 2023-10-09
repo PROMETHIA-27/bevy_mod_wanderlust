@@ -9,8 +9,6 @@ use bevy_rapier3d::{
     rapier::geometry::ContactManifold,
 };
 
-use crate::backend::Collider;
-
 /// How to detect if something below the controller is suitable
 /// for standing on.
 #[derive(Component, Reflect)]

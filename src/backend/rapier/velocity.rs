@@ -3,19 +3,14 @@ use bevy::{
     prelude::*,
     ecs::query::WorldQuery,
 };
-use super::rapier;
+use super::rapier::prelude::*;
+use crate::*;
 
-#[derive(WorldQuery)]
-pub struct Velocity {
-    velocity: &'static rapier::prelude::Velocity,
-}
-
-impl<'a> VelocityItem<'a> {
-    pub fn linear(&self) -> Vec3 {
-        self.velocity.linvel
-    }
-
-    pub fn angular(&self) -> Vec3 {
-        self.velocity.angvel
+pub fn get_velocity_from_backend(
+    mut query: Query<(&mut ControllerVelocity, &Velocity)>,
+) {
+    for (mut velocity, rapier) in &mut query {
+        velocity.linear = rapier.linvel;
+        velocity.angular = rapier.angvel;
     }
 }

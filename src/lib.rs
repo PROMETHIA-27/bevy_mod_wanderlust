@@ -13,3 +13,7 @@ mod spring;
 
 mod backend;
 
+pub use controller::*;
+pub use physics::*;
+pub use spring::*;
+pub use backend::*;

@@ -85,6 +85,8 @@ impl Plugin for WanderlustPlugin {
             .register_type::<ForceSettings>()
             .register_type::<HashSet<Entity>>();
 
+        app.init_resource::<PhysicsDeltaTime>();
+
         if self.tweaks {
             app.add_systems(Startup, crate::backend::setup_physics_context);
         }

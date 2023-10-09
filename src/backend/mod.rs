@@ -12,10 +12,8 @@ pub use rapier::{
     //cast_ray,
     //cast_shape,
     //setup_physics_context,
-    RapierPhysicsBundle as BackendPhysicsBundle,
-    SpatialQuery,
-    Velocity,
-    Mass,
+    //RapierPhysicsBundle as BackendPhysicsBundle,
+    //SpatialQuery,
 };
 
 #[cfg(feature = "xpbd")]
