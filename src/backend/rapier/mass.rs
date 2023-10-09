@@ -1,14 +1,8 @@
-
-use bevy::{
-    ecs::query::WorldQuery,
-    prelude::*,
-};
 use super::rapier::prelude::*;
 use crate::*;
+use bevy::{ecs::query::WorldQuery, prelude::*};
 
-pub fn get_mass_from_backend(
-    mut query: Query<(&mut ControllerMass, &ReadMassProperties)>,
-) {
+pub fn get_mass_from_backend(mut query: Query<(&mut ControllerMass, &ReadMassProperties)>) {
     for (mut mass, rapier) in &mut query {
         *mass = ControllerMass::from_rapier(&*rapier);
     }

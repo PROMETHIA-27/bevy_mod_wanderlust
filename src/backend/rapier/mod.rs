@@ -1,6 +1,6 @@
 //use crate::{controller::*, physics::*};
-use bevy::prelude::*;
 use crate::*;
+use bevy::prelude::*;
 
 #[cfg(feature = "rapier2d")]
 pub use bevy_rapier2d as rapier;
@@ -9,16 +9,21 @@ pub use bevy_rapier3d as rapier;
 
 use rapier::prelude::*;
 
-mod bundle;
-pub use bundle::*;
-mod mass;
-pub use mass::*;
-mod velocity;
-pub use velocity::*;
-mod query;
-pub use query::*;
+pub fn backend_label() -> PhysicsSet {
+    PhysicsSet::SyncBackend
+}
 
-pub use rapier::prelude::Collider;
+mod bundle;
+pub use bundle::RapierPhysicsBundle;
+mod mass;
+pub use mass::get_mass_from_backend;
+mod velocity;
+pub use velocity::get_velocity_from_backend;
+mod query;
+mod plugin;
+pub use plugin::WanderlustRapierPlugin;
+
+use rapier::prelude::Collider;
 
 /// Apply forces to the controller to make it float, move, jump, etc.
 pub fn apply_forces(
@@ -51,10 +56,7 @@ pub fn apply_ground_forces(
     }
 }
 
-pub fn update_delta_time(
-    mut physics_dt: ResMut<PhysicsDeltaTime>,
-    ctx: Res<RapierContext>,
-) {
+pub fn update_delta_time(mut physics_dt: ResMut<PhysicsDeltaTime>, ctx: Res<RapierContext>) {
     physics_dt.0 = ctx.integration_parameters.dt;
 }
 

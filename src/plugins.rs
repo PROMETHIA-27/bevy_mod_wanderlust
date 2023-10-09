@@ -1,4 +1,4 @@
-use crate::controller::*;
+use crate::*;
 use bevy::{ecs::schedule::ScheduleLabel, prelude::*, utils::HashSet};
 
 /// The [character controller](CharacterController) plugin. Necessary to have the character controller
@@ -85,30 +85,24 @@ impl Plugin for WanderlustPlugin {
             .register_type::<ForceSettings>()
             .register_type::<HashSet<Entity>>();
 
-        app.init_resource::<PhysicsDeltaTime>();
-
-        if self.tweaks {
-            app.add_systems(Startup, crate::backend::setup_physics_context);
-        }
+        app.insert_resource(PhysicsDeltaTime(0.0));
 
         if self.default_system_setup {
-            #[cfg(feature = "rapier3d")]
-            let physics_label = bevy_rapier3d::prelude::PhysicsSet::SyncBackend;
-            #[cfg(feature = "rapier2d")]
-            let physics_label = bevy_rapier2d::prelude::PhysicsSet::SyncBackend;
+            #[cfg(feature = "rapier")]
+            {
+                app.add_plugins(crate::backend::rapier::WanderlustRapierPlugin {
+                    tweaks: self.tweaks,
+                    schedule: self.schedule.clone(),
+                });
 
-            use crate::backend as backend;
-
-            app.configure_sets(
-                self.schedule.clone(),
-                (
-                    WanderlustSet::Sync,
-                    WanderlustSet::Compute,
-                    WanderlustSet::Apply,
-                )
-                    .chain()
-                    .before(physics_label)
-            );
+                app.configure_sets(
+                    self.schedule.clone(),
+                    (
+                        WanderlustSet::Apply,
+                    )
+                        .before(crate::backend::rapier::backend_label()),
+                );
+            };
 
             app.add_systems(
                 self.schedule.clone(),
@@ -124,20 +118,6 @@ impl Plugin for WanderlustPlugin {
                 )
                     .chain()
                     .in_set(WanderlustSet::Compute),
-            );
-
-            app.add_systems(
-                self.schedule.clone(),
-                (backend::get_mass_from_backend, backend::get_velocity_from_backend)
-                    .chain()
-                    .in_set(WanderlustSet::Sync),
-            );
-
-            app.add_systems(
-                self.schedule.clone(),
-                (backend::apply_forces, backend::apply_ground_forces)
-                    .chain()
-                    .in_set(WanderlustSet::Apply),
             );
         }
 

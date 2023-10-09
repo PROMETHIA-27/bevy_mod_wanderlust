@@ -1,20 +1,7 @@
-use bevy::{
-    utils::HashSet,
-    prelude::*
-};
 
 #[cfg(feature = "rapier")]
-mod rapier;
-#[cfg(feature = "rapier")]
-pub use rapier::{
-    //apply_forces,
-    //apply_ground_forces,
-    //cast_ray,
-    //cast_shape,
-    //setup_physics_context,
-    //RapierPhysicsBundle as BackendPhysicsBundle,
-    //SpatialQuery,
-};
+pub mod rapier;
+pub use rapier::*;
 
 #[cfg(feature = "xpbd")]
 mod xpbd;
@@ -25,8 +12,8 @@ pub use xpbd::{
     cast_ray,
     //cast_shape,
     setup_physics_context,
-    SpatialQuery,
-    XpbdPhysicsBundle as BackendPhysicsBundle,
-    Velocity,
     Mass,
+    SpatialQuery,
+    Velocity,
+    XpbdPhysicsBundle as BackendPhysicsBundle,
 };

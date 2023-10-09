@@ -7,8 +7,8 @@ mod input;
 mod movement;
 mod orientation;
 
-use crate::physics::*;
 use crate::backend::*;
+use crate::physics::*;
 use crate::spring::Spring;
 
 pub use {gravity::*, ground::*, input::*, movement::*, orientation::*};

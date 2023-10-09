@@ -5,15 +5,17 @@
 )]
 #![doc = include_str!("../README.md")]
 
-//mod bundles;
+mod bundles;
 mod controller;
 mod physics;
-//mod plugins;
+mod plugins;
 mod spring;
 
-mod backend;
+pub mod backend;
 
+pub use backend::*;
+pub use bundles::*;
 pub use controller::*;
 pub use physics::*;
+pub use plugins::*;
 pub use spring::*;
-pub use backend::*;

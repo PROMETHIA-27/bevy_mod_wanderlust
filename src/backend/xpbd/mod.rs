@@ -1,10 +1,9 @@
-
 use bevy::prelude::*;
 
-#[cfg(feature = "xpbd_3d")]
-pub use bevy_xpbd_3d as xpbd;
 #[cfg(feature = "xpbd_2d")]
 pub use bevy_xpbd_2d as xpbd;
+#[cfg(feature = "xpbd_3d")]
+pub use bevy_xpbd_3d as xpbd;
 
 use xpbd::prelude::*;
 
@@ -52,7 +51,7 @@ pub fn setup_physics_context() {}
 
 pub type SpatialQuery<'w, 's> = xpbd::prelude::SpatialQuery<'w, 's>;
 
-use crate::backend::{RayCastResult, Filter};
+use crate::backend::{Filter, RayCastResult};
 pub fn cast_ray(
     spatial_query: &SpatialQuery,
     origin: Vec3,
@@ -61,22 +60,24 @@ pub fn cast_ray(
     solid: bool,
     filter: Filter,
 ) -> Option<RayCastResult> {
-    spatial_query.cast_ray(
-        origin,
-        direction,
-        max_toi,
-        solid,
-        SpatialQueryFilter {
-            excluded_entities: filter.exclude,
-            ..default()
-        },
-    ).map(|result| {
-        let point = origin + direction * result.time_of_impact;
-        RayCastResult {
-            entity: result.entity,
-            normal: result.normal,
-            point: point,
-            toi: result.time_of_impact,
-        }
-    })
+    spatial_query
+        .cast_ray(
+            origin,
+            direction,
+            max_toi,
+            solid,
+            SpatialQueryFilter {
+                excluded_entities: filter.exclude,
+                ..default()
+            },
+        )
+        .map(|result| {
+            let point = origin + direction * result.time_of_impact;
+            RayCastResult {
+                entity: result.entity,
+                normal: result.normal,
+                point: point,
+                toi: result.time_of_impact,
+            }
+        })
 }

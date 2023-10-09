@@ -1,9 +1,5 @@
-
-use bevy::{
-    ecs::query::WorldQuery,
-    prelude::*,
-};
 use super::xpbd;
+use bevy::{ecs::query::WorldQuery, prelude::*};
 
 #[derive(WorldQuery)]
 pub struct Mass {

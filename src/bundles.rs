@@ -13,8 +13,9 @@ pub struct ControllerBundle {
     pub input: ControllerInput,
     /// See [`PhysicsBundle`]
     pub physics: ControllerPhysicsBundle,
-    /// See [`BackendPhysicsBundle`].
-    pub backend_physics: crate::backend::BackendPhysicsBundle,
+    #[cfg(feature = "rapier")]
+    /// See [`RapierPhysicsBundle`].
+    pub rapier: crate::backend::RapierPhysicsBundle,
     /// See [`Transform`]
     pub transform: Transform,
     /// See [`GlobalTransform`]
@@ -31,7 +32,8 @@ impl Default for ControllerBundle {
             controller: default(),
             input: default(),
             physics: default(),
-            backend_physics: default(),
+            #[cfg(feature = "rapier")]
+            rapier: default(),
             transform: default(),
             global_transform: default(),
             visibility: default(),

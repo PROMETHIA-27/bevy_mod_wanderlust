@@ -1,9 +1,5 @@
-
-use bevy::{
-    prelude::*,
-    ecs::query::WorldQuery,
-};
 use super::xpbd;
+use bevy::{ecs::query::WorldQuery, prelude::*};
 
 #[derive(WorldQuery)]
 pub struct Velocity {

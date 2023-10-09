@@ -154,7 +154,7 @@ pub fn player(
                     translation: Vec3::new(0.0, 3.0, 0.0),
                     ..default()
                 },
-                rapier_physics: RapierPhysicsBundle {
+                rapier: RapierPhysicsBundle {
                     // Lock the axes to prevent camera shake whilst moving up slopes
                     //locked_axes: LockedAxes::ROTATION_LOCKED,
                     //locked_axes: LockedAxes::all(),
@@ -289,12 +289,6 @@ pub fn ground(
             ..default()
         },
         Collider::halfspace(Vec3::Y).unwrap(),
-        ColliderDebugColor(Color::Rgba {
-            red: 0.0,
-            green: 0.0,
-            blue: 0.0,
-            alpha: 0.0,
-        }),
         //Collider::cuboid(size / 2.0, 0.1, size / 2.0),
         Name::from("Ground"),
     ));
