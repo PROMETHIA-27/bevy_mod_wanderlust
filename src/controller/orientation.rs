@@ -65,7 +65,7 @@ pub fn float_force(
         let up_vector = gravity.up_vector;
 
         let controller_point_velocity =
-            velocity.linear + velocity.angular.cross(Vec3::ZERO - mass.com);
+            velocity.linear() + velocity.angular().cross(Vec3::ZERO - mass.local_center_of_mass());
         let vel_align = up_vector.dot(controller_point_velocity);
         let ground_vel_align = up_vector.dot(ground.point_velocity);
 

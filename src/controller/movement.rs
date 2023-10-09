@@ -360,7 +360,7 @@ pub fn jump_force(
         &ControllerVelocity,
         &ControllerMass,
     )>,
-    ctx: Res<RapierContext>,
+    time: Res<Time>,
 ) {
     let dt = ctx.integration_parameters.dt;
     for (

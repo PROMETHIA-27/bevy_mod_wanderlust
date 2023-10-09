@@ -1,4 +1,4 @@
-use crate::{Controller, ControllerInput, ControllerPhysicsBundle, RapierPhysicsBundle};
+use crate::{Controller, ControllerInput, ControllerPhysicsBundle};
 
 use bevy::prelude::*;
 
@@ -13,9 +13,8 @@ pub struct ControllerBundle {
     pub input: ControllerInput,
     /// See [`PhysicsBundle`]
     pub physics: ControllerPhysicsBundle,
-    #[cfg(feature = "rapier")]
-    /// See [`RapierPhysicsBundle`]
-    pub rapier_physics: RapierPhysicsBundle,
+    /// See [`BackendPhysicsBundle`].
+    pub backend_physics: crate::backend::BackendPhysicsBundle,
     /// See [`Transform`]
     pub transform: Transform,
     /// See [`GlobalTransform`]
@@ -32,8 +31,7 @@ impl Default for ControllerBundle {
             controller: default(),
             input: default(),
             physics: default(),
-            #[cfg(feature = "rapier")]
-            rapier_physics: default(),
+            backend_physics: default(),
             transform: default(),
             global_transform: default(),
             visibility: default(),

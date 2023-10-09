@@ -5,16 +5,11 @@
 )]
 #![doc = include_str!("../README.md")]
 
-mod bundles;
+//mod bundles;
 mod controller;
 mod physics;
-mod plugins;
+//mod plugins;
 mod spring;
 
-#[cfg(feature = "rapier")]
-mod rapier;
+mod backend;
 
-pub use {
-    bundles::ControllerBundle, controller::*, physics::*, plugins::WanderlustPlugin, rapier::*,
-    spring::*,
-};

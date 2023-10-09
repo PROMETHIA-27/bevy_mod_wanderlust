@@ -1,6 +1,5 @@
 use crate::controller::*;
 use bevy::{ecs::schedule::ScheduleLabel, prelude::*, utils::HashSet};
-use bevy_rapier3d::prelude::*;
 
 /// The [character controller](CharacterController) plugin. Necessary to have the character controller
 /// work.
@@ -48,6 +47,16 @@ impl Default for WanderlustPlugin {
     }
 }
 
+#[derive(SystemSet, Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum WanderlustSet {
+    /// Sync anything between backends and such before computing forces.
+    Sync,
+    /// Compute forces for the controller.
+    Compute,
+    /// Apply forces for the controller.
+    Apply,
+}
+
 impl Plugin for WanderlustPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<ControllerInput>()
@@ -77,15 +86,31 @@ impl Plugin for WanderlustPlugin {
             .register_type::<HashSet<Entity>>();
 
         if self.tweaks {
-            app.add_systems(Startup, setup_physics_context);
+            app.add_systems(Startup, crate::backend::setup_physics_context);
         }
 
         if self.default_system_setup {
+            #[cfg(feature = "rapier3d")]
+            let physics_label = bevy_rapier3d::prelude::PhysicsSet::SyncBackend;
+            #[cfg(feature = "rapier2d")]
+            let physics_label = bevy_rapier2d::prelude::PhysicsSet::SyncBackend;
+
+            use crate::backend as backend;
+
+            app.configure_sets(
+                self.schedule.clone(),
+                (
+                    WanderlustSet::Sync,
+                    WanderlustSet::Compute,
+                    WanderlustSet::Apply,
+                )
+                    .chain()
+                    .before(physics_label)
+            );
+
             app.add_systems(
                 self.schedule.clone(),
                 (
-                    crate::get_mass_from_rapier,
-                    crate::get_velocity_from_rapier,
                     find_ground,
                     determine_groundedness,
                     gravity_force,
@@ -94,11 +119,23 @@ impl Plugin for WanderlustPlugin {
                     upright_force,
                     jump_force,
                     accumulate_forces,
-                    crate::apply_forces,
-                    crate::apply_ground_forces,
                 )
                     .chain()
-                    .before(PhysicsSet::SyncBackend),
+                    .in_set(WanderlustSet::Compute),
+            );
+
+            app.add_systems(
+                self.schedule.clone(),
+                (backend::get_mass_from_backend, backend::get_velocity_from_backend)
+                    .chain()
+                    .in_set(WanderlustSet::Sync),
+            );
+
+            app.add_systems(
+                self.schedule.clone(),
+                (backend::apply_forces, backend::apply_ground_forces)
+                    .chain()
+                    .in_set(WanderlustSet::Apply),
             );
         }
 
