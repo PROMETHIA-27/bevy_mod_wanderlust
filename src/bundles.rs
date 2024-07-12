@@ -22,8 +22,8 @@ pub struct ControllerBundle {
     pub global_transform: GlobalTransform,
     /// See [`Visibility`]
     pub visibility: Visibility,
-    /// See [`ComputedVisibility`]
-    pub computed_visibility: ComputedVisibility,
+    /// See [`IinheritedVisibility`]
+    pub inherited_visibility: InheritedVisibility,
 }
 
 impl Default for ControllerBundle {
@@ -37,7 +37,7 @@ impl Default for ControllerBundle {
             transform: default(),
             global_transform: default(),
             visibility: default(),
-            computed_visibility: default(),
+            inherited_visibility: default(),
         }
     }
 }

@@ -1,8 +1,11 @@
 use std::f32::consts::FRAC_PI_2;
 
-use bevy::input::mouse::MouseMotion;
-use bevy::prelude::*;
-use bevy::window::{Cursor, CursorGrabMode, PrimaryWindow};
+use bevy::{
+    color::palettes::css,
+    input::mouse::MouseMotion,
+    prelude::*,
+    window::{Cursor, CursorGrabMode, PrimaryWindow},
+};
 use bevy_mod_wanderlust::{
     ControllerBundle, ControllerInput, ControllerPhysicsBundle, WanderlustPlugin,
 };
@@ -50,8 +53,13 @@ fn setup(
     ass: Res<AssetServer>,
 ) {
     // Origin cube to be able to tell how you're moving
-    let mesh = meshes.add(shape::Cube { size: 10.0 }.into());
-    let material = mats.add(Color::WHITE.into());
+    let mesh = meshes.add(
+        Cuboid {
+            half_size: Vec3::splat(5.0),
+        }
+        .into(),
+    );
+    let material = mats.add(Color::from(css::WHITE));
 
     c.spawn(PbrBundle {
         mesh,

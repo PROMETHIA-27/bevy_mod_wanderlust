@@ -3,6 +3,7 @@
 use bevy::render::camera::Projection;
 use bevy::window::CursorGrabMode;
 use bevy::{
+    color::palettes::css,
     input::mouse::MouseMotion,
     prelude::*,
     window::{Cursor, PrimaryWindow},
@@ -16,7 +17,7 @@ use bevy_mod_wanderlust::{
 use bevy_rapier3d::prelude::*;
 use std::f32::consts::{FRAC_2_PI, PI};
 
-fn main() {
+fn main() -> AppExit {
     App::new()
         .add_plugins((
             DefaultPlugins.set(WindowPlugin {
@@ -43,7 +44,7 @@ fn main() {
                 dt: 0.016,
                 substeps: 32,
             },
-            ..default()
+            ..RapierConfiguration::new(1.0)
         })
         .insert_resource(FramepaceSettings {
             limiter: Limiter::Manual(std::time::Duration::from_secs_f64(0.016)),
@@ -65,16 +66,16 @@ fn main() {
         )
         .add_systems(
             Last,
-            |input: Res<Input<KeyCode>>,
+            |input: Res<ButtonInput<KeyCode>>,
              //mut freeze: ResMut<Freeze>,
              mut freeze: Local<bool>,
              mut time: ResMut<Time>,
              mut rapier_config: ResMut<RapierConfiguration>| {
-                if input.just_pressed(KeyCode::R) {
+                if input.just_pressed(KeyCode::KeyR) {
                     *freeze = !*freeze;
                 }
 
-                if !*freeze || input.just_pressed(KeyCode::F) {
+                if !*freeze || input.just_pressed(KeyCode::KeyF) {
                     rapier_config.timestep_mode = TimestepMode::Fixed {
                         dt: 0.016,
                         substeps: 32,
@@ -104,8 +105,8 @@ fn main() {
         )
         .add_systems(
             Update,
-            |input: Res<Input<KeyCode>>, mut impulses: Query<&mut ExternalImpulse>| {
-                if !input.just_pressed(KeyCode::P) {
+            |input: Res<ButtonInput<KeyCode>>, mut impulses: Query<&mut ExternalImpulse>| {
+                if !input.just_pressed(KeyCode::KeyP) {
                     return;
                 }
 
@@ -136,16 +137,12 @@ pub fn player(
     mut meshes: ResMut<Assets<Mesh>>,
     mut mats: ResMut<Assets<StandardMaterial>>,
 ) {
-    let mesh = meshes.add(
-        shape::Capsule {
-            radius: 0.3,
-            depth: 1.0,
-            ..default()
-        }
-        .into(),
-    );
+    let mesh = meshes.add(Capsule3d {
+        radius: 0.3,
+        half_length: 0.5,
+    });
 
-    let material = mats.add(Color::WHITE.into());
+    let material = mats.add(Color::from(css::WHITE));
 
     let player = commands
         .spawn((
@@ -224,7 +221,9 @@ pub fn player(
                     ..default()
                 },))
                 .with_children(|commands| {
-                    let mesh = meshes.add(shape::Cube { size: 0.5 }.into());
+                    let mesh = meshes.add(Cuboid {
+                        half_size: Vec3::splat(0.25),
+                    });
 
                     commands.spawn(PbrBundle {
                         mesh,
@@ -241,14 +240,8 @@ pub fn free_objects(
     mut meshes: ResMut<Assets<Mesh>>,
     mut mats: ResMut<Assets<StandardMaterial>>,
 ) {
-    let material = mats.add(Color::WHITE.into());
-    let mesh = meshes.add(
-        shape::UVSphere {
-            radius: 0.5,
-            ..default()
-        }
-        .into(),
-    );
+    let material = mats.add(Color::from(css::WHITE));
+    let mesh = meshes.add(Sphere { radius: 0.5 });
     commands.spawn((
         PbrBundle {
             mesh,
@@ -270,16 +263,13 @@ pub fn ground(
     mut meshes: ResMut<Assets<Mesh>>,
     mut mats: ResMut<Assets<StandardMaterial>>,
 ) {
-    let material = mats.add(Color::BLACK.into());
+    let material = mats.add(Color::from(css::BLACK));
 
     let size = 1000.0;
-    let mesh = meshes.add(
-        shape::Plane {
-            size: size,
-            ..default()
-        }
-        .into(),
-    );
+    let mesh = meshes.add(Plane3d {
+        half_size: Vec2::splat(size / 2.0),
+        ..default()
+    });
 
     commands.spawn((
         PbrBundle {
@@ -289,24 +279,21 @@ pub fn ground(
             ..default()
         },
         Collider::halfspace(Vec3::Y).unwrap(),
-        ColliderDebugColor(Color::Rgba {
-            red: 0.0,
-            green: 0.0,
-            blue: 0.0,
-            alpha: 0.0,
-        }),
+        ColliderDebugColor(
+            Srgba {
+                red: 0.0,
+                green: 0.0,
+                blue: 0.0,
+                alpha: 0.0,
+            }
+            .into(),
+        ),
         //Collider::cuboid(size / 2.0, 0.1, size / 2.0),
         Name::from("Ground"),
     ));
 
-    let material = mats.add(Color::WHITE.into());
-    let mesh = meshes.add(
-        shape::UVSphere {
-            radius: 0.5,
-            ..default()
-        }
-        .into(),
-    );
+    let material = mats.add(Color::from(css::WHITE));
+    let mesh = meshes.add(Sphere::new(0.5));
     commands.spawn((
         PbrBundle {
             mesh,
@@ -349,13 +336,15 @@ pub fn stairs(
     mut mats: ResMut<Assets<StandardMaterial>>,
 ) {
     let material = mats.add(StandardMaterial {
-        base_color: Color::PINK,
+        base_color: Color::from(css::PINK),
         perceptual_roughness: 0.5,
         reflectance: 0.05,
         ..default()
     });
 
-    let mesh = meshes.add(Mesh::from(shape::Cube { size: 1.0 }));
+    let mesh = meshes.add(Mesh::from(Cuboid {
+        half_size: Vec3::splat(0.5),
+    }));
     steps(
         Transform {
             translation: Vec3::new(5.0, 0.0, -5.0),
@@ -430,12 +419,12 @@ pub fn walls(
     mut meshes: ResMut<Assets<Mesh>>,
     mut mats: ResMut<Assets<StandardMaterial>>,
 ) {
-    let materials = [Color::GRAY, Color::WHITE, Color::BLACK];
+    let materials = [css::GRAY, css::WHITE, css::BLACK];
     let materials = materials
         .iter()
         .map(|color| {
             mats.add(StandardMaterial {
-                base_color: *color,
+                base_color: (*color).into(),
                 perceptual_roughness: 0.5,
                 reflectance: 0.05,
                 ..default()
@@ -461,7 +450,9 @@ pub fn walls(
         commands
             .spawn((
                 PbrBundle {
-                    mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+                    mesh: meshes.add(Mesh::from(Cuboid {
+                        half_size: Vec3::splat(0.5),
+                    })),
                     material: material,
                     transform: Transform {
                         translation: Vec3::new(0.0, 0.0, part as f32 * width),
@@ -479,7 +470,9 @@ pub fn walls(
     commands
         .spawn((
             PbrBundle {
-                mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+                mesh: meshes.add(Mesh::from(Cuboid {
+                    half_size: Vec3::splat(0.5),
+                })),
                 material: materials[0].clone(),
                 transform: Transform {
                     translation: Vec3::new(0.0, 0.0, ((parts + 1) as f32 * width) * 1.5),
@@ -500,7 +493,7 @@ pub fn slopes(
     mut mats: ResMut<Assets<StandardMaterial>>,
 ) {
     let material = mats.add(StandardMaterial {
-        base_color: Color::GREEN,
+        base_color: css::GREEN.into(),
         perceptual_roughness: 0.5,
         reflectance: 0.05,
         ..default()
@@ -516,7 +509,9 @@ pub fn slopes(
         let rotation_diff = width * radians;
         commands.spawn((
             PbrBundle {
-                mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+                mesh: meshes.add(Mesh::from(Cuboid {
+                    half_size: Vec3::splat(0.5),
+                })),
                 material: material.clone(),
                 transform: Transform {
                     translation: Vec3::new(rotation_diff, 0.0, angle as f32 * width + width * 2.0),
@@ -531,7 +526,9 @@ pub fn slopes(
 
         commands.spawn((
             PbrBundle {
-                mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+                mesh: meshes.add(Mesh::from(Cuboid {
+                    half_size: Vec3::splat(0.5),
+                })),
                 material: material.clone(),
                 transform: Transform {
                     translation: Vec3::new(
@@ -556,18 +553,20 @@ pub fn moving_objects(
     mut mats: ResMut<Assets<StandardMaterial>>,
 ) {
     let material = mats.add(StandardMaterial {
-        base_color: Color::YELLOW,
+        base_color: css::YELLOW.into(),
         perceptual_roughness: 0.5,
         reflectance: 0.05,
         ..default()
     });
-    let mesh = meshes.add(Mesh::from(shape::Cube::default()));
+    let mesh = meshes.add(Mesh::from(Cuboid::default()));
 
     // simple
     let simple_width = 3.0;
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+            mesh: meshes.add(Mesh::from(Cuboid {
+                half_size: Vec3::splat(0.5),
+            })),
             material: material.clone(),
             transform: Transform {
                 translation: Vec3::new(-5.0, 0.3, 10.0),
@@ -590,7 +589,7 @@ pub fn moving_objects(
     let simple_width = 3.0;
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+            mesh: meshes.add(Mesh::from(Cuboid::default())),
             material: material.clone(),
             transform: Transform {
                 translation: Vec3::new(-10.0, 0.3, 10.0),
@@ -614,7 +613,9 @@ pub fn moving_objects(
     let simple_width = 3.0;
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+            mesh: meshes.add(Mesh::from(Cuboid {
+                half_size: Vec3::splat(0.5),
+            })),
             material: material.clone(),
             transform: Transform {
                 translation: Vec3::new(-5.0, 0.3, 10.0),
@@ -651,19 +652,19 @@ impl Default for Oscillator {
 }
 
 pub fn controlled_platform(
-    input: Res<Input<KeyCode>>,
+    input: Res<ButtonInput<KeyCode>>,
     mut controlled: Query<(&mut Velocity, &Controlled)>,
 ) {
     for (mut velocity, _) in &mut controlled {
-        if input.pressed(KeyCode::H) {
+        if input.pressed(KeyCode::KeyH) {
             velocity.linvel.x = 0.0;
         }
 
-        if input.pressed(KeyCode::N) {
+        if input.pressed(KeyCode::KeyN) {
             velocity.linvel.x = 5.0;
         }
 
-        if input.pressed(KeyCode::M) {
+        if input.pressed(KeyCode::KeyM) {
             velocity.linvel.x = -5.0;
         }
     }
@@ -683,7 +684,7 @@ pub fn oscillating(time: Res<Time>, mut oscillators: Query<(&mut Velocity, &Osci
 fn movement_input(
     mut body: Query<(&mut ControllerInput, &mut Movement), With<PlayerBody>>,
     camera: Query<&PlayerCam>,
-    input: Res<Input<KeyCode>>,
+    input: Res<ButtonInput<KeyCode>>,
 ) {
     let camera = camera.single();
     let camera_dir = Quat::from_rotation_y(camera.yaw);
@@ -699,16 +700,16 @@ fn movement_input(
     }
 
     let mut dir = Vec3::ZERO;
-    if input.pressed(KeyCode::A) {
+    if input.pressed(KeyCode::KeyA) {
         dir += -right;
     }
-    if input.pressed(KeyCode::D) {
+    if input.pressed(KeyCode::KeyD) {
         dir += right;
     }
-    if input.pressed(KeyCode::S) {
+    if input.pressed(KeyCode::KeyS) {
         dir += -forward;
     }
-    if input.pressed(KeyCode::W) {
+    if input.pressed(KeyCode::KeyW) {
         dir += forward;
     }
     dir.y = 0.0;
@@ -731,7 +732,7 @@ fn mouse_look(
     let mut upright = upright.single_mut();
 
     let sens = sensitivity.0;
-    let cumulative: Vec2 = -(input.iter().map(|motion| &motion.delta).sum::<Vec2>());
+    let cumulative: Vec2 = -(input.read().map(|motion| &motion.delta).sum::<Vec2>());
     player_cam.pitch += cumulative.y as f32 / 180.0 * sens;
     player_cam.yaw += cumulative.x as f32 / 180.0 * sens;
 
@@ -747,7 +748,7 @@ fn mouse_look(
 }
 
 fn toggle_cursor_lock(
-    input: Res<Input<KeyCode>>,
+    input: Res<ButtonInput<KeyCode>>,
     mut windows: Query<&mut Window, With<PrimaryWindow>>,
 ) {
     if input.just_pressed(KeyCode::Escape) {

@@ -18,21 +18,21 @@ debug_lines = []
 rapier = ["bevy_rapier3d"]
 
 [dependencies]
-bevy = { version = "0.11", default-features = false, features = [
+bevy = { version = "0.14", default-features = false, features = [
     "bevy_render",
     "bevy_gizmos",
 ] }
-bevy_rapier3d = { version = "0.22", default-features = false, features = [
+bevy_rapier3d = { version = "0.27", default-features = false, features = [
     "async-collider",
     "dim3",
 ], optional = true }
 
 [dev-dependencies]
-bevy = "0.11"
-aether_spyglass = "0.2"
-bevy-inspector-egui = "0.19"
-bevy_framepace = "0.13"
-bevy_rapier3d = { version = "0.22", features = ["debug-render"] }
+bevy = "0.14"
+#aether_spyglass = "0.2"
+bevy-inspector-egui = "0.25"
+bevy_framepace = "0.17"
+bevy_rapier3d = { version = "0.27", features = ["debug-render"] }
 
 # Enable a small amount of optimization in debug mode
 [profile.dev]
@@ -44,4 +44,3 @@ opt-level = 3
 
 [patch.crates-io]
 #bevy_rapier3d = { path = "../bevy_rapier/bevy_rapier3d" }
-bevy_rapier3d = { git = "https://github.com/dimforge/bevy_rapier", rev = "0ea000b" }

@@ -1,5 +1,5 @@
 use crate::controller::*;
-use bevy::utils::HashSet;
+use bevy::{color::palettes::css, utils::HashSet};
 use bevy_rapier3d::{
     na::Isometry3,
     parry::{
@@ -357,7 +357,7 @@ pub fn find_ground(
         */
 
         // If we hit something, just get back up instead of waiting.
-        if ctx.contacts_with(entity).next().is_some() {
+        if ctx.contact_pairs_with(entity).next().is_some() {
             caster.skip_ground_check_timer = 0.0;
         }
     }
@@ -381,8 +381,8 @@ pub fn determine_groundedness(
             let translation = global.translation();
             let updated_toi =
                 translation.dot(gravity.up_vector) - ground.cast.point.dot(gravity.up_vector);
-            //gizmos.sphere(ground.cast.point, Quat::IDENTITY, 0.3, Color::RED);
-            //gizmos.sphere(translation, Quat::IDENTITY, 0.3, Color::GREEN);
+            //gizmos.sphere(ground.cast.point, Quat::IDENTITY, 0.3, css::RED.into());
+            //gizmos.sphere(translation, Quat::IDENTITY, 0.3, css::GREEN.into());
             let offset = float.distance - updated_toi;
 
             //let up_velocity = up_velocity.clamp(-float.distance, float.distance);
@@ -436,18 +436,18 @@ impl CastResult {
 
 impl CastResult {
     /// Use the first shape in the shape-cast as the cast result.
-    pub fn from_toi1(toi: Toi) -> Option<Self> {
+    pub fn from_toi1(toi: ShapeCastHit) -> Option<Self> {
         toi.details.map(|details| Self {
-            toi: toi.toi,
+            toi: toi.time_of_impact,
             normal: details.normal1,
             point: details.witness1,
         })
     }
 
     /// Use the second shape in the shape-cast as the cast result.
-    pub fn from_toi2(toi: Toi) -> Option<Self> {
+    pub fn from_toi2(toi: ShapeCastHit) -> Option<Self> {
         toi.details.map(|details| Self {
-            toi: toi.toi,
+            toi: toi.time_of_impact,
             normal: details.normal2,
             point: details.witness2,
         })
@@ -457,7 +457,7 @@ impl CastResult {
 impl From<RayIntersection> for CastResult {
     fn from(intersection: RayIntersection) -> Self {
         Self {
-            toi: intersection.toi,
+            toi: intersection.time_of_impact,
             normal: intersection.normal,
             point: intersection.point,
         }
@@ -472,7 +472,7 @@ pub fn contact_manifolds(
     collider: &Collider,
     filter: &QueryFilter,
 ) -> Vec<(Entity, ContactManifold)> {
-    let physics_scale = ctx.physics_scale();
+    let physics_scale = ctx.integration_parameters.length_unit;
 
     let shape = &collider.raw;
     let shape_iso = Isometry3 {
@@ -657,14 +657,17 @@ impl<'c, 'f> GroundCastParams<'c, 'f> {
             self.rotation,
             self.direction,
             self.shape,
-            self.max_toi,
-            true,
+            ShapeCastOptions {
+                max_time_of_impact: self.max_toi,
+                stop_at_penetration: true,
+                ..default()
+            },
             self.filter,
         ) else {
             return None;
         };
 
-        if toi.toi <= std::f32::EPSILON {
+        if toi.time_of_impact <= std::f32::EPSILON {
             return None;
         }
 
@@ -673,12 +676,16 @@ impl<'c, 'f> GroundCastParams<'c, 'f> {
             return None;
         };
 
-        gizmos.ray(self.position, self.direction * cast.toi, Color::BLUE);
+        gizmos.ray(
+            self.position,
+            self.direction * cast.toi,
+            Color::from(css::BLUE),
+        );
         gizmos.sphere(
             self.position + self.direction * cast.toi,
             self.rotation,
             0.3,
-            Color::BLUE,
+            Color::from(css::BLUE),
         );
 
         Some((entity, cast))
@@ -715,7 +722,7 @@ impl<'c, 'f> GroundCastParams<'c, 'f> {
         self.direction = down_tangent.normalize_or_zero();
         self.position = projected_position;
 
-        gizmos.ray(cast.point, down_tangent * 0.3, Color::CYAN);
+        gizmos.ray(cast.point, down_tangent * 0.3, Color::from(css::LIGHT_BLUE));
         self.max_toi -= cast.toi;
         //max_toi -= (toi.toi - offset).max(0.0);
         self.max_toi = self.max_toi.max(0.0);
@@ -744,7 +751,12 @@ impl<'c, 'f> GroundCastParams<'c, 'f> {
         // for the closest normal
         let mut sampled = Vec::new();
         let valid_radius = FUDGE * 2.0;
-        gizmos.sphere(cast.point, Quat::IDENTITY, valid_radius, Color::RED); // Bounding sphere of valid ray normals
+        gizmos.sphere(
+            cast.point,
+            Quat::IDENTITY,
+            valid_radius,
+            Color::from(css::RED),
+        ); // Bounding sphere of valid ray normals
         for sample in samples {
             let Some((_, inter)) = ctx.cast_ray_and_get_normal(
                 ray_origin - sample * FUDGE,
@@ -756,11 +768,11 @@ impl<'c, 'f> GroundCastParams<'c, 'f> {
                 continue;
             };
 
-            if inter.toi > 0.0
+            if inter.time_of_impact > 0.0
                 && inter.normal.length_squared() > 0.0
                 && inter.point.distance(cast.point) < valid_radius
             {
-                gizmos.ray(inter.point, inter.normal * 0.2, Color::RED);
+                gizmos.ray(inter.point, inter.normal * 0.2, Color::from(css::RED));
                 sampled.push(inter.normal);
             }
         }
@@ -773,7 +785,7 @@ impl<'c, 'f> GroundCastParams<'c, 'f> {
             weights += alignment;
         }
         let weighted_average = sum / weights;
-        gizmos.ray(cast.point, weighted_average * 0.5, Color::MAROON);
+        gizmos.ray(cast.point, weighted_average * 0.5, Color::from(css::MAROON));
 
         if weighted_average.length_squared() > 0.0 {
             Some(weighted_average)
